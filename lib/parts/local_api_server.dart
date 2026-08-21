@@ -31,6 +31,7 @@ typedef InstallBinHandler = Future<Map<String, dynamic>> Function(String name, L
 typedef InstallBinRawHandler = Future<Map<String, dynamic>> Function(String name, Stream<List<int>> bytes);
 typedef ListBinsHandler = Future<List<Map<String, dynamic>>> Function();
 typedef UninstallBinHandler = Future<Map<String, dynamic>> Function(String name);
+typedef QuakeHandler = void Function(bool open);
 
 class LocalApiServer {
   LocalApiServer({
@@ -42,6 +43,7 @@ class LocalApiServer {
     this.onInstallBinRaw,
     this.onListBins,
     this.onUninstallBin,
+    this.onQuake,
   });
 
   final int port;
@@ -52,6 +54,7 @@ class LocalApiServer {
   final InstallBinRawHandler? onInstallBinRaw;
   final ListBinsHandler? onListBins;
   final UninstallBinHandler? onUninstallBin;
+  final QuakeHandler? onQuake;
 
   HttpServer? _server;
   bool _running = false;
@@ -171,6 +174,13 @@ class LocalApiServer {
           }
           final res = await onUninstallBin!(name);
           return _json(request, 200, res);
+        case '/quake':
+          if (onQuake == null) {
+            return _json(request, 501, {'error': 'quake_not_supported'});
+          }
+          final open = (body['open'] as bool?) ?? true;
+          onQuake!(open);
+          return _json(request, 200, {'ok': true, 'open': open});
         default:
           return _json(request, 404, {'error': 'not_found'});
       }

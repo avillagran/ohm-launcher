@@ -372,6 +372,8 @@ class _LauncherSettingsSheet extends StatefulWidget {
     required this.onApiServerPort,
     this.shellPreferTermux = false,
     required this.onShellPreferTermux,
+    this.quakeTerminal = true,
+    required this.onQuakeTerminal,
     this.aiBaseUrl = '',
     this.aiApiKey = '',
     this.aiModel = '',
@@ -401,6 +403,8 @@ class _LauncherSettingsSheet extends StatefulWidget {
   final ValueChanged<int> onApiServerPort;
   final bool shellPreferTermux;
   final ValueChanged<bool> onShellPreferTermux;
+  final bool quakeTerminal;
+  final ValueChanged<bool> onQuakeTerminal;
   final String aiBaseUrl;
   final String aiApiKey;
   final String aiModel;
@@ -424,6 +428,7 @@ class _LauncherSettingsSheetState extends State<_LauncherSettingsSheet> {
   late bool _apiServerEnabled = widget.apiServerEnabled;
   late int _apiServerPort = widget.apiServerPort;
   late bool _shellPreferTermux = widget.shellPreferTermux;
+  late bool _quakeTerminal = widget.quakeTerminal;
   late String _aiBaseUrl = widget.aiBaseUrl;
   late String _aiApiKey = widget.aiApiKey;
   late String _aiModel = widget.aiModel;
@@ -844,6 +849,25 @@ class _LauncherSettingsSheetState extends State<_LauncherSettingsSheet> {
         _caption('Por defecto los comandos corren EMBEBIDOS en el propio launcher '
             '(shell del sistema, sin apps de terceros). Activa esto solo si quieres '
             'reutilizar el entorno de paquetes de Termux y tienes Termux:API instalado.'),
+        _sectionLabel('TERMINAL QUAKE'),
+        Row(
+          children: [
+            const Expanded(
+              child: Text('Terminal desplegable (swipe-down en la mitad superior)',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF9AA7B4))),
+            ),
+            Switch(
+              value: _quakeTerminal,
+              onChanged: (v) {
+                setState(() => _quakeTerminal = v);
+                widget.onQuakeTerminal(v);
+              },
+            ),
+          ],
+        ),
+        _caption('Despliega una terminal real (PTY) con un swipe hacia abajo desde la '
+            'mitad superior del escritorio. Desde ahí controlas el sistema y puedes '
+            'usar bun/opencode/claude/kimi o tmux.'),
         _sectionLabel('ASISTENTE IA'),
         _caption('Cualquier endpoint compatible con /v1/chat/completions '
             '(OpenAI, Ollama, LM Studio, OpenRouter, Claude por proxy, Kimi, Codex…).'),

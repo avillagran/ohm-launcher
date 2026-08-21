@@ -31,13 +31,16 @@ import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_pty/flutter_pty.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:xterm/xterm.dart';
 import 'package:flutter/gestures.dart';
 
 import 'clock_styles.dart';
@@ -57,6 +60,7 @@ part 'parts/plugins.dart';
 part 'parts/installer.dart';
 part 'parts/platform.dart';
 part 'parts/home_screen.dart';
+part 'parts/quake_terminal.dart';
 part 'parts/status_bar.dart';
 part 'parts/edge_boxes.dart';
 part 'parts/bars.dart';

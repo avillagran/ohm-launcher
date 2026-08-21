@@ -62,6 +62,12 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
   bool _aiPanelOpen = false;
   LocalApiServer? _apiServer;
 
+  /// Terminal tipo Quake: se despliega con un swipe-down desde la mitad superior.
+  bool _quakeOpen = false;
+  bool _quakeEnabled = true;
+  double _quakeStartY = 0;
+  double _quakeAccumDy = 0;
+
   /// Carpeta privada de la app donde se instalan bins propios (herdr/opencode/
   /// claude…) ejecutables desde el shell embebido. No depende de Termux.
   String? _binDir;
@@ -146,6 +152,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
 
       _runtimeWidgets = _storage.loadRuntimeWidgets();
       await _initBinDir();
+      _quakeEnabled = (_settings['quakeTerminal'] as bool? ?? true);
       if ((_settings['apiServerEnabled'] as bool? ?? false)) {
         unawaited(_startApiServer());
       }
@@ -401,6 +408,16 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     return {'ok': true, 'name': name, 'removed': existed};
   }
 
+  void _openQuake() {
+    if (!_quakeEnabled || _quakeOpen) return;
+    setState(() => _quakeOpen = true);
+  }
+
+  void _closeQuake() {
+    if (!_quakeOpen) return;
+    setState(() => _quakeOpen = false);
+  }
+
   Future<void> _startApiServer() async {
     if (_apiServer?.isRunning == true) return;
     final port = ((_settings['apiServerPort'] as num?) ?? 8753).toInt();
@@ -425,6 +442,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
       onInstallBinRaw: _installBinRaw,
       onListBins: _listBins,
       onUninstallBin: _uninstallBin,
+      onQuake: (open) => open ? _openQuake() : _closeQuake(),
     );
     await _apiServer!.start();
   }
@@ -1283,6 +1301,11 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
         onApiServerPort: (p) => _saveSetting('apiServerPort', p),
         shellPreferTermux: (_settings['shellPreferTermux'] as bool?) ?? false,
         onShellPreferTermux: (v) => _saveSetting('shellPreferTermux', v),
+        quakeTerminal: (_settings['quakeTerminal'] as bool?) ?? true,
+        onQuakeTerminal: (v) {
+          setState(() => _quakeEnabled = v);
+          unawaited(_saveSetting('quakeTerminal', v));
+        },
         aiBaseUrl: (_settings['aiBaseUrl'] as String?) ?? '',
         aiApiKey: (_settings['aiApiKey'] as String?) ?? '',
         aiModel: (_settings['aiModel'] as String?) ?? '',
@@ -2006,7 +2029,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
               // Se desactiva en modo edición para no robar los drags de la grilla.
               if (_editWidget == null)
                 Positioned(
-                  top: MediaQuery.paddingOf(context).top + 200,
+                  top: MediaQuery.sizeOf(context).height * 0.45,
                   left: 0,
                   right: 0,
                   bottom: MediaQuery.paddingOf(context).bottom + 120,
@@ -2029,7 +2052,41 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                     child: const SizedBox.expand(),
                   ),
                 ),
-              // Navegación por gestos propia (fallback cuando el sistema no responde).
+              // Swipe-down desde la mitad superior del escritorio => terminal Quake.
+              // Región exclusiva (por encima de la zona del cajón) para no competir
+              // en la arena de gestos con el reconocedor de swipe-up del cajón.
+              if (_quakeEnabled && _editWidget == null)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: MediaQuery.sizeOf(context).height * 0.45,
+                  child: RawGestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    gestures: <Type, GestureRecognizerFactory>{
+                      VerticalDragGestureRecognizer:
+                          GestureRecognizerFactoryWithHandlers<VerticalDragGestureRecognizer>(
+                        () => VerticalDragGestureRecognizer(),
+                        (recognizer) {
+                          recognizer.onStart = (d) {
+                            _quakeStartY = d.localPosition.dy;
+                            _quakeAccumDy = 0;
+                          };
+                          recognizer.onUpdate = (d) {
+                            _quakeAccumDy += d.delta.dy;
+                            final half = MediaQuery.sizeOf(context).height * 0.5;
+                            if (!_quakeOpen &&
+                                _quakeStartY < half &&
+                                _quakeAccumDy > 60) {
+                              _openQuake();
+                            }
+                          };
+                        },
+                      ),
+                    },
+                    child: const SizedBox.expand(),
+                  ),
+                ),
               // Se coloca DETRÁS de las cajas de borde para que los taps sobre
               // estas últimas no sean interceptados; solo captura swipes en los
               // bordes donde no hay caja.
@@ -2092,8 +2149,76 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                   onClear: () => unawaited(_clearRuntimeWidgets()),
                   configured: _buildAiClient().configured,
                 ),
+              // Terminal tipo Quake (swipe-down desde la mitad superior del desktop).
+              if (_quakeEnabled)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOut,
+                  height: _quakeOpen
+                      ? MediaQuery.sizeOf(context).height * 0.45
+                      : 0,
+                  child: ClipRect(
+                    child: Column(
+                      children: [
+                        _QuakeHandle(onClose: _closeQuake),
+                        Expanded(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.translucent,
+                            onVerticalDragUpdate: (d) {
+                              if (d.delta.dy < -10) _closeQuake();
+                            },
+                            child: QuakeTerminal(
+                              binDir: _binDir,
+                              homeDir: _appHomeDir,
+                              visible: _quakeOpen,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  Terminal Quake: barra de agarre / cierre
+// ---------------------------------------------------------------------------
+
+class _QuakeHandle extends StatelessWidget {
+  final VoidCallback onClose;
+  const _QuakeHandle({required this.onClose});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onVerticalDragUpdate: (d) {
+        if (d.delta.dy < -6) onClose();
+      },
+      child: Container(
+        height: 26,
+        color: const Color(0xFF111820),
+        child: Row(
+          children: [
+            const Expanded(
+              child: Center(
+                child: Icon(Icons.minimize, color: Colors.white54, size: 16),
+              ),
+            ),
+            GestureDetector(
+              onTap: onClose,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: Icon(Icons.close, color: Colors.white70, size: 16),
+              ),
+            ),
+          ],
         ),
       ),
     );
