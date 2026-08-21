@@ -576,6 +576,108 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     unawaited(_storage.saveFavorites(_favorites));
   }
 
+  // ---------------------------------------------- cajón: abrir / menú
+
+  /// Abre una app desde el cajón, limpia el buscador y baja el teclado.
+  void _openAppFromDrawer(InstalledApp app) {
+    unawaited(OhmPlatform.launchApp(app));
+    _drawerKey.currentState?.clearSearch();
+    _drawerKey.currentState?.close();
+  }
+
+  String _edgeLabel(String edge) {
+    switch (edge) {
+      case 'top':
+        return 'Arriba';
+      case 'bottom':
+        return 'Abajo';
+      case 'left':
+        return 'Izquierda';
+      case 'right':
+        return 'Derecha';
+      default:
+        return edge;
+    }
+  }
+
+  /// Menú contextual (long-press 2s) sobre una app del cajón: favoritos o caja.
+  Future<void> _showAppContextMenu(InstalledApp app) async {
+    final isFav = _favorites.contains(app.key);
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFF10161C),
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                app.label,
+                style: const TextStyle(fontSize: 14, color: Color(0xFFE8F1F8), fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 14),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.pop(ctx, 'fav'),
+                icon: Icon(isFav ? Icons.star : Icons.star_border, size: 18, color: Color(0xFF66E0FF)),
+                label: Text(isFav ? 'Quitar de favoritos' : 'Agregar a favoritos',
+                    style: const TextStyle(color: Color(0xFF66E0FF))),
+              ),
+              const SizedBox(height: 10),
+              const Text('Agregar a caja de borde:', style: TextStyle(fontSize: 11, color: Color(0xFF9AA7B4))),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: const ['top', 'bottom', 'left', 'right']
+                    .map((e) => ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx, 'box:$e'),
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A2330)),
+                          child: Text(_edgeLabel(e), style: const TextStyle(color: Color(0xFFE8F1F8))),
+                        ))
+                    .toList(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    if (choice == 'fav') {
+      _toggleFavorite(app);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(isFav ? 'Quitado de favoritos' : 'Agregado a favoritos')),
+        );
+      }
+    } else if (choice.startsWith('box:')) {
+      await _addAppToEdgeBox(app, choice.substring(4));
+    }
+  }
+
+  /// Agrega una app a la caja del borde [edge]; crea la caja si no existe.
+  Future<void> _addAppToEdgeBox(InstalledApp app, String edge) async {
+    final map = _storage.readConfigMap() ?? <String, dynamic>{};
+    final boxes = StorageService.edgeBoxesOf(map);
+    var index = boxes.indexWhere((b) => (b['edge'] as String?) == edge);
+    if (index < 0) index = await _storage.addEdgeBox(edge: edge);
+    await _addItemsToBox(index, [
+      {
+        'type': 'app',
+        'package': app.package,
+        'activity': app.activity,
+        'label': app.label,
+      }
+    ]);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Agregado a caja (${_edgeLabel(edge)})')),
+      );
+    }
+  }
+
   // ---------------------------------------------- multi-escritorio
 
   Future<void> _addDesktop(int index) async {
@@ -1923,6 +2025,8 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                 key: _drawerKey,
                 apps: _installedApps,
                 bottomOffset: MediaQuery.paddingOf(context).bottom,
+                onAppTap: _openAppFromDrawer,
+                onAppLongPress: _showAppContextMenu,
               ),
               // Depuración: muestra las zonas que capturan toques.
               if ((_settings['showTapBoxes'] as bool?) ?? false)

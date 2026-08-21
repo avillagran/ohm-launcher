@@ -4,10 +4,23 @@ part of 'package:ohm_launcher/main.dart';
 //  Cajón de apps: aparece al deslizar desde la parte inferior.
 // ---------------------------------------------------------------------------
 class _AppDrawer extends StatefulWidget {
-  const _AppDrawer({super.key, required this.apps, required this.bottomOffset});
+  const _AppDrawer({
+    super.key,
+    required this.apps,
+    required this.bottomOffset,
+    this.onAppTap,
+    this.onAppLongPress,
+  });
 
   final List<InstalledApp> apps;
   final double bottomOffset;
+
+  /// Tap en una app del cajón: por defecto la lanza. El launcher lo usa para
+  /// también limpiar el buscador y cerrar el teclado.
+  final void Function(InstalledApp app)? onAppTap;
+
+  /// Long-press (2s) en una app del cajón: menú contextual (favoritos/cajas).
+  final void Function(InstalledApp app)? onAppLongPress;
 
   @override
   State<_AppDrawer> createState() => _AppDrawerState();
@@ -67,6 +80,14 @@ class _AppDrawerState extends State<_AppDrawer>
 
   void close() {
     _controller.animateTo(0);
+  }
+
+  /// Limpia el buscador y baja el teclado (al abrir una app desde el cajón).
+  void clearSearch() {
+    _queryController.clear();
+    _query = '';
+    FocusScope.of(context).unfocus();
+    if (mounted) setState(() {});
   }
 
   void onVerticalDragEnd(DragEndDetails details) {
@@ -217,6 +238,12 @@ class _AppDrawerState extends State<_AppDrawer>
                   itemCount: filteredApps.length,
                   itemBuilder: (context, i) => _DesktopAppTile(
                     app: filteredApps[i],
+                    onTap: widget.onAppTap == null
+                        ? null
+                        : () => widget.onAppTap!(filteredApps[i]),
+                    onLongPress: widget.onAppLongPress == null
+                        ? null
+                        : () => widget.onAppLongPress!(filteredApps[i]),
                   ),
                 ),
               ),

@@ -19,24 +19,68 @@ class PluginSnapshot {
   static List<OhmPlugin> latest = const [];
 }
 
-/// Tile de una app instalada para el widget `apps_grid`.
-class _DesktopAppTile extends StatelessWidget {
-  const _DesktopAppTile({required this.app});
+/// Tile de una app instalada para el widget `apps_grid` y el cajón.
+///
+/// `onTap` (opcional) reemplaza el lanzado por defecto. `onLongPress` (opcional)
+/// se dispara tras 2s de presión sostenida (no al umbral por defecto del
+/// sistema), y en ese caso el tap normal no lanza la app.
+class _DesktopAppTile extends StatefulWidget {
+  const _DesktopAppTile({
+    required this.app,
+    this.onTap,
+    this.onLongPress,
+  });
 
   final InstalledApp app;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+
+  @override
+  State<_DesktopAppTile> createState() => _DesktopAppTileState();
+}
+
+class _DesktopAppTileState extends State<_DesktopAppTile> {
+  Timer? _longPressTimer;
+
+  void _cancel() {
+    _longPressTimer?.cancel();
+    _longPressTimer = null;
+  }
+
+  @override
+  void dispose() {
+    _cancel();
+    super.dispose();
+  }
+
+  void _fireLongPress() {
+    _longPressTimer = null;
+    widget.onLongPress?.call();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: () => unawaited(OhmPlatform.launchApp(app)),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) {
+        if (widget.onLongPress != null) {
+          _longPressTimer = Timer(const Duration(seconds: 2), _fireLongPress);
+        }
+      },
+      onTapUp: (_) {
+        if (_longPressTimer != null) {
+          _cancel();
+          (widget.onTap ?? () => unawaited(OhmPlatform.launchApp(widget.app))).call();
+        }
+      },
+      onTapCancel: _cancel,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _LazyAppIcon(app: app, size: 52, padding: 10, radius: 16),
+          _LazyAppIcon(app: widget.app, size: 52, padding: 10, radius: 16),
           const SizedBox(height: 6),
           Text(
-            app.label,
+            widget.app.label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 10, color: Color(0xFF9AA7B4)),
