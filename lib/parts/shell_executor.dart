@@ -137,6 +137,7 @@ class ShellExecutor {
         runInShell: false,
         environment: <String, String>{
           'PATH': path,
+          'SHELL': '/system/bin/sh',
           if (binDir != null && binDir.isNotEmpty) 'LD_LIBRARY_PATH': binDir,
           if (homeDir != null && homeDir.isNotEmpty) 'HOME': homeDir,
           'TMPDIR': homeDir ?? workingDirectory ?? '/data/local/tmp',

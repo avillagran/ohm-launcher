@@ -67,6 +67,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
   bool _quakeEnabled = true;
   double _quakeStartY = 0;
   double _quakeAccumDy = 0;
+  final GlobalKey<_QuakeTerminalState> _quakeTerminalKey = GlobalKey();
 
   /// Carpeta privada de la app donde se instalan bins propios (herdr/opencode/
   /// claude…) ejecutables desde el shell embebido. No depende de Termux.
@@ -153,7 +154,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
       _runtimeWidgets = _storage.loadRuntimeWidgets();
       await _initBinDir();
       _quakeEnabled = (_settings['quakeTerminal'] as bool? ?? true);
-      if ((_settings['apiServerEnabled'] as bool? ?? false)) {
+      if ((_settings['apiServerEnabled'] as bool? ?? true)) {
         unawaited(_startApiServer());
       }
 
@@ -1288,7 +1289,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
         onFavoritesBarMode: (m) =>
             _saveSetting('favoritesBarMode', m == 'auto' ? null : m),
         onGesturesForced: () => unawaited(_updateSystemNavigationMode()),
-        apiServerEnabled: (_settings['apiServerEnabled'] as bool?) ?? false,
+        apiServerEnabled: (_settings['apiServerEnabled'] as bool?) ?? true,
         apiServerPort: ((_settings['apiServerPort'] as num?) ?? 8753).toInt(),
         onApiServerEnabled: (v) async {
           await _saveSetting('apiServerEnabled', v);
@@ -2160,7 +2161,10 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                   child: ClipRect(
                     child: Column(
                       children: [
-                        _QuakeHandle(onClose: _closeQuake),
+                        _QuakeHandle(
+                          onClose: _closeQuake,
+                          onCopy: () => _quakeTerminalKey.currentState?.copySelection(),
+                        ),
                         Expanded(
                           child: GestureDetector(
                             behavior: HitTestBehavior.translucent,
@@ -2168,9 +2172,11 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                               if (d.delta.dy < -10) _closeQuake();
                             },
                             child: QuakeTerminal(
+                              key: _quakeTerminalKey,
                               binDir: _binDir,
                               homeDir: _appHomeDir,
                               visible: _quakeOpen,
+                              onExit: _closeQuake,
                             ),
                           ),
                         ),
@@ -2192,7 +2198,8 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
 
 class _QuakeHandle extends StatelessWidget {
   final VoidCallback onClose;
-  const _QuakeHandle({required this.onClose});
+  final VoidCallback? onCopy;
+  const _QuakeHandle({required this.onClose, this.onCopy});
 
   @override
   Widget build(BuildContext context) {
@@ -2211,6 +2218,14 @@ class _QuakeHandle extends StatelessWidget {
                 child: Icon(Icons.minimize, color: Colors.white54, size: 16),
               ),
             ),
+            if (onCopy != null)
+              GestureDetector(
+                onTap: onCopy,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10),
+                  child: Icon(Icons.copy, color: Colors.white70, size: 15),
+                ),
+              ),
             GestureDetector(
               onTap: onClose,
               child: const Padding(

@@ -1,4 +1,4 @@
-package com.ohm.ohm_launcher
+package cl.villagranquiroz.ohm_launcher
 
 import android.accessibilityservice.AccessibilityService
 import android.content.BroadcastReceiver

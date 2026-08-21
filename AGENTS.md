@@ -22,7 +22,7 @@ edición de widgets estilo launcher (borde, arrastrar, reordenar, redimensionar)
 | Concepto | Valor |
 |---|---|
 | Paquete Dart (pubspec) | `ohm_launcher` |
-| namespace / applicationId Android | `com.ohm.ohm_launcher` |
+| namespace / applicationId Android | `cl.villagranquiroz.ohm_launcher` |
 | MethodChannel nativo | `com.ohm/ohm` |
 | Etiqueta Android (launcher) | `Ohm Launcher` |
 | Ruta pública de datos | `/sdcard/OhmLauncher` |
@@ -211,9 +211,9 @@ píxeles con Python/PIL.
 
 ## Estado pendiente conocido
 
-- Verificación en dispositivo del nuevo paquete `com.ohm.ohm_launcher`
-  (instalación limpia; el paquete antiguo `com.omarchy.omarchy_launcher` sigue
-  instalado en el teléfono).
+- Verificación en dispositivo del paquete `cl.villagranquiroz.ohm_launcher`
+  (instalación limpia; los bins instalados vía API viven en
+  `/data/data/cl.villagranquiroz.ohm_launcher/files/bin`).
 - ADB inalámbrico inestable: a veces cae y el teléfono salta a Ajustes.
 - El cajón de apps se cierra correctamente tocando el fondo oscurecido; el
   arrastre del *handle* para cerrar depende de que el gesto caiga sobre el

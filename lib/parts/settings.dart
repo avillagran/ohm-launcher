@@ -366,7 +366,7 @@ class _LauncherSettingsSheet extends StatefulWidget {
     required this.onFavoritesBarMode,
     this.currentFavoritesBarMode,
     this.onGesturesForced,
-    this.apiServerEnabled = false,
+    this.apiServerEnabled = true,
     this.apiServerPort = 8753,
     required this.onApiServerEnabled,
     required this.onApiServerPort,
@@ -681,7 +681,7 @@ class _LauncherSettingsSheetState extends State<_LauncherSettingsSheet> {
                       content: Text(
                         ok
                             ? 'Navegación por gestos restaurada ✓'
-                            : 'No se pudo restaurar gestos. Concede permiso por ADB: adb shell pm grant com.ohm.ohm_launcher android.permission.WRITE_SECURE_SETTINGS',
+                            : 'No se pudo restaurar gestos. Concede permiso por ADB: adb shell pm grant cl.villagranquiroz.ohm_launcher android.permission.WRITE_SECURE_SETTINGS',
                       ),
                     ),
                   );

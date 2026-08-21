@@ -1,4 +1,4 @@
-package com.ohm.ohm_launcher
+package cl.villagranquiroz.ohm_launcher
 
 import android.content.ComponentName
 import android.content.Context
@@ -36,7 +36,7 @@ class MainActivity : FlutterActivity() {
     private var pendingBindProvider: String = ""
 
     // --- Resultado de comandos Termux (RUN_COMMAND) ---
-    private val termuxResultAction = "com.ohm.ohm_launcher.TERMUX_RESULT"
+    private val termuxResultAction = "cl.villagranquiroz.ohm_launcher.TERMUX_RESULT"
     private val termuxResults = mutableMapOf<Int, MethodChannel.Result>()
     private var termuxRequestId = 0
     private val termuxReceiver = object : BroadcastReceiver() {
@@ -568,7 +568,7 @@ class MainActivity : FlutterActivity() {
                 applicationContext.contentResolver,
                 android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
             )
-            enabled?.contains("com.ohm.ohm_launcher/com.ohm.ohm_launcher.OhmGestureAccessibilityService") == true
+            enabled?.contains("cl.villagranquiroz.ohm_launcher/cl.villagranquiroz.ohm_launcher.OhmGestureAccessibilityService") == true
         } catch (_: Exception) {
             false
         }
