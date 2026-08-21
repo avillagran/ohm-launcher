@@ -2152,25 +2152,24 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                 ),
               // Terminal tipo Quake (swipe-down desde la mitad superior del desktop).
               if (_quakeEnabled)
-                AnimatedContainer(
+                AnimatedPositioned(
                   duration: const Duration(milliseconds: 220),
                   curve: Curves.easeOut,
-                  height: _quakeOpen
-                      ? MediaQuery.sizeOf(context).height * 0.45
-                      : 0,
-                  child: ClipRect(
-                    child: Column(
-                      children: [
-                        _QuakeHandle(
-                          onClose: _closeQuake,
-                          onCopy: () => _quakeTerminalKey.currentState?.copySelection(),
-                        ),
-                        Expanded(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onVerticalDragUpdate: (d) {
-                              if (d.delta.dy < -10) _closeQuake();
-                            },
+                  top: _quakeOpen
+                      ? 0
+                      : -MediaQuery.sizeOf(context).height * 0.45,
+                  left: 0,
+                  right: 0,
+                  height: MediaQuery.sizeOf(context).height * 0.45,
+                  child: RepaintBoundary(
+                    child: ClipRect(
+                      child: Column(
+                        children: [
+                          _QuakeHandle(
+                            onClose: _closeQuake,
+                            onCopy: () => _quakeTerminalKey.currentState?.copySelection(),
+                          ),
+                          Expanded(
                             child: QuakeTerminal(
                               key: _quakeTerminalKey,
                               binDir: _binDir,
@@ -2179,8 +2178,8 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                               onExit: _closeQuake,
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
