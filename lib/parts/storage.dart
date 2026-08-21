@@ -39,13 +39,13 @@ class StorageService {
   List<Map<String, dynamic>> loadRuntimeWidgets() {
     try {
       final file = File(runtimeWidgetsPath);
-      if (!file.existsSync()) return const [];
+      if (!file.existsSync()) return <Map<String, dynamic>>[];
       final decoded = jsonDecode(file.readAsStringSync());
       if (decoded is List) {
         return decoded.whereType<Map<String, dynamic>>().toList();
       }
     } catch (_) {/* corrupto */}
-    return const [];
+    return <Map<String, dynamic>>[];
   }
 
   Future<void> appendRuntimeWidget(Map<String, dynamic> node) async {
