@@ -366,6 +366,18 @@ class _LauncherSettingsSheet extends StatefulWidget {
     required this.onFavoritesBarMode,
     this.currentFavoritesBarMode,
     this.onGesturesForced,
+    this.apiServerEnabled = false,
+    this.apiServerPort = 8753,
+    required this.onApiServerEnabled,
+    required this.onApiServerPort,
+    this.aiBaseUrl = '',
+    this.aiApiKey = '',
+    this.aiModel = '',
+    this.aiSystemPrompt = '',
+    required this.onAiBaseUrl,
+    required this.onAiApiKey,
+    required this.onAiModel,
+    required this.onAiSystemPrompt,
   });
 
   final double currentTextScale;
@@ -381,6 +393,18 @@ class _LauncherSettingsSheet extends StatefulWidget {
   final ValueChanged<bool> onGestureNavigationEnabled;
   final ValueChanged<bool> onShowTapBoxes;
   final VoidCallback? onGesturesForced;
+  final bool apiServerEnabled;
+  final int apiServerPort;
+  final ValueChanged<bool> onApiServerEnabled;
+  final ValueChanged<int> onApiServerPort;
+  final String aiBaseUrl;
+  final String aiApiKey;
+  final String aiModel;
+  final String aiSystemPrompt;
+  final ValueChanged<String> onAiBaseUrl;
+  final ValueChanged<String> onAiApiKey;
+  final ValueChanged<String> onAiModel;
+  final ValueChanged<String> onAiSystemPrompt;
 
   @override
   State<_LauncherSettingsSheet> createState() => _LauncherSettingsSheetState();
@@ -393,6 +417,12 @@ class _LauncherSettingsSheetState extends State<_LauncherSettingsSheet> {
   late bool _gestureNavEnabled = widget.gestureNavigationEnabled;
   late bool _showTapBoxes = widget.showTapBoxes;
   late String _favBarMode = widget.currentFavoritesBarMode ?? 'auto';
+  late bool _apiServerEnabled = widget.apiServerEnabled;
+  late int _apiServerPort = widget.apiServerPort;
+  late String _aiBaseUrl = widget.aiBaseUrl;
+  late String _aiApiKey = widget.aiApiKey;
+  late String _aiModel = widget.aiModel;
+  late String _aiSystemPrompt = widget.aiSystemPrompt;
   int _tab = 0;
   bool _checkingDefault = false;
   Timer? _textScaleDebounce;
@@ -444,13 +474,18 @@ class _LauncherSettingsSheetState extends State<_LauncherSettingsSheet> {
                 children: [
                   _tabButton('Visual', 0),
                   _tabButton('Gestos', 1),
+                  _tabButton('API / IA', 2),
                 ],
               ),
             ),
             const SizedBox(height: 16),
             Flexible(
               child: SingleChildScrollView(
-                child: _tab == 0 ? _buildVisualTab() : _buildGesturesTab(),
+                child: _tab == 0
+                    ? _buildVisualTab()
+                    : _tab == 1
+                        ? _buildGesturesTab()
+                        : _buildApiTab(),
               ),
             ),
           ],
@@ -714,6 +749,120 @@ class _LauncherSettingsSheetState extends State<_LauncherSettingsSheet> {
           ),
         ),
         _caption('En Xiaomi/MIUI cambiar de launcher puede desactivar los gestos; actívalos aquí.'),
+      ],
+    );
+  }
+
+  Widget _apiTextField({
+    required String label,
+    required String value,
+    required ValueChanged<String> onChanged,
+    String? hint,
+    bool obscure = false,
+    int maxLines = 1,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6, top: 10),
+          child: Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF9AA7B4))),
+        ),
+        TextField(
+          controller: TextEditingController(text: value),
+          obscureText: obscure,
+          maxLines: maxLines,
+          onChanged: onChanged,
+          style: const TextStyle(fontSize: 13, color: Color(0xFFE8F1F8)),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF5A6B7A)),
+            filled: true,
+            fillColor: const Color(0xFF16202A),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildApiTab() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _sectionLabel('SERVIDOR API LOCAL'),
+        Row(
+          children: [
+            const Expanded(
+              child: Text('Servidor en localhost',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF9AA7B4))),
+            ),
+            Switch(
+              value: _apiServerEnabled,
+              onChanged: (v) {
+                setState(() => _apiServerEnabled = v);
+                widget.onApiServerEnabled(v);
+              },
+            ),
+          ],
+        ),
+        _caption('Expones un control remoto del launcher en 127.0.0.1 sin abrir Termux. '
+            'Endpoints: GET /health, POST /command {command,args?}, POST /widget {source,format?}, POST /ai {prompt}.'),
+        _apiTextField(
+          label: 'Puerto',
+          value: '$_apiServerPort',
+          hint: '8753',
+          onChanged: (v) {
+            final p = int.tryParse(v) ?? 8753;
+            setState(() => _apiServerPort = p);
+            widget.onApiServerPort(p);
+          },
+        ),
+        _sectionLabel('ASISTENTE IA'),
+        _caption('Cualquier endpoint compatible con /v1/chat/completions '
+            '(OpenAI, Ollama, LM Studio, OpenRouter, Claude por proxy, Kimi, Codex…).'),
+        _apiTextField(
+          label: 'URL base',
+          value: _aiBaseUrl,
+          hint: 'https://api.openai.com/v1  ·  http://localhost:11434/v1',
+          onChanged: (v) {
+            setState(() => _aiBaseUrl = v);
+            widget.onAiBaseUrl(v.trim());
+          },
+        ),
+        _apiTextField(
+          label: 'Modelo',
+          value: _aiModel,
+          hint: 'gpt-4o-mini · llama3.1 · claude-3-5-sonnet',
+          onChanged: (v) {
+            setState(() => _aiModel = v);
+            widget.onAiModel(v.trim());
+          },
+        ),
+        _apiTextField(
+          label: 'Clave API',
+          value: _aiApiKey,
+          hint: 'opcional para localhost',
+          obscure: true,
+          onChanged: (v) {
+            setState(() => _aiApiKey = v);
+            widget.onAiApiKey(v.trim());
+          },
+        ),
+        _apiTextField(
+          label: 'System prompt (opcional)',
+          value: _aiSystemPrompt,
+          hint: 'Instrucciones para que la IA genere componentes JSON/QML',
+          maxLines: 3,
+          onChanged: (v) {
+            setState(() => _aiSystemPrompt = v);
+            widget.onAiSystemPrompt(v.trim());
+          },
+        ),
+        _caption('El asistente (botón ⚡ abajo a la derecha) inyecta en caliente el '
+            'componente que devuelva la IA en un bloque ```json o ```qml.'),
       ],
     );
   }

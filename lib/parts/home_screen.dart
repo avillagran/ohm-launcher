@@ -57,6 +57,11 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
   final Map<int, Rect> _boxRects = <int, Rect>{};
   bool _boxRectsDirty = false;
 
+  /// Capa de componentes generados en caliente (IA / API local).
+  List<Map<String, dynamic>> _runtimeWidgets = const [];
+  bool _aiPanelOpen = false;
+  LocalApiServer? _apiServer;
+
   /// Desplazamiento visual en vivo de las cajas del borde destino para dejar
   /// el hueco donde caería la caja arrastrada.
   ({int idx, String edge, int insertAt, Size size})? _liveBoxShift;
@@ -83,6 +88,8 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
   @override
   void dispose() {
     _watcher.stop();
+    unawaited(_apiServer?.stop());
+    _apiServer = null;
     DynamicWidgetEngine.onBoxAddContent = null;
     super.dispose();
   }
@@ -131,6 +138,11 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
         _desktop = _buildDesktopTree(config);
         _busy = false;
       });
+
+      _runtimeWidgets = _storage.loadRuntimeWidgets();
+      if ((_settings['apiServerEnabled'] as bool? ?? false)) {
+        unawaited(_startApiServer());
+      }
 
       await _rescanPlugins();
       if (!_isTestEnvironment) {
@@ -269,6 +281,179 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     final plugins = await PluginDiscovery.discover(Directory(_storage.pluginsPath));
     if (!mounted) return;
     setState(() => _plugins = plugins);
+  }
+
+  // --------------------------------------------------- API local + capa IA
+
+  AiClient _buildAiClient() {
+    final baseUrl = (_settings['aiBaseUrl'] as String? ?? '').trim();
+    final apiKey = (_settings['aiApiKey'] as String? ?? '').trim();
+    final model = (_settings['aiModel'] as String? ?? '').trim();
+    final system = (_settings['aiSystemPrompt'] as String? ?? '').trim();
+    return AiClient(
+      baseUrl: baseUrl.isEmpty ? 'https://api.openai.com/v1' : baseUrl,
+      apiKey: apiKey,
+      model: model.isEmpty ? 'gpt-4o-mini' : model,
+      systemPrompt: system.isEmpty
+          ? 'Eres Ohm, un asistente que construye la interfaz del launcher. '
+              'Cuando crees o modifiques un componente de UI, responde con tu '
+              'explicación y luego un bloque ```json (nodo del DynamicWidgetEngine: '
+              'container/text/clock/tiling_layout/box/spacer/...) o ```qml '
+              '(componente Quickshell). Solo un bloque de componente por respuesta.'
+          : system,
+    );
+  }
+
+  Future<void> _startApiServer() async {
+    if (_apiServer?.isRunning == true) return;
+    final port = ((_settings['apiServerPort'] as num?) ?? 8753).toInt();
+    _apiServer = LocalApiServer(
+      port: port,
+      onCommand: (cmd, args) => ShellExecutor.run(cmd, args: args),
+      onInjectWidget: (source, format) => _injectRuntimeWidget(source, format),
+      onChat: (prompt, history) async {
+        final resp = await _buildAiClient().chat(prompt, history: history);
+        if (resp.widgetSource != null && resp.widgetSource!.isNotEmpty) {
+          await _injectRuntimeWidget(resp.widgetSource!, resp.widgetFormat ?? 'json');
+        }
+        return resp;
+      },
+    );
+    await _apiServer!.start();
+  }
+
+  Future<void> _stopApiServer() async {
+    await _apiServer?.stop();
+    _apiServer = null;
+  }
+
+  Future<void> _reloadRuntimeWidgets() async {
+    final list = _storage.loadRuntimeWidgets();
+    if (mounted) setState(() => _runtimeWidgets = list);
+  }
+
+  /// Inyecta un componente (JSON del DynamicWidgetEngine o QML) en la capa
+  /// flotante en caliente. [source] es el texto del nodo/componente.
+  Future<void> _injectRuntimeWidget(String source, String format) async {
+    try {
+      if (format == 'qml') {
+        // El bridge QML espera un archivo; lo guardamos como widget suelto y
+        // lo referenciamos por contenido embebido en el overlay.
+        await _storage.appendRuntimeWidget({
+          'type': 'qml',
+          'source': source,
+        });
+      } else {
+        final decoded = jsonDecode(source);
+        if (decoded is Map<String, dynamic>) {
+          await _storage.appendRuntimeWidget(decoded);
+        } else if (decoded is List) {
+          for (final node in decoded) {
+            if (node is Map<String, dynamic>) {
+              await _storage.appendRuntimeWidget(node);
+            }
+          }
+        }
+      }
+      await _reloadRuntimeWidgets();
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _runtimeWidgets = [
+            ..._runtimeWidgets,
+            {
+              'type': 'container',
+              'color': '#1A1F26',
+              'padding': '12',
+              'children': [
+                {'type': 'text', 'value': 'Error al inyectar componente', 'color': '#FF6B6B'},
+                {'type': 'text', 'value': '$e', 'fontSize': 11, 'color': '#9AA7B4'},
+              ],
+            },
+          ];
+        });
+      }
+    }
+  }
+
+  Future<void> _clearRuntimeWidgets() async {
+    await _storage.clearRuntimeWidgets();
+    if (mounted) setState(() => _runtimeWidgets = const []);
+  }
+
+  Future<AiResponse> _chatWithAi(String prompt) async {
+    final resp = await _buildAiClient().chat(prompt);
+    if (resp.widgetSource != null && resp.widgetSource!.isNotEmpty) {
+      await _injectRuntimeWidget(resp.widgetSource!, resp.widgetFormat ?? 'json');
+    }
+    return resp;
+  }
+
+  Future<void> _removeRuntimeWidgetAt(int index) async {
+    final list = _storage.loadRuntimeWidgets();
+    if (index < 0 || index >= list.length) return;
+    list.removeAt(index);
+    await File(_storage.runtimeWidgetsPath)
+        .writeAsString(const JsonEncoder.withIndent('  ').convert(list), flush: true);
+    await _reloadRuntimeWidgets();
+  }
+
+  /// Renderiza la capa flotante de componentes generados (JSON o QML) en la
+  /// parte superior del escritorio. Cada tarjeta tiene un botón para quitarse.
+  Widget _buildRuntimeLayer() {
+    if (_runtimeWidgets.isEmpty) return const SizedBox.shrink();
+    final cards = <Widget>[];
+    for (var i = 0; i < _runtimeWidgets.length; i++) {
+      final node = _runtimeWidgets[i];
+      Widget child;
+      try {
+        if (node['type'] == 'qml') {
+          final source = node['source'] as String? ?? '';
+          child = QmlInterpreter.interpret(
+            source: source,
+            originDir: _storage.baseDir?.path ?? '/',
+            originFile: 'runtime_$i.qml',
+          ).widget;
+        } else {
+          child = DynamicWidgetEngine.buildNode(node, origin: 'runtime_widgets.json');
+        }
+      } catch (e) {
+        child = Text('Error: $e', style: const TextStyle(color: Color(0xFFFF6B6B), fontSize: 12));
+      }
+      cards.add(
+        Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF10161C),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0x2BFFFFFF)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: child),
+              IconButton(
+                icon: const Icon(Icons.close, size: 16, color: Color(0xFF7A8A99)),
+                onPressed: () => unawaited(_removeRuntimeWidgetAt(i)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: SingleChildScrollView(
+          child: Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(top: 8, left: 12, right: 12),
+            child: Column(children: cards),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _loadMarketplace() async {
@@ -876,6 +1061,25 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
         onFavoritesBarMode: (m) =>
             _saveSetting('favoritesBarMode', m == 'auto' ? null : m),
         onGesturesForced: () => unawaited(_updateSystemNavigationMode()),
+        apiServerEnabled: (_settings['apiServerEnabled'] as bool?) ?? false,
+        apiServerPort: ((_settings['apiServerPort'] as num?) ?? 8753).toInt(),
+        onApiServerEnabled: (v) async {
+          await _saveSetting('apiServerEnabled', v);
+          if (v) {
+            await _startApiServer();
+          } else {
+            await _stopApiServer();
+          }
+        },
+        onApiServerPort: (p) => _saveSetting('apiServerPort', p),
+        aiBaseUrl: (_settings['aiBaseUrl'] as String?) ?? '',
+        aiApiKey: (_settings['aiApiKey'] as String?) ?? '',
+        aiModel: (_settings['aiModel'] as String?) ?? '',
+        aiSystemPrompt: (_settings['aiSystemPrompt'] as String?) ?? '',
+        onAiBaseUrl: (v) => _saveSetting('aiBaseUrl', v),
+        onAiApiKey: (v) => _saveSetting('aiApiKey', v),
+        onAiModel: (v) => _saveSetting('aiModel', v),
+        onAiSystemPrompt: (v) => _saveSetting('aiSystemPrompt', v),
       ),
     );
   }
@@ -1648,12 +1852,39 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                   boxRects: _boxRects,
                   gestureFallback: gestureFallback,
                 ),
+              // Capa flotante de componentes generados por la IA / API local.
+              _buildRuntimeLayer(),
+              // Botón para abrir el asistente IA.
+              Align(
+                alignment: Alignment.bottomRight,
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.paddingOf(context).bottom + 20,
+                    right: 16,
+                  ),
+                  child: FloatingActionButton(
+                    mini: true,
+                    backgroundColor: const Color(0xFF66E0FF),
+                    foregroundColor: const Color(0xFF0E141A),
+                    onPressed: () => setState(() => _aiPanelOpen = true),
+                    child: const Icon(Icons.bolt, size: 20),
+                  ),
+                ),
+              ),
+              // Panel de chat con la IA.
+              if (_aiPanelOpen)
+                AiPanel(
+                  onSend: _chatWithAi,
+                  onClose: () => setState(() => _aiPanelOpen = false),
+                  onClear: () => unawaited(_clearRuntimeWidgets()),
+                  configured: _buildAiClient().configured,
+                ),
             ],
           ),
         ),
       ),
     );
-}
+  }
 }
 
 // ---------------------------------------------------------------------------

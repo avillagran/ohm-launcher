@@ -31,6 +31,35 @@ class StorageService {
   String get pluginsPath => '${_baseDir!.path}/$kPluginsDirName';
   String get favoritesPath => '${_baseDir!.path}/$kFavoritesFileName';
   String get settingsPath => '${_baseDir!.path}/$kSettingsFileName';
+  String get runtimeWidgetsPath => '${_baseDir!.path}/runtime_widgets.json';
+
+  /// Capa de componentes generados en caliente (IA / API). Es un array JSON
+  /// de nodos que se renderizan en un overlay flotante y se pueden limpiar
+  /// sin tocar la configuración del usuario.
+  List<Map<String, dynamic>> loadRuntimeWidgets() {
+    try {
+      final file = File(runtimeWidgetsPath);
+      if (!file.existsSync()) return const [];
+      final decoded = jsonDecode(file.readAsStringSync());
+      if (decoded is List) {
+        return decoded.whereType<Map<String, dynamic>>().toList();
+      }
+    } catch (_) {/* corrupto */}
+    return const [];
+  }
+
+  Future<void> appendRuntimeWidget(Map<String, dynamic> node) async {
+    final list = loadRuntimeWidgets();
+    list.add(node);
+    await File(runtimeWidgetsPath)
+        .writeAsString(const JsonEncoder.withIndent('  ').convert(list), flush: true);
+  }
+
+  Future<void> clearRuntimeWidgets() async {
+    try {
+      await File(runtimeWidgetsPath).writeAsString('[]', flush: true);
+    } catch (_) {/* noop */}
+  }
 
   /// Inicializa el almacenamiento eligiendo la mejor ruta disponible.
   Future<Directory> ensureInitialized() async {

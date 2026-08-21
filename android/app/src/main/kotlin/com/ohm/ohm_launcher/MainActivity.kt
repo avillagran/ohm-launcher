@@ -3,6 +3,9 @@ package com.ohm.ohm_launcher
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
+import android.app.PendingIntent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
@@ -12,6 +15,7 @@ import android.view.View
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
+import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -29,6 +33,22 @@ class MainActivity : FlutterActivity() {
     private var pendingBindWidgetId = -1
     private var pendingBindWidgetComponent: ComponentName? = null
     private var pendingBindProvider: String = ""
+
+    // --- Resultado de comandos Termux (RUN_COMMAND) ---
+    private val termuxResultAction = "com.ohm.ohm_launcher.TERMUX_RESULT"
+    private val termuxResults = mutableMapOf<Int, MethodChannel.Result>()
+    private var termuxRequestId = 0
+    private val termuxReceiver = object : BroadcastReceiver() {
+        override fun onReceive(ctx: Context?, intent: Intent?) {
+            if (intent?.action != termuxResultAction) return
+            val id = intent.getIntExtra("req", -1)
+            val result = termuxResults.remove(id) ?: return
+            val stdout = intent.getStringExtra("com.termux.RUN_COMMAND_RESULT_BROADCAST_EXTRA_STDOUT") ?: ""
+            val stderr = intent.getStringExtra("com.termux.RUN_COMMAND_RESULT_BROADCAST_EXTRA_STDERR") ?: ""
+            val exitCode = intent.getIntExtra("com.termux.RUN_COMMAND_RESULT_BROADCAST_EXTRA_EXIT_CODE", -1)
+            result.success(mapOf("stdout" to stdout, "stderr" to stderr, "exitCode" to exitCode))
+        }
+    }
 
     companion object {
         private const val REQUEST_CODE_BIND_WIDGET = 0xA11CE5
@@ -130,6 +150,14 @@ class MainActivity : FlutterActivity() {
         )
 
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
+        try {
+            ContextCompat.registerReceiver(
+                this,
+                termuxReceiver,
+                IntentFilter(termuxResultAction),
+                ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
+        } catch (_: Exception) { /* noop */ }
         methodChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
                     "getInstalledApps" -> result.success(getInstalledApps())
@@ -196,6 +224,13 @@ class MainActivity : FlutterActivity() {
                         } catch (_: Exception) {
                             result.success(null)
                         }
+                    }
+                    "runInTermux" -> {
+                        val command = call.argument<String>("command") ?: ""
+                        val args = (call.argument<List<Any>>("args") ?: emptyList())
+                            .map { it.toString() }
+                            .toTypedArray()
+                        runInTermux(command, args, result)
                     }
                     else -> result.notImplemented()
                 }
@@ -554,5 +589,42 @@ class MainActivity : FlutterActivity() {
     /** Reinicia el launcher (recrea la Activity y, con ella, el motor Flutter). */
     private fun restartApp() {
         recreate()
+    }
+
+    /** Ejecuta [command] en Termux vía el intent com.termux.RUN_COMMAND
+     *  (requiere Termux:API instalado). El resultado llega por broadcast a
+     *  [termuxReceiver] y se entrega al [result] de Dart. Si Termux no está
+     *  disponible, el lado Dart hace fallback a Process.run. */
+    private fun runInTermux(command: String, args: Array<String>, result: MethodChannel.Result) {
+        try {
+            val id = ++termuxRequestId
+            termuxResults[id] = result
+            val resultIntent = Intent(termuxResultAction).setPackage(applicationContext.packageName)
+            val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            } else {
+                PendingIntent.FLAG_UPDATE_CURRENT
+            }
+            val pending = PendingIntent.getBroadcast(applicationContext, id, resultIntent, flags)
+            val exec = Intent("com.termux.RUN_COMMAND").apply {
+                setPackage("com.termux")
+                putExtra("com.termux.RUN_COMMAND_COMMAND", command)
+                putExtra("com.termux.RUN_COMMAND_ARGUMENTS", args)
+                putExtra("com.termux.RUN_COMMAND_WORKDIR", applicationContext.filesDir.absolutePath)
+                putExtra("com.termux.RUN_COMMAND_RESULT_INTENT_SENDER", pending.intentSender)
+                putExtra("req", id)
+            }
+            applicationContext.sendBroadcast(exec)
+        } catch (e: Exception) {
+            termuxResults.remove(termuxRequestId)
+            result.error("termux_failed", e.message, null)
+        }
+    }
+
+    override fun onDestroy() {
+        try {
+            unregisterReceiver(termuxReceiver)
+        } catch (_: Exception) { /* noop */ }
+        super.onDestroy()
     }
 }
