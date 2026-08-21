@@ -62,6 +62,11 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
   bool _aiPanelOpen = false;
   LocalApiServer? _apiServer;
 
+  /// Carpeta privada de la app donde se instalan bins propios (herdr/opencode/
+  /// claude…) ejecutables desde el shell embebido. No depende de Termux.
+  String? _binDir;
+  String? _appHomeDir;
+
   /// Desplazamiento visual en vivo de las cajas del borde destino para dejar
   /// el hueco donde caería la caja arrastrada.
   ({int idx, String edge, int insertAt, Size size})? _liveBoxShift;
@@ -140,6 +145,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
       });
 
       _runtimeWidgets = _storage.loadRuntimeWidgets();
+      await _initBinDir();
       if ((_settings['apiServerEnabled'] as bool? ?? false)) {
         unawaited(_startApiServer());
       }
@@ -304,6 +310,67 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     );
   }
 
+  Future<void> _initBinDir() async {
+    try {
+      final support = await getApplicationSupportDirectory();
+      final bin = Directory('${support.path}/bin');
+      if (!await bin.exists()) await bin.create(recursive: true);
+      _binDir = bin.path;
+      _appHomeDir = support.path;
+    } catch (_) {
+      _binDir = null;
+      _appHomeDir = null;
+    }
+  }
+
+  /// Instala un binario propio en la carpeta privada de la app y le da permiso
+  /// de ejecución. Devuelve un mapa con el resultado. Los bins quedan en el
+  /// PATH del shell embebido para poder invocarlos por nombre.
+  Future<Map<String, dynamic>> _installBin(String name, List<int> bytes) async {
+    if (_binDir == null) return {'ok': false, 'error': 'bin_dir_unavailable'};
+    final file = File('$_binDir/$name');
+    await file.writeAsBytes(bytes, flush: true);
+    try {
+      await Process.run('/system/bin/chmod', ['0755', file.path]);
+    } catch (_) {
+      /* noop */
+    }
+    final stat = await file.stat();
+    return {
+      'ok': true,
+      'name': name,
+      'size': stat.size,
+      'path': file.path,
+    };
+  }
+
+  Future<List<Map<String, dynamic>>> _listBins() async {
+    if (_binDir == null) return const [];
+    final dir = Directory(_binDir!);
+    if (!await dir.exists()) return const [];
+    final out = <Map<String, dynamic>>[];
+    await for (final e in dir.list(followLinks: false)) {
+      if (e is File) {
+        final s = await e.stat();
+        out.add({
+          'name': e.path.split('/').last,
+          'size': s.size,
+          'path': e.path,
+        });
+      }
+    }
+    out.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+    return out;
+  }
+
+  Future<Map<String, dynamic>> _uninstallBin(String name) async {
+    if (_binDir == null) return {'ok': false, 'error': 'bin_dir_unavailable'};
+    final file = File('$_binDir/$name');
+    final existed = await file.exists();
+    if (existed) await file.delete();
+    return {'ok': true, 'name': name, 'removed': existed};
+  }
+
   Future<void> _startApiServer() async {
     if (_apiServer?.isRunning == true) return;
     final port = ((_settings['apiServerPort'] as num?) ?? 8753).toInt();
@@ -313,6 +380,8 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
         cmd,
         args: args,
         useTermux: (_settings['shellPreferTermux'] as bool?) ?? false,
+        binDir: _binDir,
+        homeDir: _appHomeDir,
       ),
       onInjectWidget: (source, format) => _injectRuntimeWidget(source, format),
       onChat: (prompt, history) async {
@@ -322,6 +391,9 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
         }
         return resp;
       },
+      onInstallBin: _installBin,
+      onListBins: _listBins,
+      onUninstallBin: _uninstallBin,
     );
     await _apiServer!.start();
   }

@@ -4,9 +4,12 @@
 //  Expone un control remoto del launcher SIN abrir Termux ni la app:
 //
 //    GET  /health              -> {"ok":true,"name":"OhmLauncher"}
-//    POST /command  {command, args?}        -> resultado del shell (Termux/process)
+//    POST /command  {command, args?}        -> resultado del shell (embebido/Termux)
 //    POST /widget   {source, format?}       -> inyecta un componente (json|qml) en caliente
 //    POST /ai       {prompt, history?}      -> chat con la IA configurada
+//    POST /install-bin {name, base64}       -> instala un binario propio en la app (herdr/opencode/claude…)
+//    GET  /bins                     -> lista los binarios instalados
+//    POST /uninstall-bin {name}     -> elimina un binario instalado
 //
 //  Las acciones pesadas se delegan vía callbacks para mantener el servidor
 //  desacoplado de la UI y de los settings.
@@ -24,6 +27,9 @@ import 'shell_executor.dart';
 typedef CommandHandler = Future<ShellResult> Function(String command, List<String>? args);
 typedef InjectHandler = Future<void> Function(String source, String format);
 typedef ChatHandler = Future<AiResponse> Function(String prompt, List<AiMessage>? history);
+typedef InstallBinHandler = Future<Map<String, dynamic>> Function(String name, List<int> bytes);
+typedef ListBinsHandler = Future<List<Map<String, dynamic>>> Function();
+typedef UninstallBinHandler = Future<Map<String, dynamic>> Function(String name);
 
 class LocalApiServer {
   LocalApiServer({
@@ -31,12 +37,18 @@ class LocalApiServer {
     required this.onCommand,
     required this.onInjectWidget,
     this.onChat,
+    this.onInstallBin,
+    this.onListBins,
+    this.onUninstallBin,
   });
 
   final int port;
   final CommandHandler onCommand;
   final InjectHandler onInjectWidget;
   final ChatHandler? onChat;
+  final InstallBinHandler? onInstallBin;
+  final ListBinsHandler? onListBins;
+  final UninstallBinHandler? onUninstallBin;
 
   HttpServer? _server;
   bool _running = false;
@@ -74,6 +86,13 @@ class LocalApiServer {
       if (request.method == 'GET' && request.uri.path == '/health') {
         return _json(request, 200, {'ok': true, 'name': 'OhmLauncher'});
       }
+      if (request.method == 'GET' && request.uri.path == '/bins') {
+        if (onListBins == null) {
+          return _json(request, 501, {'error': 'install_not_supported'});
+        }
+        final bins = await onListBins!();
+        return _json(request, 200, {'bins': bins});
+      }
       if (request.method != 'POST') {
         return _json(request, 405, {'error': 'method_not_allowed'});
       }
@@ -110,6 +129,42 @@ class LocalApiServer {
             'widgetSource': resp.widgetSource,
             'widgetFormat': resp.widgetFormat,
           });
+        case '/install-bin':
+          if (onInstallBin == null) {
+            return _json(request, 501, {'error': 'install_not_supported'});
+          }
+          final name = (body['name'] as String?)?.trim() ?? '';
+          final b64 = (body['base64'] as String?)?.trim() ?? '';
+          if (name.isEmpty || !_validBinName(name)) {
+            return _json(request, 400, {'error': 'invalid_name'});
+          }
+          if (b64.isEmpty) {
+            return _json(request, 400, {'error': 'missing_base64'});
+          }
+          List<int> bytes;
+          try {
+            bytes = base64Decode(b64);
+          } catch (_) {
+            return _json(request, 400, {'error': 'bad_base64'});
+          }
+          final res = await onInstallBin!(name, bytes);
+          return _json(request, 200, res);
+        case '/bins':
+          if (onListBins == null) {
+            return _json(request, 501, {'error': 'install_not_supported'});
+          }
+          final bins = await onListBins!();
+          return _json(request, 200, {'bins': bins});
+        case '/uninstall-bin':
+          if (onUninstallBin == null) {
+            return _json(request, 501, {'error': 'install_not_supported'});
+          }
+          final name = (body['name'] as String?)?.trim() ?? '';
+          if (name.isEmpty || !_validBinName(name)) {
+            return _json(request, 400, {'error': 'invalid_name'});
+          }
+          final res = await onUninstallBin!(name);
+          return _json(request, 200, res);
         default:
           return _json(request, 404, {'error': 'not_found'});
       }
@@ -127,6 +182,14 @@ class LocalApiServer {
       }
     }
     return out.isNotEmpty ? out : null;
+  }
+
+  bool _validBinName(String name) {
+    // Sin rutas: solo nombre de archivo, caracteres seguros.
+    return !name.contains('/') &&
+        !name.contains('\\') &&
+        !name.contains('..') &&
+        RegExp(r'^[A-Za-z0-9._-]+$').hasMatch(name);
   }
 
   Future<Map<String, dynamic>> _readBody(HttpRequest request) async {

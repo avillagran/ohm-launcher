@@ -51,18 +51,52 @@ class ShellExecutor {
   /// Si [useTermux] es true y Termux:API está instalado, intenta Termux primero
   /// (comparte el entorno de paquetes de Termux) y, si falla, cae al ejecutor
   /// embebido. Sin [useTermux], siempre corre embebido (sin dependencias).
+  ///
+  /// [binDir] (opcional) se añade al PATH para poder invocar bins propios de la
+  /// app (herdr, opencode, claude…) instalados en su carpeta privada. [homeDir]
+  /// fija HOME para esos bins.
   static Future<ShellResult> run(
     String command, {
     List<String>? args,
     bool useTermux = false,
     String? workingDirectory,
+    String? binDir,
+    String? homeDir,
   }) async {
     if (useTermux && await _termuxAvailable()) {
       final termux = await _runInTermux(command, args)
           .timeout(const Duration(seconds: 5), onTimeout: () => null);
       if (termux != null) return termux;
     }
-    return _runEmbedded(command, args, workingDirectory);
+    return _runEmbedded(command, args, workingDirectory, binDir, homeDir);
+  }
+
+  /// Si [command] invoca un bin propio instalado en [binDir] (nombre simple sin
+  /// '/'), lo ejecuta sin saltar la restricción noexec de Android: los scripts
+  /// via `sh <ruta>` y los ELF via el linker del sistema (`linker64 <ruta>`),
+  /// ya que ambos LEEN el archivo en vez de ejecutarlo directamente.
+  static String _resolveOwnBin(String command, String binDir) {
+    final idx = command.indexOf(' ');
+    final token = idx < 0 ? command : command.substring(0, idx);
+    final rest = idx < 0 ? '' : command.substring(idx);
+    if (token.isEmpty || token.contains('/')) return command;
+    final file = File('$binDir/$token');
+    if (!file.existsSync()) return command;
+    List<int> header;
+    try {
+      header = file.readAsBytesSync();
+    } catch (_) {
+      return command;
+    }
+    final isScript = header.isNotEmpty && header[0] == 0x23 && header.length > 1 && header[1] == 0x21;
+    final interpreter = isScript ? '/system/bin/sh' : _linkerPath();
+    return '$interpreter ${_quote(file.path)}$rest';
+  }
+
+  static String _linkerPath() {
+    return File('/system/bin/linker64').existsSync()
+        ? '/system/bin/linker64'
+        : '/system/bin/linker';
   }
 
   static Future<bool> _termuxAvailable() async {
@@ -79,17 +113,33 @@ class ShellExecutor {
     String command,
     List<String>? args,
     String? workingDirectory,
+    String? binDir,
+    String? homeDir,
   ) async {
     try {
+      final resolved = binDir != null && binDir.isNotEmpty ? _resolveOwnBin(command, binDir) : command;
       final full = args != null && args.isNotEmpty
-          ? '$command ${args.map(_quote).join(' ')}'
-          : command;
+          ? '$resolved ${args.map(_quote).join(' ')}'
+          : resolved;
+      final path = [
+        if (binDir != null && binDir.isNotEmpty) binDir,
+        '/system/bin',
+        '/system/xbin',
+        '/sbin',
+        '/vendor/bin',
+        '/odm/bin',
+        '/product/bin',
+      ].join(':');
       final res = await Process.run(
         '/system/bin/sh',
         ['-c', full],
         workingDirectory: workingDirectory,
         runInShell: false,
-        environment: const <String, String>{},
+        environment: <String, String>{
+          'PATH': path,
+          if (homeDir != null && homeDir.isNotEmpty) 'HOME': homeDir,
+          'TMPDIR': homeDir ?? workingDirectory ?? '/data/local/tmp',
+        },
       );
       return ShellResult(
         exitCode: res.exitCode,
