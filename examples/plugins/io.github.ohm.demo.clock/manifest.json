@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.ohm.demo.clock",
+  "name": "Ohm Clock",
+  "version": "1.0.0",
+  "author": "Ohm Launcher",
+  "license": "MIT",
+  "description": "Demo: bar-widget con reloj y panel de fecha, escrito en el DSL JSON de Ohm Launcher.",
+  "kinds": ["bar-widget"],
+  "entryPoints": { "barWidget": "BarWidget.json" },
+  "barWidget": {
+    "displayName": "Reloj",
+    "category": "Tiempo",
+    "allowMultiple": false,
+    "defaultSection": "center"
+  }
+}

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">Permite a Ohm Launcher capturar gestos de navegación (atrás, inicio, recientes) cuando MIUI/HyperOS no los ofrece para launchers de terceros.</string>
+</resources>

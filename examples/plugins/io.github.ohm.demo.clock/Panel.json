@@ -1,0 +1,20 @@
+{
+  "type": "container",
+  "color": "#10161C",
+  "borderRadius": 16,
+  "padding": 20,
+  "children": [
+    {
+      "type": "tiling_layout",
+      "orientation": "column",
+      "mainAxisAlignment": "center",
+      "crossAxisAlignment": "center",
+      "spacing": 8,
+      "children": [
+        { "type": "clock", "format": "EEEE, d MMMM yyyy", "fontSize": 16, "color": "#E8F1F8", "fontWeight": "w600" },
+        { "type": "clock", "format": "HH:mm:ss", "fontSize": 40, "color": "#66E0FF", "fontWeight": "w300" },
+        { "type": "text", "value": "Panel asociado al bar-widget · toca el reloj en el dock", "fontSize": 12, "color": "#7A8A99" }
+      ]
+    }
+  ]
+}

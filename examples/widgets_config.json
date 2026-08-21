@@ -1,0 +1,20 @@
+{
+  "type": "container",
+  "color": "#0B0F14",
+  "padding": 24,
+  "children": [
+    {
+      "type": "tiling_layout",
+      "orientation": "column",
+      "mainAxisAlignment": "center",
+      "crossAxisAlignment": "center",
+      "spacing": 12,
+      "children": [
+        { "type": "clock", "format": "HH:mm", "fontSize": 76, "color": "#66E0FF", "fontWeight": "w300", "letterSpacing": 4 },
+        { "type": "text", "value": "OHM", "fontSize": 14, "color": "#3A4654", "fontWeight": "w600", "letterSpacing": 8 },
+        { "type": "text", "value": "Bienvenido al escritorio autogestionado", "fontSize": 16, "color": "#9AA7B4" },
+        { "type": "text", "value": "Edita este archivo y guarda: la UI se recarga sola", "fontSize": 12, "color": "#5A6B7A" }
+      ]
+    }
+  ]
+}
