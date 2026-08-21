@@ -309,7 +309,11 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     final port = ((_settings['apiServerPort'] as num?) ?? 8753).toInt();
     _apiServer = LocalApiServer(
       port: port,
-      onCommand: (cmd, args) => ShellExecutor.run(cmd, args: args),
+      onCommand: (cmd, args) => ShellExecutor.run(
+        cmd,
+        args: args,
+        useTermux: (_settings['shellPreferTermux'] as bool?) ?? false,
+      ),
       onInjectWidget: (source, format) => _injectRuntimeWidget(source, format),
       onChat: (prompt, history) async {
         final resp = await _buildAiClient().chat(prompt, history: history);
@@ -1072,6 +1076,8 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
           }
         },
         onApiServerPort: (p) => _saveSetting('apiServerPort', p),
+        shellPreferTermux: (_settings['shellPreferTermux'] as bool?) ?? false,
+        onShellPreferTermux: (v) => _saveSetting('shellPreferTermux', v),
         aiBaseUrl: (_settings['aiBaseUrl'] as String?) ?? '',
         aiApiKey: (_settings['aiApiKey'] as String?) ?? '',
         aiModel: (_settings['aiModel'] as String?) ?? '',

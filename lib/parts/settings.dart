@@ -370,6 +370,8 @@ class _LauncherSettingsSheet extends StatefulWidget {
     this.apiServerPort = 8753,
     required this.onApiServerEnabled,
     required this.onApiServerPort,
+    this.shellPreferTermux = false,
+    required this.onShellPreferTermux,
     this.aiBaseUrl = '',
     this.aiApiKey = '',
     this.aiModel = '',
@@ -397,6 +399,8 @@ class _LauncherSettingsSheet extends StatefulWidget {
   final int apiServerPort;
   final ValueChanged<bool> onApiServerEnabled;
   final ValueChanged<int> onApiServerPort;
+  final bool shellPreferTermux;
+  final ValueChanged<bool> onShellPreferTermux;
   final String aiBaseUrl;
   final String aiApiKey;
   final String aiModel;
@@ -419,6 +423,7 @@ class _LauncherSettingsSheetState extends State<_LauncherSettingsSheet> {
   late String _favBarMode = widget.currentFavoritesBarMode ?? 'auto';
   late bool _apiServerEnabled = widget.apiServerEnabled;
   late int _apiServerPort = widget.apiServerPort;
+  late bool _shellPreferTermux = widget.shellPreferTermux;
   late String _aiBaseUrl = widget.aiBaseUrl;
   late String _aiApiKey = widget.aiApiKey;
   late String _aiModel = widget.aiModel;
@@ -820,6 +825,25 @@ class _LauncherSettingsSheetState extends State<_LauncherSettingsSheet> {
             widget.onApiServerPort(p);
           },
         ),
+        _sectionLabel('EJECUCIÓN DE COMANDOS'),
+        Row(
+          children: [
+            const Expanded(
+              child: Text('Usar Termux si está disponible (opcional)',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF9AA7B4))),
+            ),
+            Switch(
+              value: _shellPreferTermux,
+              onChanged: (v) {
+                setState(() => _shellPreferTermux = v);
+                widget.onShellPreferTermux(v);
+              },
+            ),
+          ],
+        ),
+        _caption('Por defecto los comandos corren EMBEBIDOS en el propio launcher '
+            '(shell del sistema, sin apps de terceros). Activa esto solo si quieres '
+            'reutilizar el entorno de paquetes de Termux y tienes Termux:API instalado.'),
         _sectionLabel('ASISTENTE IA'),
         _caption('Cualquier endpoint compatible con /v1/chat/completions '
             '(OpenAI, Ollama, LM Studio, OpenRouter, Claude por proxy, Kimi, Codex…).'),

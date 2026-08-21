@@ -11,6 +11,7 @@ import android.graphics.Canvas
 import android.graphics.drawable.Drawable
 import android.os.BatteryManager
 import android.os.Build
+import android.util.Log
 import android.view.View
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetHostView
@@ -232,6 +233,7 @@ class MainActivity : FlutterActivity() {
                             .toTypedArray()
                         runInTermux(command, args, result)
                     }
+                    "isTermuxApiInstalled" -> result.success(isTermuxApiInstalled())
                     else -> result.notImplemented()
                 }
             }
@@ -615,9 +617,21 @@ class MainActivity : FlutterActivity() {
                 putExtra("req", id)
             }
             applicationContext.sendBroadcast(exec)
+            Log.d("OhmTermux", "RUN_COMMAND enviado: $command (args=${args.contentToString()})")
         } catch (e: Exception) {
             termuxResults.remove(termuxRequestId)
             result.error("termux_failed", e.message, null)
+        }
+    }
+
+    /** Indica si Termux:API (com.termux.api) está instalado. El ejecutor de
+     *  comandos embebido de Ohm Launcher NO lo requiere; es solo una mejora
+     *  opcional para reutilizar el entorno de paquetes de Termux. */
+    private fun isTermuxApiInstalled(): Boolean {
+        return try {
+            packageManager.getPackageInfo("com.termux.api", 0) != null
+        } catch (_: Exception) {
+            false
         }
     }
 
