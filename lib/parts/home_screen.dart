@@ -344,6 +344,36 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     };
   }
 
+  /// Instala un binario recibiendo el stream de bytes en crudo (sin base64),
+  /// escribiéndolo directo a disco para soportar archivos grandes (bun ~90 MB).
+  Future<Map<String, dynamic>> _installBinRaw(String name, Stream<List<int>> bytes) async {
+    if (_binDir == null) return {'ok': false, 'error': 'bin_dir_unavailable'};
+    final file = File('$_binDir/$name');
+    var size = 0;
+    try {
+      final out = file.openWrite();
+      await for (final chunk in bytes) {
+        out.add(chunk);
+        size += chunk.length;
+      }
+      await out.flush();
+      await out.close();
+    } catch (e) {
+      return {'ok': false, 'error': 'write_failed', 'detail': '$e'};
+    }
+    try {
+      await Process.run('/system/bin/chmod', ['0755', file.path]);
+    } catch (_) {
+      /* noop */
+    }
+    return {
+      'ok': true,
+      'name': name,
+      'size': size,
+      'path': file.path,
+    };
+  }
+
   Future<List<Map<String, dynamic>>> _listBins() async {
     if (_binDir == null) return const [];
     final dir = Directory(_binDir!);
@@ -392,6 +422,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
         return resp;
       },
       onInstallBin: _installBin,
+      onInstallBinRaw: _installBinRaw,
       onListBins: _listBins,
       onUninstallBin: _uninstallBin,
     );

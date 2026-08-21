@@ -28,6 +28,7 @@ typedef CommandHandler = Future<ShellResult> Function(String command, List<Strin
 typedef InjectHandler = Future<void> Function(String source, String format);
 typedef ChatHandler = Future<AiResponse> Function(String prompt, List<AiMessage>? history);
 typedef InstallBinHandler = Future<Map<String, dynamic>> Function(String name, List<int> bytes);
+typedef InstallBinRawHandler = Future<Map<String, dynamic>> Function(String name, Stream<List<int>> bytes);
 typedef ListBinsHandler = Future<List<Map<String, dynamic>>> Function();
 typedef UninstallBinHandler = Future<Map<String, dynamic>> Function(String name);
 
@@ -38,6 +39,7 @@ class LocalApiServer {
     required this.onInjectWidget,
     this.onChat,
     this.onInstallBin,
+    this.onInstallBinRaw,
     this.onListBins,
     this.onUninstallBin,
   });
@@ -47,6 +49,7 @@ class LocalApiServer {
   final InjectHandler onInjectWidget;
   final ChatHandler? onChat;
   final InstallBinHandler? onInstallBin;
+  final InstallBinRawHandler? onInstallBinRaw;
   final ListBinsHandler? onListBins;
   final UninstallBinHandler? onUninstallBin;
 
@@ -95,6 +98,9 @@ class LocalApiServer {
       }
       if (request.method != 'POST') {
         return _json(request, 405, {'error': 'method_not_allowed'});
+      }
+      if (request.uri.path == '/install-bin-raw') {
+        return _installBinRaw(request);
       }
       final body = await _readBody(request);
       switch (request.uri.path) {
@@ -191,6 +197,25 @@ class LocalApiServer {
         !name.contains('..') &&
         RegExp(r'^[A-Za-z0-9._-]+$').hasMatch(name);
   }
+
+  /// Instala un binario recibiendo los bytes en crudo (sin base64/JSON), lo que
+  /// soporta archivos grandes (p.ej. bun ~90 MB) sin cargarlos todos en memoria.
+  /// Uso: POST /install-bin-raw?name=<bin>  (body = bytes del ejecutable).
+  Future<void> _installBinRaw(HttpRequest request) async {
+    final name = request.uri.queryParameters['name']?.trim() ?? '';
+    if (name.isEmpty || !_validBinName(name)) {
+      return _json(request, 400, {'error': 'invalid_name'});
+    }
+      if (onInstallBinRaw == null) {
+        return _json(request, 501, {'error': 'install_not_supported'});
+      }
+      try {
+        final res = await onInstallBinRaw!(name, request.expand((b) => [b]));
+        return _json(request, 200, res);
+      } catch (e) {
+        return _json(request, 500, {'error': 'install_failed', 'detail': '$e'});
+      }
+    }
 
   Future<Map<String, dynamic>> _readBody(HttpRequest request) async {
     try {
