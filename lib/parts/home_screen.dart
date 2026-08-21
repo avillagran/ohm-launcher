@@ -325,6 +325,26 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
       if (!await bin.exists()) await bin.create(recursive: true);
       _binDir = bin.path;
       _appHomeDir = support.path;
+      // Copia la base de datos terminfo empaquetada para tmux/ssh/etc.
+      final terminfoDir = Directory('${support.path}/.terminfo/x');
+      if (!await terminfoDir.exists()) await terminfoDir.create(recursive: true);
+      final terminfoFile = File('${terminfoDir.path}/xterm-256color');
+      if (!await terminfoFile.exists()) {
+        final data = await rootBundle.load('assets/terminfo/x/xterm-256color');
+        await terminfoFile.writeAsBytes(data.buffer.asUint8List(), flush: true);
+      }
+      // Asegura symlinks de Dropbear si está instalado.
+      final dropbear = File('${bin.path}/dropbearmulti');
+      if (await dropbear.exists()) {
+        for (final name in ['ssh', 'dbclient', 'scp', 'dropbearkey']) {
+          final link = Link('${bin.path}/$name');
+          if (!await link.exists()) {
+            try {
+              await link.create('dropbearmulti');
+            } catch (_) {}
+          }
+        }
+      }
     } catch (_) {
       _binDir = null;
       _appHomeDir = null;
@@ -2176,6 +2196,25 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                               homeDir: _appHomeDir,
                               visible: _quakeOpen,
                               onExit: _closeQuake,
+                            ),
+                          ),
+                          // Borde inferior para cerrar el terminal (tap o swipe-up).
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _closeQuake,
+                            onVerticalDragUpdate: (d) {
+                              if (d.delta.dy < -6) _closeQuake();
+                            },
+                            child: Container(
+                              height: 24,
+                              color: const Color(0xFF111820),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.keyboard_arrow_up,
+                                  color: Colors.white54,
+                                  size: 18,
+                                ),
+                              ),
                             ),
                           ),
                         ],

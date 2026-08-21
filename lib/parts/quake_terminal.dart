@@ -40,6 +40,7 @@ class _QuakeTerminalState extends State<QuakeTerminal> {
       'export LD_LIBRARY_PATH="$binDir"',
       'export SHELL="/system/bin/sh"',
       'export HOME="$home"',
+      'export TERMINFO="$home/.terminfo"',
       'export TMUX_TMPDIR="$home"',
       'export TMPDIR="$home"',
       '',
@@ -47,11 +48,11 @@ class _QuakeTerminalState extends State<QuakeTerminal> {
     final dir = Directory(binDir);
     if (await dir.exists()) {
       await for (final e in dir.list(followLinks: false)) {
-        if (e is! File) continue;
+        if (e is! File && e is! Link) continue;
         final name = e.path.split('/').last;
         // Los nombres con punto no son identificadores válidos de shell.
         if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$').hasMatch(name)) continue;
-        final bytes = await e.openRead(0, 4).expand((b) => b).toList();
+        final bytes = await File(e.path).openRead(0, 4).expand((b) => b).toList();
         final isElf = bytes.length >= 4 &&
             bytes[0] == 0x7f &&
             bytes[1] == 0x45 &&
@@ -86,6 +87,7 @@ class _QuakeTerminalState extends State<QuakeTerminal> {
           '${widget.binDir != null ? ":${widget.binDir}" : ""}',
       if (widget.binDir != null) 'LD_LIBRARY_PATH': widget.binDir!,
       'ENV': '$home/.ohm_bashrc',
+      'TERMINFO': '$home/.terminfo',
       'TMUX_TMPDIR': home,
       'TMPDIR': home,
     };
