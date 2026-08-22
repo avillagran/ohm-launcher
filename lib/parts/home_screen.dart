@@ -2045,10 +2045,19 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                         ? _ConfigErrorCard(title: 'Fallo al iniciar', message: _bootError!)
                         : _desktop,
               ),
-              // Swipe up desde el escritorio para abrir el cajón de apps.
-              // Usa RawGestureDetector con VerticalDragGestureRecognizer para
-              // que el gesto vertical gane la arena contra el PageView horizontal.
-              // Se desactiva en modo edición para no robar los drags de la grilla.
+              // Gestos de cajón (swipe-up) y terminal Quake (swipe-down): se
+              // re-insertan MÁS ABAJO, por encima de las barras, para que las
+              // barras visibles (favoritos/plugins) no intercepten esos gestos.
+              // Se coloca DETRÁS de las cajas de borde para que los taps sobre
+              // estas últimas no sean interceptados; solo captura swipes en los
+              // bordes donde no hay caja.
+              _GestureNavigationOverlay(
+                enabled: gestureFallback,
+              ),
+              // Cajas de borde: agrupadas por borde, se pueden arrastrar entre bordes.
+              ..._buildEdgeBoxes(),
+              // Gestos por encima de las barras para que favoritos/plugins no los
+              // intercepten. translucent => los taps en barras siguen funcionando.
               if (_editWidget == null)
                 Positioned(
                   top: MediaQuery.sizeOf(context).height * 0.45,
@@ -2074,9 +2083,6 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                     child: const SizedBox.expand(),
                   ),
                 ),
-              // Swipe-down desde la mitad superior del escritorio => terminal Quake.
-              // Región exclusiva (por encima de la zona del cajón) para no competir
-              // en la arena de gestos con el reconocedor de swipe-up del cajón.
               if (_quakeEnabled && _editWidget == null)
                 Positioned(
                   top: 0,
@@ -2109,14 +2115,6 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                     child: const SizedBox.expand(),
                   ),
                 ),
-              // Se coloca DETRÁS de las cajas de borde para que los taps sobre
-              // estas últimas no sean interceptados; solo captura swipes en los
-              // bordes donde no hay caja.
-              _GestureNavigationOverlay(
-                enabled: gestureFallback,
-              ),
-              // Cajas de borde: agrupadas por borde, se pueden arrastrar entre bordes.
-              ..._buildEdgeBoxes(),
               // Indicador de escritorios (arriba).
               if (_desktopCount > 1)
                 SafeArea(
