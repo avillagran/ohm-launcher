@@ -41,8 +41,14 @@ lib/
                                 # discovery de plugins + `part` de lib/parts/*.dart
   parts/
     home_screen.dart            # estado principal de la home (escritorios, cajas,
-                                # cajón, config, drag & drop de cajas)
+                                # cajón, terminal Quake, config, drag & drop de cajas)
     edge_boxes.dart             # _EdgeBox: cajas de borde + interacción 1s/3s/5s
+    quake_terminal.dart         # terminal Quake (flutter_pty + xterm); swipe-down
+                                # desde la mitad superior; cierra con exit/swipe-up/X
+    local_api_server.dart       # servidor HTTP local (puerto 8753) para instalar
+                                # bins, ejecutar comandos y abrir el Quake
+    shell_executor.dart         # bypass noexec: ejecuta ELF vía linker64 y scripts
+                                # vía sh; genera el .ohm_bashrc de funciones
     dynamic_engine.dart         # parser JSON -> árbol de widgets + helpers de color
     settings.dart               # hojas de configuración (escritorio / launcher)
     pickers.dart                # pickers de apps, widgets, plugins y cajas
@@ -96,6 +102,56 @@ tool/
 - Las apps se cargan sin iconos al inicio (`getInstalledApps` ligero) y los
   iconos PNG se obtienen bajo demanda (`OhmPlatform.getAppIcon`) para evitar
   bloquear el hilo principal.
+
+## Gestos de la home
+
+- **Swipe up** (desde ~45% inferior de la pantalla) → abre el cajón de apps
+  (`_AppDrawer`). **Swipe down** (desde la mitad superior) → abre el terminal
+  Quake. **Swipe horizontal** → cambio de escritorio (PageView nativo de
+  `_desktop`; el `_GestureNavigationOverlay` añade swipe de borde cuando
+  `gestureFallback` está activo).
+- Estos tres `RawGestureDetector` (cajón + Quake + `_GestureNavigationOverlay`)
+  **deben quedar por ENCIMA de las barras en el `Stack`** (se insertan después de
+  `..._buildEdgeBoxes()`), con `HitTestBehavior.translucent`. Si se ponen debajo,
+  la barra de favoritos (abajo) y la de plugins (arriba) interceptan los swipes y
+  **los gestos dejan de funcionar** aunque las barras estén visibles.
+- `gestureFallback = _systemNavigationMode != 2 && !_accessibilityServiceEnabled
+  && gestureNavigationEnabled`. El **servicio de accesibilidad debe quedar
+  DESACTIVADO** (`accessibility_enabled=0`) para que el swipe horizontal in-app
+  funcione: al renombrar el paquete, el componente del servicio cambia de
+  `com.ohm.ohm_launcher` a `cl.villagranquiroz.ohm_launcher` y el ajuste de
+  sistema `enabled_accessibility_services` queda apuntando al componente viejo →
+  el servicio queda deshabilitado y, si se fuerza a activar, `gestureFallback`
+  pasa a `false` y se rompe el cambio de escritorio. Mantenerlo desactivado.
+
+## Terminal Quake y binarios embebidos (sin Termux)
+
+El launcher ejecuta herramientas directamente (bun, tmux, ssh/dropbear) **sin
+depender de Termux**. Todo vive en
+`/data/data/cl.villagranquiroz.ohm_launcher/files/bin` y **persiste** entre
+`adb install -r`.
+
+- **noexec:** `filesDir/bin` es `noexec` bajo SELinux, así que un ELF no se
+  ejecuta directo (exit 126). `shell_executor.dart` corre ELF vía
+  `/system/bin/linker64 <ruta>` y scripts vía `sh <ruta>`.
+- **`.ohm_bashrc`** (autogenerado en `filesDir`) define funciones shell por cada
+  bin (`bun()`, `tmux()`, `ssh()`, …) que invocan el loader correcto; el terminal
+  Quake lo carga vía `ENV`. Define `PATH`, `LD_LIBRARY_PATH`, `SHELL`, `HOME`,
+  `TMUX_TMPDIR`, `TMPDIR`, `TERMINFO`.
+- **Bins empaquetados:** `bun` (1.4.0 android), `tmux` (3.7c) +
+  `libandroid-support.so`,`libandroid-glob.so`,`libncursesw.so.6`,
+  `libevent_core-2.1.so`; `dropbearmulti` + symlinks `ssh`/`dbclient`/`scp`/
+  `dropbearkey` + `libtermux-auth.so`,`libz.so.1`,`libcrypto.so.3`.
+- **terminfo:** `assets/terminfo/x/xterm-256color` se copia a
+  `filesDir/.terminfo` y se exporta `TERMINFO` (tmux necesita la base de datos).
+- **API local** (`local_api_server.dart`, puerto `8753`,
+  `apiServerEnabled`/`apiServerPort` en `settings.json`): `/command`, `/widget`,
+  `/ai`, `/health`, `/install-bin` (base64), `/install-bin-raw?name=` (streaming),
+  `/bins`, `/uninstall-bin`, `/quake` (`{open:true|false}`). `_validBinName`
+  valida `^[A-Za-z0-9._-]+$`.
+- **Quake:** `flutter_pty` + `xterm`. `onExit` cierra y reapas el shell (SIGKILL);
+  el handle inferior permite arrastrar/tocar para cerrar. `toggleCopySelection`
+  copia la selección.
 
 ## Edición de widgets
 
@@ -211,10 +267,18 @@ píxeles con Python/PIL.
 
 ## Estado pendiente conocido
 
-- Verificación en dispositivo del paquete `cl.villagranquiroz.ohm_launcher`
-  (instalación limpia; los bins instalados vía API viven en
-  `/data/data/cl.villagranquiroz.ohm_launcher/files/bin`).
-- ADB inalámbrico inestable: a veces cae y el teléfono salta a Ajustes.
+- Paquete `cl.villagranquiroz.ohm_launcher`: **verificado en dispositivo**. Los
+  bins instalados vía API (bun/tmux/dropbear) viven en
+  `/data/data/cl.villagranquiroz.ohm_launcher/files/bin` y **persisten** entre
+  `adb install -r`.
+- **Servicio de accesibilidad debe quedar DESACTIVADO** (ver sección Gestos):
+  tras el rename del paquete su componente cambia y, activado, rompe el swipe
+  horizontal in-app. No reactivar salvo re-apuntar el componente nuevo.
+- ADB inalámbrico inestable: a veces cae y el teléfono salta a Ajustes. El serial
+  renumera al reconectar; re-chequear `adb devices` y rehacer el forward.
+- `favoritesBarVisible` / `bottomBarVisible` en `settings.json`: las barras de
+  favoritos y de plugins **nunca deben ocultarse** por accidente (la UI de las
+  barras ya no las colapsa; el ocultado solo ocurre vía settings).
 - El cajón de apps se cierra correctamente tocando el fondo oscurecido; el
   arrastre del *handle* para cerrar depende de que el gesto caiga sobre el
   área del handle/título (la cuadrícula de apps consume el scroll).
