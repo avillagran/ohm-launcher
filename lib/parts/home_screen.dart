@@ -1371,7 +1371,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
       onPluginsInstalled: _rescanPlugins,
       onToggleFavorite: _toggleFavorite,
       visible: visible,
-      onToggle: () => _saveSetting('bottomBarVisible', !visible),
+      onToggle: () {}, // sin colapso accidental desde la barra
       onOpenSettings: _showLauncherSettings,
       position: position,
       onPositionChange: (p) => _saveSetting('bottomBarPosition', p),
@@ -1495,9 +1495,9 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
               'favorites',
               _FavoritesBar(
                 apps: favoriteApps,
-                visible: favBarVisible,
-                onToggle: () => _saveSetting('favoritesBarVisible', !favBarVisible),
-                position: favBarPosition,
+                  visible: favBarVisible,
+                  onToggle: () {}, // sin colapso accidental desde la barra
+                  position: favBarPosition,
                 onPositionChange: (p) => _saveSetting('favoritesBarPosition', p),
                 orientation: (edge == 'left' || edge == 'right') ? 'vertical' : 'horizontal',
                 mode: favBarMode,
@@ -1563,8 +1563,9 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
 
   void _reportEdgeBoxRect(int index, Rect rect) {
     _boxRects[index] = rect;
-    // Fuerza un rebuild (throttle a 1 por frame) para que overlays que usan
-    // estas rectas (p. ej. "Mostrar áreas de toque") se redibujen al moverse.
+    // Solo fuerza rebuild si el overlay de debug de cajas está activo;
+    // de lo contrario, el mapa se actualiza sin reconstruir el escritorio.
+    if (!((_settings['showTapBoxes'] as bool?) ?? false)) return;
     if (!_boxRectsDirty) {
       _boxRectsDirty = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {

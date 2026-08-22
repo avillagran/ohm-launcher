@@ -51,7 +51,7 @@ class _FavoritesBar extends StatelessWidget {
       boxIndex: -1,
       visible: visible,
       onToggle: onToggle,
-      onAddContent: onToggle,
+      onAddContent: () {}, // evita ocultar la barra de favoritos al tocar "+"
       onConfig: () {},
       onDragUpdate: (d, accent) {},
       onDragEnd: (d) {},
