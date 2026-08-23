@@ -77,4 +77,5 @@
     verificado con grep de palabras ES y flutter analyze 0 errores; build verde).
   - README.md reescrito en inglés. AGENTS.md se mantuvo en español (protegido
     por el sistema); traducción EN disponible en AGENTS.en.md.
-  - Pendiente: comentarios de android/** (Kotlin) a inglés.
+  - Pendiente: comentarios de android/** (Kotlin) a inglés. -> HECHO (traducidos).
+  - Commit local en master (6ee19d1); pendiente push por autorización.
