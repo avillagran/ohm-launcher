@@ -35,8 +35,32 @@ lib/
     ...
   l10n/                     # ARB localization (app_en.arb, app_es.arb)
 android/.../MainActivity.kt # native channel: apps, icons, battery, screen capture
-examples/plugins/io.github.ohm.omarchy-link/  # reference Omarchy QML plugin
+examples/plugins/cl.villagranquiroz.omarchy-link/  # reference Omarchy QML plugin
 ```
+
+## Install the Omarchy plugin
+
+The launcher talks to an Omarchy (Linux) plugin so you can share files, sync
+clipboard/themes, back up photos, and share the screen between the phone and
+the desktop. The reference plugin lives in this repo under
+`examples/plugins/cl.villagranquiroz.omarchy-link/`.
+
+Copy it into your Quickshell/Omarchy plugins directory and enable it:
+
+```bash
+# On your Linux (Omarchy) machine:
+mkdir -p ~/.config/quickshell/plugins
+cp -r /path/to/OhmLauncher/examples/plugins/cl.villagranquiroz.omarchy-link \
+      ~/.config/quickshell/plugins/
+
+# Then enable "cl.villagranquiroz.omarchy-link" from the Omarchy plugin list.
+```
+
+The panel shows a QR `omarchy://<pc-ip>:8753?id=<host>`. **Scan it with the
+phone's camera** (the normal system camera app) — Android routes the
+`omarchy://` intent to OhmLauncher, which connects to your PC. See
+`examples/plugins/cl.villagranquiroz.omarchy-link/README.md` for the full
+contract and the C++ QR image-provider snippet.
 
 ## Build & verify
 

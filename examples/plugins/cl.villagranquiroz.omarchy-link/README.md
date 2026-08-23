@@ -66,6 +66,6 @@ engine->addImageProvider("qrcode", new QrCodeProvider);
 
 ## Install in Omarchy
 Copy this folder to your Omarchy plugins directory (e.g.
-`~/.config/quickshell/plugins/io.github.ohm.omarchy-link/`) or your marketplace
+`~/.config/quickshell/plugins/cl.villagranquiroz.omarchy-link/`) or your marketplace
 path, then enable it from the Omarchy plugin list. The bar widget appears in the
 Omarchy bar; the panel opens from the plugin launcher.
