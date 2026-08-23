@@ -1,11 +1,11 @@
 part of 'package:ohm_launcher/main.dart';
 
 // ============================================================================
-//  2. MOTOR DE VIGILANCIA DE ARCHIVOS (File Watcher Engine)
+//  2. FILE WATCHER ENGINE
 //  ============================================================================
-//  Escucha cambios en widgets_config.json y en la carpeta de plugins.
-//  Debounce de 400ms: los editores móviles (Acode, etc.) suelen escribir en
-//  ráfagas y queremos recargar UNA vez por guardado.
+//  Listens for changes in widgets_config.json and in the plugins folder.
+//  400ms debounce: mobile editors (Acode, etc.) usually write in
+//  bursts and we want to reload ONCE per save.
 // ============================================================================
 
 class FileWatcherEngine {
@@ -16,8 +16,8 @@ class FileWatcherEngine {
   final List<StreamSubscription<FileSystemEvent>> _subscriptions = [];
   Timer? _debounceTimer;
 
-  /// Vigila [configDir] (archivo widgets_config.json) y [pluginsDir]
-  /// (recursivo, para recargar cualquier manifest o entry point).
+  /// Watches [configDir] (widgets_config.json file) and [pluginsDir]
+  /// (recursive, to reload any manifest or entry point).
   void start({
     required Directory configDir,
     required Directory pluginsDir,
@@ -46,11 +46,11 @@ class FileWatcherEngine {
         _debounceTimer?.cancel();
         _debounceTimer = Timer(debounce, onFire);
       }, onError: (Object _) {
-        // Si el watcher falla (p. ej. carpeta aún no creada) se ignora:
-        // la recarga manual desde la UI sigue funcionando.
+        // If the watcher fails (e.g. folder not yet created) it is ignored:
+        // manual reload from the UI still works.
       });
       _subscriptions.add(sub);
-    } catch (_) {/* carpeta inexistente o sin soporte de watch */}
+    } catch (_) {/* non-existent folder or no watch support */}
   }
 
   void stop() {

@@ -1,6 +1,6 @@
 part of 'package:ohm_launcher/main.dart';
 
-// Paleta de colores de acento para las cajas de borde.
+// Accent color palette for the edge boxes.
 const _kBoxAccentColors = <String>[
   '#66E0FF',
   '#7EE787',
@@ -13,13 +13,13 @@ const _kBoxAccentColors = <String>[
 ];
 
 // ============================================================================
-//  6. PANTALLA PRINCIPAL — OhmHomeScreen
+//  6. MAIN SCREEN — OhmHomeScreen
 //  ============================================================================
-//  * Escritorio reactivo renderizado desde widgets_config.json.
-//  * Watcher de archivos: recarga instantánea al guardar el JSON.
-//  * Dock inferior con los bar-widgets de los plugins instalados.
-//  * "Lanzador de Comandos Central" (Super+Space): filtra apps simuladas,
-//    plugins instalados y catálogo del marketplace.
+//  * Reactive desktop rendered from widgets_config.json.
+//  * File watcher: instant reload on saving the JSON.
+//  * Bottom dock with the installed plugins' bar-widgets.
+//  * "Central Command Launcher" (Super+Space): filters simulated apps,
+//    installed plugins and the marketplace catalog.
 // ============================================================================
 
 class OhmHomeScreen extends StatefulWidget {
@@ -57,25 +57,30 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
   final Map<int, Rect> _boxRects = <int, Rect>{};
   bool _boxRectsDirty = false;
 
-  /// Capa de componentes generados en caliente (IA / API local).
+  /// Layer of components generated hot (AI / local API).
   List<Map<String, dynamic>> _runtimeWidgets = const [];
   bool _aiPanelOpen = false;
   LocalApiServer? _apiServer;
+  OmarchyLink? _omarchyLink;
+  OmarchyAnnouncer? _announcer;
+  ScreenCapture? _screenCapture;
+  // Omarchy peer detected via `omarchy://` QR (system camera).
+  ({String ip, int port, String id})? _omarchyPeer;
 
-  /// Terminal tipo Quake: se despliega con un swipe-down desde la mitad superior.
+  /// Quake-style terminal: unfolds with a swipe-down from the upper half.
   bool _quakeOpen = false;
   bool _quakeEnabled = true;
   double _quakeStartY = 0;
   double _quakeAccumDy = 0;
   final GlobalKey<_QuakeTerminalState> _quakeTerminalKey = GlobalKey();
 
-  /// Carpeta privada de la app donde se instalan bins propios (herdr/opencode/
-  /// claude…) ejecutables desde el shell embebido. No depende de Termux.
+  /// Private app folder where own bins are installed (herdr/opencode/
+  /// claude…) executables from the embedded shell. Does not depend on Termux.
   String? _binDir;
   String? _appHomeDir;
 
-  /// Desplazamiento visual en vivo de las cajas del borde destino para dejar
-  /// el hueco donde caería la caja arrastrada.
+  /// Live visual shift of the target edge boxes to leave
+  /// the gap where the dragged box would fall.
   ({int idx, String edge, int insertAt, Size size})? _liveBoxShift;
 
   final GlobalKey<_AppDrawerState> _drawerKey = GlobalKey<_AppDrawerState>();
@@ -90,9 +95,17 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     super.initState();
     _bootstrap();
     DynamicWidgetEngine.onBoxAddContent = _showBoxContentPicker;
+    // When scanning an `omarchy://` QR with the system camera, the launcher
+    // opens and connects to the peer PC.
+    OhmPlatform.onOmarchyPeerLink = (ip, port, id) {
+      if (mounted) {
+        setState(() => _omarchyPeer = (ip: ip, port: port, id: id));
+        _showOmarchyPeerConnected(id, ip, port);
+      }
+    };
     if (!_isTestEnvironment) {
       _updateSystemNavigationMode();
-      // Fuerza la navegación por gestos si Xiaomi la desactivó y tenemos permiso.
+      // Forces gesture navigation if Xiaomi disabled it and we have permission.
       unawaited(_ensureGestureNavigation());
     }
   }
@@ -112,7 +125,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
   }
 
   Future<void> _ensureGestureNavigation() async {
-    // Siempre dibuja detrás de la barra de navegación para evitar fondo blanco.
+    // Always draws behind the navigation bar to avoid a white background.
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     final accessibilityEnabled = await OhmPlatform.isGestureAccessibilityEnabled();
     final mode = await OhmPlatform.getNavigationMode();
@@ -122,9 +135,9 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
         _systemNavigationMode = mode;
       });
     }
-    // Por defecto se usan los botones de Android (barra del sistema). Los gestos
-    // quedan como opción: activarlos en la config del launcher ("Forzar gestos"
-    // o el servicio de accesibilidad). No forzamos nada aquí.
+    // By default Android buttons are used (system bar). Gestures
+    // remain as an option: enable them in the launcher config ("Force gestures"
+    // or the accessibility service). We do not force anything here.
   }
 
   Future<void> _bootstrap() async {
@@ -219,7 +232,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     });
   }
 
-  // ---------------------------------------------- edición de widgets
+  // ---------------------------------------------- widget editing
 
   Future<void> _mutateWidget(int index, List<dynamic> Function(List<dynamic>) fn) async {
     await _storage.mutateDesktopWidgets(_desktopIndex, fn);
@@ -294,10 +307,15 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
   Future<void> _rescanPlugins() async {
     final plugins = await PluginDiscovery.discover(Directory(_storage.pluginsPath));
     if (!mounted) return;
+    // The desktop engine (_buildPluginWidget) resolves the plugin_widget
+    // against PluginSnapshot.latest, so it must stay in sync with the
+    // state of the home; otherwise widgets added to the desktop
+    // fail with "not installed or not valid".
+    PluginSnapshot.latest = plugins;
     setState(() => _plugins = plugins);
   }
 
-  // --------------------------------------------------- API local + capa IA
+  // --------------------------------------------------- local API + AI layer
 
   AiClient _buildAiClient() {
     final baseUrl = (_settings['aiBaseUrl'] as String? ?? '').trim();
@@ -325,7 +343,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
       if (!await bin.exists()) await bin.create(recursive: true);
       _binDir = bin.path;
       _appHomeDir = support.path;
-      // Copia la base de datos terminfo empaquetada para tmux/ssh/etc.
+      // Copies the bundled terminfo database for tmux/ssh/etc.
       final terminfoDir = Directory('${support.path}/.terminfo/x');
       if (!await terminfoDir.exists()) await terminfoDir.create(recursive: true);
       final terminfoFile = File('${terminfoDir.path}/xterm-256color');
@@ -333,7 +351,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
         final data = await rootBundle.load('assets/terminfo/x/xterm-256color');
         await terminfoFile.writeAsBytes(data.buffer.asUint8List(), flush: true);
       }
-      // Asegura symlinks de Dropbear si está instalado.
+      // Ensures Dropbear symlinks if installed.
       final dropbear = File('${bin.path}/dropbearmulti');
       if (await dropbear.exists()) {
         for (final name in ['ssh', 'dbclient', 'scp', 'dropbearkey']) {
@@ -351,9 +369,9 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     }
   }
 
-  /// Instala un binario propio en la carpeta privada de la app y le da permiso
-  /// de ejecución. Devuelve un mapa con el resultado. Los bins quedan en el
-  /// PATH del shell embebido para poder invocarlos por nombre.
+  /// Installs an own binary in the private app folder and gives it permission
+  /// of execution. Returns a map with the result. The bins stay in the
+  /// PATH of the embedded shell so we can invoke them by name.
   Future<Map<String, dynamic>> _installBin(String name, List<int> bytes) async {
     if (_binDir == null) return {'ok': false, 'error': 'bin_dir_unavailable'};
     final file = File('$_binDir/$name');
@@ -372,8 +390,8 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     };
   }
 
-  /// Instala un binario recibiendo el stream de bytes en crudo (sin base64),
-  /// escribiéndolo directo a disco para soportar archivos grandes (bun ~90 MB).
+  /// Installs a binary receiving the raw byte stream (no base64),
+  /// writing it directly to disk to support large files (bun ~90 MB).
   Future<Map<String, dynamic>> _installBinRaw(String name, Stream<List<int>> bytes) async {
     if (_binDir == null) return {'ok': false, 'error': 'bin_dir_unavailable'};
     final file = File('$_binDir/$name');
@@ -442,8 +460,88 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
   Future<void> _startApiServer() async {
     if (_apiServer?.isRunning == true) return;
     final port = ((_settings['apiServerPort'] as num?) ?? 8753).toInt();
+    final link = OmarchyLink(
+      onDiscover: () async => {
+        'name': 'OhmLauncher',
+        'model': 'Android',
+        'version': 1,
+        'lan_ip': await _lanIp(),
+        'port': port,
+        'capabilities': ['clipboard', 'file', 'theme', 'screen', 'photos'],
+      },
+      onClipboardGet: () async {
+        final data = await Clipboard.getData('text/plain');
+        return data?.text ?? '';
+      },
+      onClipboardSet: (text) async {
+        await Clipboard.setData(ClipboardData(text: text));
+      },
+      onThemeGet: () async => _themeSnapshot(),
+      onThemeSet: (theme) async {
+        for (final e in theme.entries) {
+          await _saveSetting(e.key, e.value);
+        }
+        if (mounted) setState(() {});
+      },
+      onFileReceive: (name, bytes) async {
+        final dir = Directory('${StorageService.kPublicRoot}/shared');
+        await dir.create(recursive: true);
+        final f = File('${dir.path}/$name');
+        await f.writeAsBytes(bytes);
+        return {'ok': true, 'path': f.path, 'bytes': bytes.length};
+      },
+      onFileSend: (path) async {
+        final f = File(path);
+        if (!await f.exists()) return <int>[];
+        return await f.readAsBytes();
+      },
+      onScreenStart: () async {
+        _screenCapture ??= ScreenCapture(
+          onFrame: (jpeg) => _omarchyLink?.broadcast(screenFrameMessage(jpeg)),
+        );
+        final ok = await _screenCapture!.start();
+        return {'status': ok ? 'started' : 'denied'};
+      },
+      onScreenStop: () async {
+        await _screenCapture?.stop();
+      },
+      onPhotosBackup: () async {
+        final roots = [
+          '/storage/emulated/0/DCIM/Camera',
+          '/storage/emulated/0/DCIM',
+          '/storage/emulated/0/Pictures',
+          '/sdcard/DCIM/Camera',
+          '/sdcard/DCIM',
+        ];
+        final photos = <Map<String, dynamic>>[];
+        for (final r in roots) {
+          final dir = Directory(r);
+          if (!await dir.exists()) continue;
+          await for (final e in dir.list(recursive: true, followLinks: false)) {
+            if (e is File) {
+              final ext = e.path.split('.').last.toLowerCase();
+              if (['jpg', 'jpeg', 'png', 'heic', 'webp', 'mp4', 'mov'].contains(ext)) {
+                final st = await e.stat();
+                photos.add({
+                  'path': e.path,
+                  'name': e.path.split('/').last,
+                  'size': st.size,
+                  'modified': st.modified.millisecondsSinceEpoch,
+                });
+              }
+            }
+          }
+        }
+        return {'status': 'ok', 'count': photos.length, 'photos': photos};
+      },
+    );
+    _omarchyLink = link;
+    _announcer = OmarchyAnnouncer(port: port, lanIp: await _lanIp());
+    unawaited(_announcer!.start());
     _apiServer = LocalApiServer(
       port: port,
+      lanMode: true,
+      omarchyLink: link,
       onCommand: (cmd, args) => ShellExecutor.run(
         cmd,
         args: args,
@@ -468,9 +566,72 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     await _apiServer!.start();
   }
 
+  /// Preferred LAN IP for Omarchy to connect (first non-loopback).
+  Future<String> _lanIp() async {
+    try {
+      final ifaces = await NetworkInterface.list(type: InternetAddressType.IPv4);
+      for (final i in ifaces) {
+        for (final a in i.addresses) {
+          if (!a.isLoopback) return a.address;
+        }
+      }
+    } catch (_) {}
+    return '127.0.0.1';
+  }
+
+  /// Subset of settings representing the launcher's theme/colors.
+  Map<String, dynamic> _themeSnapshot() {
+    final colors = <String, dynamic>{};
+    for (final e in _settings.entries) {
+      if (e.key.toLowerCase().contains('color') ||
+          e.key.toLowerCase().contains('tema') ||
+          e.key.toLowerCase().contains('theme') ||
+          e.key.toLowerCase().contains('background') ||
+          e.key.toLowerCase().contains('accent')) {
+        colors[e.key] = e.value;
+      }
+    }
+    return {'colors': colors};
+  }
+
   Future<void> _stopApiServer() async {
     await _apiServer?.stop();
+    _omarchyLink?.dispose();
+    _omarchyLink = null;
+    await _announcer?.stop();
+    _announcer = null;
     _apiServer = null;
+  }
+
+  /// Shows the QR dialog to connect Omarchy (manual fallback to the
+  /// network/Bluetooth auto-detection).
+  void _showOmarchyQr() {
+    final ann = _announcer;
+    if (ann == null) return;
+    showDialog(
+      context: context,
+      builder: (_) => OmarchyQrDialog(
+        uri: ann.qrUri,
+        lanIp: ann.lanIp,
+        port: ann.port,
+      ),
+    );
+  }
+
+  /// Visual confirmation when the Omarchy peer is detected via `omarchy://` QR
+  /// scanned with the system camera.
+  void _showOmarchyPeerConnected(String id, String ip, int port) {
+    final l10n = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF16202A),
+        content: Text(
+          l10n.connectedToOmarchy(id, ip, port),
+          style: const TextStyle(color: Color(0xFF66E0FF)),
+        ),
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   Future<void> _reloadRuntimeWidgets() async {
@@ -478,13 +639,13 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     if (mounted) setState(() => _runtimeWidgets = list);
   }
 
-  /// Inyecta un componente (JSON del DynamicWidgetEngine o QML) en la capa
-  /// flotante en caliente. [source] es el texto del nodo/componente.
+  /// Injects a component (JSON from DynamicWidgetEngine or QML) into the layer
+  /// floating hot. [source] is the node/component text.
   Future<void> _injectRuntimeWidget(String source, String format) async {
     try {
       if (format == 'qml') {
-        // El bridge QML espera un archivo; lo guardamos como widget suelto y
-        // lo referenciamos por contenido embebido en el overlay.
+        // The QML bridge expects a file; we save it as a loose widget and
+        // we reference it by embedded content in the overlay.
         await _storage.appendRuntimeWidget({
           'type': 'qml',
           'source': source,
@@ -544,8 +705,8 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     await _reloadRuntimeWidgets();
   }
 
-  /// Renderiza la capa flotante de componentes generados (JSON o QML) en la
-  /// parte superior del escritorio. Cada tarjeta tiene un botón para quitarse.
+  /// Renders the layer of generated components (JSON or QML) in the
+  /// upper part of the desktop. Each card has a button to remove itself.
   Widget _buildRuntimeLayer() {
     if (_runtimeWidgets.isEmpty) return const SizedBox.shrink();
     final cards = <Widget>[];
@@ -622,10 +783,10 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
       if (!mounted) return;
       InstalledAppsSnapshot.latest = apps;
       setState(() => _installedApps = apps);
-    } catch (_) {/* canal nativo no disponible */}
+    } catch (_) {/* native channel unavailable */}
   }
 
-  // ---------------------------------------------- favoritos
+  // ---------------------------------------------- favorites
 
   void _toggleFavorite(InstalledApp app) {
     final key = app.key;
@@ -646,9 +807,9 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     unawaited(_storage.saveFavorites(_favorites));
   }
 
-  // ---------------------------------------------- cajón: abrir / menú
+  // ---------------------------------------------- drawer: open / menu
 
-  /// Abre una app desde el cajón, limpia el buscador y baja el teclado.
+  /// Opens an app from the drawer, clears the search and dismisses the keyboard.
   void _openAppFromDrawer(InstalledApp app) {
     unawaited(OhmPlatform.launchApp(app));
     _drawerKey.currentState?.clearSearch();
@@ -670,7 +831,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     }
   }
 
-  /// Menú contextual (long-press 2s) sobre una app del cajón: favoritos o caja.
+  /// Context menu (long-press 2s) over a drawer app: favorites or box.
   Future<void> _showAppContextMenu(InstalledApp app) async {
     final isFav = _favorites.contains(app.key);
     final choice = await showModalBottomSheet<String>(
@@ -727,7 +888,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     }
   }
 
-  /// Agrega una app a la caja del borde [edge]; crea la caja si no existe.
+  /// Adds an app to the edge box [edge]; creates the box if it does not exist.
   Future<void> _addAppToEdgeBox(InstalledApp app, String edge) async {
     final map = _storage.readConfigMap() ?? <String, dynamic>{};
     final boxes = StorageService.edgeBoxesOf(map);
@@ -748,7 +909,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     }
   }
 
-  // ---------------------------------------------- multi-escritorio
+  // ---------------------------------------------- multi-desktop
 
   Future<void> _addDesktop(int index) async {
     await _storage.addDesktop(index: index);
@@ -760,13 +921,13 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     await _reloadConfig();
   }
 
-  /// Añade una caja de borde vacía al borde inferior.
+  /// Adds an empty edge box to the bottom edge.
   Future<void> _addBox(int index) async {
     await _storage.addEdgeBox(edge: 'bottom');
     await _reloadConfig();
   }
 
-  /// Menú radial al mantener pulsado el fondo del escritorio.
+  /// Radial menu on long-press of the desktop background.
   void _showRadialMenu(int index) {
     final configSource = File(_storage.configPath).existsSync()
         ? File(_storage.configPath).readAsStringSync()
@@ -814,11 +975,15 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
           Navigator.of(dialogContext).pop();
           _restartApp();
         },
+        onConnectOmarchy: () {
+          Navigator.of(dialogContext).pop();
+          _showOmarchyQr();
+        },
       ),
     );
   }
 
-  /// Reinicia el launcher (recrea la Activity y el motor Flutter).
+  /// Restarts the launcher (recreates the Activity and the Flutter engine).
   void _restartApp() {
     unawaited(OhmPlatform.restartApp());
   }
@@ -841,7 +1006,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     await _reloadConfig();
   }
 
-  /// Selector de widgets para añadir al escritorio actual.
+  /// System widget picker to add to the current desktop.
   Future<void> _showWidgetPicker(int index) async {
     final chosen = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
@@ -853,7 +1018,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     await _addWidget(index, chosen);
   }
 
-  /// Selector de contenido para una caja (app, widget del sistema o plugin).
+  /// Content picker for a box (app, system widget or plugin).
   Future<void> _showBoxContentPicker(int boxIndex) async {
     final kind = await showModalBottomSheet<String>(
       context: context,
@@ -905,7 +1070,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     }
   }
 
-  /// Selector de apps para una caja: lista con estrellas y selección múltiple.
+  /// App picker for a box: list with stars and multi-selection.
   Future<void> _showBoxAppPicker(int boxIndex) async {
     final selected = await showModalBottomSheet<List<InstalledApp>>(
       context: context,
@@ -922,7 +1087,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     }).toList());
   }
 
-  /// Selector de widgets del sistema para una caja.
+  /// System widget picker for a box.
   Future<void> _showBoxWidgetPicker(int boxIndex) async {
     final chosen = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
@@ -934,7 +1099,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     await _addItemsToBox(boxIndex, [chosen]);
   }
 
-  /// Selector de plugins para una caja.
+  /// Plugin picker for a box.
   Future<void> _showBoxPluginPicker(int boxIndex) async {
     final plugins = PluginSnapshot.latest.where((p) => p.isValid).toList();
     final chosen = await showModalBottomSheet<Map<String, dynamic>>(
@@ -978,7 +1143,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     await _addItemsToBox(boxIndex, [chosen]);
   }
 
-  /// Configuración de una caja de borde: dirección, mostrar título, añadir contenido.
+  /// Edge box configuration: address, show title, add content.
   Future<void> _showEdgeBoxConfig(int boxIndex) async {
     final map = _storage.readConfigMap();
     if (map == null) return;
@@ -1104,7 +1269,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                       ),
                     ),
                   ),
-                  // Botón para volver al color por defecto.
+                  // Button to revert to the default color.
                   InkWell(
                     onTap: () {
                       unawaited(apply(() => _storage.updateEdgeBox(boxIndex, (b) {
@@ -1264,7 +1429,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     await _reloadConfig();
   }
 
-  /// Configuración del launcher: tipografía, fondo y launcher por defecto.
+  /// Launcher settings: typography, background and default launcher.
   Future<void> _showDesktopSettings(int desktopIndex) async {
     await showModalBottomSheet<void>(
       context: context,
@@ -1335,6 +1500,10 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
         onAiApiKey: (v) => _saveSetting('aiApiKey', v),
         onAiModel: (v) => _saveSetting('aiModel', v),
         onAiSystemPrompt: (v) => _saveSetting('aiSystemPrompt', v),
+        currentBoxRadius: ((_settings['boxRadius'] as num?) ?? 14).toDouble(),
+        currentBarRadius: ((_settings['barRadius'] as num?) ?? 18).toDouble(),
+        onBoxRadius: (v) => _saveSetting('boxRadius', v),
+        onBarRadius: (v) => _saveSetting('barRadius', v),
       ),
     );
   }
@@ -1359,7 +1528,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     await _storage.saveSettings(_settings);
   }
 
-  Widget _buildBottomBar(String position) {
+  Widget _buildBottomBar(String position, double radius) {
     final visible = _settings['bottomBarVisible'] as bool? ?? true;
     return _OhmBottomBar(
       plugins: _plugins,
@@ -1371,7 +1540,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
       onPluginsInstalled: _rescanPlugins,
       onToggleFavorite: _toggleFavorite,
       visible: visible,
-      onToggle: () {}, // sin colapso accidental desde la barra
+      onToggle: _toggleBottomBarVisible,
       onOpenSettings: _showLauncherSettings,
       position: position,
       onPositionChange: (p) => _saveSetting('bottomBarPosition', p),
@@ -1379,14 +1548,18 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
       pluginCount: _plugins.where((p) => p.isValid).length,
       serviceCount: _plugins.where((p) => p.kinds.contains('service')).length,
       orientation: (position == 'left' || position == 'right') ? 'vertical' : 'horizontal',
+      radius: radius,
+      disabledPluginIds: _storage.disabledPluginIds(),
+      onTogglePluginEnabled: _togglePluginEnabled,
+      onDeletePlugin: _deletePlugin,
+      onAddPluginWidget: _addPluginToDesktop,
     );
   }
 
-  /// Renderiza las cajas de borde agrupadas por borde, compartiendo el espacio
-  /// del borde con la barra de favoritos y la barra inferior de plugins para
-  /// que no se solapen.
+  /// Renders edge boxes grouped by edge, sharing the space
+  /// of the edge with the favorites bar and the bottom plugins bar to
+  /// that they do not overlap.
   List<Widget> _buildEdgeBoxes() {
-    final bottomBarVisible = _settings['bottomBarVisible'] as bool? ?? true;
     final bottomBarPosition = _settings['bottomBarPosition'] as String? ?? 'bottom';
     final favoriteAppsByKey = {for (final a in _installedApps) a.key: a};
     final favoriteApps = _favorites
@@ -1399,6 +1572,9 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     final favBarMode = favBarModeRaw is String && favBarModeRaw.isNotEmpty
         ? favBarModeRaw
         : (favBarPosition == 'left' || favBarPosition == 'right' ? 'vertical' : 'horizontal');
+    // Edge radii: 0 = square corners (no rounding).
+    final boxRadius = ((_settings['boxRadius'] as num?) ?? 14).toDouble();
+    final barRadius = ((_settings['barRadius'] as num?) ?? 18).toDouble();
 
     final map = _storage.readConfigMap();
     final boxes = map == null ? const <Map<String, dynamic>>[] : StorageService.edgeBoxesOf(map);
@@ -1442,6 +1618,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
             onReportRect: (boxIndex, rect) => _reportEdgeBoxRect(boxIndex, rect),
             boxRects: _boxRects,
             boxSpacing: ((_settings['boxSpacing'] as num?) ?? 1.0).toDouble(),
+            radius: boxRadius,
           ),
         );
 
@@ -1452,12 +1629,12 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
               : Offset(shift.size.width + gap, 0.0);
           var displacement = 0;
           if (draggedOriginalPos < 0) {
-            // La caja arrastrada viene de otro borde: empuja hacia adelante a
-            // partir del punto de inserción.
+            // The dragged box comes from another edge: pushes forward the
+            // starting from the insertion point.
             if (j >= shift.insertAt) displacement = 1;
           } else {
-            // Mismo borde: las cajas entre la posición original y la nueva se
-            // deslizan un puesto para dejar/liberar el hueco.
+            // Same edge: the boxes between the original and new position are
+            // shift one place to leave/release the gap.
             if (draggedOriginalPos < shift.insertAt) {
               if (j > draggedOriginalPos && j <= shift.insertAt) {
                 displacement = -1;
@@ -1483,8 +1660,10 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
         items.add(child);
       }
 
-      // Barra de favoritos: comparte el borde con las cajas.
-      if (favoriteApps.isNotEmpty && favBarVisible && favBarPosition == edge) {
+      // Favorites bar: shares the edge with the boxes. Always mounted;
+      // the `visible` flag controls the collapse to its inner handle, so
+      // the user can expand/close by touching the handle.
+      if (favoriteApps.isNotEmpty && favBarPosition == edge) {
         items.add(
           Padding(
             padding: EdgeInsets.only(
@@ -1495,28 +1674,30 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
               'favorites',
               _FavoritesBar(
                 apps: favoriteApps,
-                  visible: favBarVisible,
-                  onToggle: () {}, // sin colapso accidental desde la barra
-                  position: favBarPosition,
+                visible: favBarVisible,
+                onToggle: _toggleFavBarVisible,
+                position: favBarPosition,
                 onPositionChange: (p) => _saveSetting('favoritesBarPosition', p),
                 orientation: (edge == 'left' || edge == 'right') ? 'vertical' : 'horizontal',
                 mode: favBarMode,
                 onReordered: (order) => setState(() => _reorderFavorites(order)),
+                radius: barRadius,
               ),
             ),
           ),
         );
       }
 
-      // Barra inferior de plugins: comparte el borde con las cajas.
-      if (bottomBarVisible && bottomBarPosition == edge) {
+      // Bottom plugins bar: shares the edge with the boxes. Always
+      // mounts; `visible` controls the collapse to the handle.
+      if (bottomBarPosition == edge) {
         items.add(
           Padding(
             padding: EdgeInsets.only(
               bottom: isVertical ? 8 : 0,
               right: isVertical ? 0 : 8,
             ),
-            child: _wrapDrag('bottom', _buildBottomBar(edge)),
+            child: _wrapDrag('bottom', _buildBottomBar(edge, barRadius)),
           ),
         );
       }
@@ -1556,6 +1737,48 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     await _reloadConfig();
   }
 
+  /// Collapses/expands the favorites bar (toggles its handle).
+  void _toggleFavBarVisible() {
+    setState(() {
+      _saveSetting('favoritesBarVisible', !((_settings['favoritesBarVisible'] as bool?) ?? true));
+    });
+  }
+
+  /// Collapses/expands the plugins bar (toggles its handle).
+  void _toggleBottomBarVisible() {
+    setState(() {
+      _saveSetting('bottomBarVisible', !((_settings['bottomBarVisible'] as bool?) ?? true));
+    });
+  }
+
+  /// Enables/disables a plugin (moves it between plugins/ and plugins.disabled/).
+  Future<void> _togglePluginEnabled(String id) async {
+    final disabled = _storage.disabledPluginIds();
+    if (disabled.contains(id)) {
+      await _storage.enablePlugin(id);
+    } else {
+      await _storage.disablePlugin(id);
+    }
+    await _rescanPlugins();
+  }
+
+  /// Physically removes a plugin and rescans.
+  Future<void> _deletePlugin(String id) async {
+    await _storage.deletePlugin(id);
+    await _rescanPlugins();
+  }
+
+  /// Adds a plugin (bar-widget) as a floating widget on the current desktop.
+  Future<void> _addPluginToDesktop(OhmPlugin plugin) async {
+    final id = plugin.manifest?.id ?? plugin.id;
+    final node = <String, dynamic>{
+      'type': 'plugin_widget',
+      'pluginId': id,
+      'kind': 'bar-widget',
+    };
+    await _addWidget(_desktopIndex, node);
+  }
+
   Future<void> _deleteEdgeBox(int index) async {
     await _storage.deleteEdgeBox(index);
     await _reloadConfig();
@@ -1563,8 +1786,8 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
 
   void _reportEdgeBoxRect(int index, Rect rect) {
     _boxRects[index] = rect;
-    // Solo fuerza rebuild si el overlay de debug de cajas está activo;
-    // de lo contrario, el mapa se actualiza sin reconstruir el escritorio.
+    // Only forces a rebuild if the box debug overlay is active;
+    // otherwise the map updates without rebuilding the desktop.
     if (!((_settings['showTapBoxes'] as bool?) ?? false)) return;
     if (!_boxRectsDirty) {
       _boxRectsDirty = true;
@@ -1575,7 +1798,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     }
   }
 
-  /// Reordena los items dentro de una caja (arrastre con long-press, 1s).
+  /// Reorders items within a box (drag with long-press, 1s).
   Future<void> _reorderEdgeBoxItems(int boxIndex, int from, int to) async {
     if (from == to) return;
     final map = _storage.readConfigMap();
@@ -1637,13 +1860,13 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
       }
     }
 
-    // Sin borde destino: descarta el movimiento y vuelve al estado anterior.
+    // No target edge: discards the move and returns to the previous state.
     if (original != null) {
       setState(() {});
     }
   }
 
-  /// Mueve un item de una caja a otra (arrastre con long-press).
+  /// Moves an item from one box to another (drag with long-press).
   Future<void> _onEdgeBoxItemDropped(int sourceBox, int itemIndex, int targetBox) async {
     if (sourceBox == targetBox) return;
     final map = _storage.readConfigMap();
@@ -1676,9 +1899,9 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     return 'right';
   }
 
-  /// Igual que [_edgeFor] pero devuelve `null` si el dedo está lejos de todos
-  /// los bordes (más de [_kEdgeDragBand]). Así las cajas solo "sienten" un
-  /// borde destino cuando realmente te acercás a él.
+  /// Same as [_edgeFor] but returns `null` if the finger is far from all
+  /// the edges (more than [_kEdgeDragBand]). So boxes only "feel" a
+  /// target edge when you actually get close to it.
   static const double _kEdgeDragBand = 120.0;
   String? _edgeForBoxDrag(Offset p, Size s) {
     final dyTop = p.dy;
@@ -1718,22 +1941,22 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
             setState(() {});
           }
         } else if (_liveBoxShift != null) {
-          // Se alejó de cualquier borde: vuelve al orden original.
+          // Moved away from any edge: returns to the original order.
           _liveBoxShift = null;
           setState(() {});
         }
       }
     }
-    // Solo actualiza el wireframe (ValueNotifier); NO hace setState en la home
-    // para no reconstruir los _EdgeBox y perder el gesto del pointer.
+    // Only updates the wireframe (ValueNotifier); does NOT call setState on the home
+    // so as not to rebuild the _EdgeBox and lose the pointer gesture.
     _barDragTarget.value = edge;
     _boxDragPos.value = d.globalPosition;
     if (accent != null) _boxDragAccent.value = accent;
   }
 
-  /// Calcula dónde se insertaría la caja [idx] dentro del grupo del borde
-  /// [edge] según la posición del dedo. Se usa para desplazar visualmente las
-  /// cajas del destino y dejar ver el hueco en vivo.
+  /// Computes where box [idx] would be inserted within the edge group
+  /// [edge] according to the finger position. Used to visually shift the
+  /// the target boxes and show the live gap.
   ({int idx, String edge, int insertAt, Size size}) _computeBoxShift(
     int idx,
     Offset global,
@@ -1783,17 +2006,31 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
   }
 
   Widget _alignBar(String edge, Widget bar) {
-    return SafeArea(
-      child: Align(
-        alignment: switch (edge) {
-          'top' => Alignment.topCenter,
-          'bottom' => Alignment.bottomCenter,
-          'left' => Alignment.centerLeft,
-          _ => Alignment.centerRight,
-        },
-        child: bar,
-      ),
+    // top/bottom respect the safe area (status bar above, navigation bar
+    // bottom) so as not to end up behind the system UI. Since the bars
+    // render at the END of the Stack (above the desktop, including the
+    // particles), SafeArea does not push them "behind" anything: it simply
+    // shifts below the status bar / above the nav bar.
+    // left/right keep no lateral safe area.
+    final child = Align(
+      alignment: switch (edge) {
+        'top' => Alignment.topCenter,
+        'bottom' => Alignment.bottomCenter,
+        'left' => Alignment.centerLeft,
+        _ => Alignment.centerRight,
+      },
+      child: bar,
     );
+    if (edge == 'top' || edge == 'bottom') {
+      return SafeArea(
+        top: edge == 'top',
+        bottom: edge == 'bottom',
+        left: false,
+        right: false,
+        child: child,
+      );
+    }
+    return child;
   }
 
   Widget _wireframeOverlay() {
@@ -1803,15 +2040,15 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
         if (current == null) return const SizedBox.shrink();
         final source = _boxDragSourceEdge.value;
         final accent = _boxDragAccent.value;
-        // Banda ancha de glow a lo largo de cada borde de la pantalla, estilo
-        // el borde curvo de Samsung: un degradado que se desvanece hacia el
-        // centro. El borde bajo el dedo se tiñe del color de la caja; el resto
-        // queda en blanco tenue.
+        // Glow band along each screen edge, in the style
+        // Samsung's curved edge: a gradient that fades toward the
+        // center. The edge under the finger is tinted with the box color; the rest
+        // stays a faint blank.
         const band = 90.0;
         return IgnorePointer(
           child: Stack(
             children: [
-              // Borde superior.
+              // Top edge.
               Positioned(
                 left: 0,
                 top: 0,
@@ -1825,7 +2062,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                   isDest: current == 'top',
                 ),
               ),
-              // Borde inferior.
+              // Bottom edge.
               Positioned(
                 left: 0,
                 bottom: 0,
@@ -1839,7 +2076,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                   isDest: current == 'bottom',
                 ),
               ),
-              // Borde izquierdo.
+              // Left edge.
               Positioned(
                 left: 0,
                 top: 0,
@@ -1853,7 +2090,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                   isDest: current == 'left',
                 ),
               ),
-              // Borde derecho.
+              // Right edge.
               Positioned(
                 right: 0,
                 top: 0,
@@ -1867,8 +2104,8 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                   isDest: current == 'right',
                 ),
               ),
-              // Caja fantasma posicionada en el borde destino (cuando se cruza
-              // de borde): muestra dónde quedará la caja.
+              // Phantom box positioned on the target edge (when crossing
+              // of edge): shows where the box will land.
               if (current != source)
                 ValueListenableBuilder<Offset>(
                   valueListenable: _boxDragPos,
@@ -1883,9 +2120,9 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     );
   }
 
-  /// Renderiza una caja fantasma posicionada en el borde destino, indicando
-  /// dónde quedará la caja arrastrada al soltar. Solo se muestra al cruzar de
-  /// un borde a otro (no al reordenar dentro del mismo borde).
+  /// Renders a phantom box positioned on the target edge, indicating
+  /// where the dragged box will land on release. Only shown when crossing from
+  /// one edge to another (not when reordering within the same edge).
   Widget _buildDropGhost(String edge, Offset pos, Color accent) {
     final idx = _boxDragIndex;
     if (idx == null) return const SizedBox.shrink();
@@ -1933,9 +2170,9 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     );
   }
 
-  /// Calcula dónde quedará la caja arrastrada dentro del grupo del borde
-  /// destino. Devuelve la posición (a lo largo del borde) donde debe ir la
-  /// fantasma y el índice de inserción dentro del grupo.
+  /// Computes where the dragged box will land within the edge group
+  /// destination. Returns the position (along the edge) where the
+  /// phantom and the insertion index within the group.
   (double, int) _computeBoxDropSlot(String edge, Offset pos, int draggedIndex, List<dynamic> boxes, Size ghostSize) {
     final isVertical = edge == 'left' || edge == 'right';
     final (insertAt, orderedTarget) = _computeBoxDropOrder(edge, pos, draggedIndex, boxes);
@@ -1968,8 +2205,8 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     return (position, insertAt);
   }
 
-  /// Devuelve el índice de inserción dentro del grupo del borde destino y la
-  /// lista de índices del grupo ordenados por posición.
+  /// Returns the insertion index within the target edge group and the
+  /// list of group indices ordered by position.
   (int, List<int>) _computeBoxDropOrder(String edge, Offset pos, int draggedIndex, List<dynamic> boxes) {
     final isVertical = edge == 'left' || edge == 'right';
     final coord = isVertical ? pos.dy : pos.dx;
@@ -2017,9 +2254,9 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     final gestureFallback = _systemNavigationMode != 2 &&
         !_accessibilityServiceEnabled &&
         (_settings['gestureNavigationEnabled'] as bool? ?? false);
-    // Con botones de Android la barra del sistema se pinta con el fondo del
-    // launcher (si fuera transparente, MIUI la muestra blanca). En modo gestos
-    // sí dejamos la barra transparente.
+    // With Android buttons the system bar is painted with the launcher
+    // launcher (if it were transparent, MIUI shows it white). In gesture mode
+    // yes we leave the bar transparent.
     final useGestures = _systemNavigationMode == 2;
     final systemUi = SystemUiOverlayStyle(
       systemNavigationBarColor: useGestures ? Colors.transparent : const Color(0xFF0B0F14),
@@ -2045,19 +2282,17 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                         ? _ConfigErrorCard(title: 'Fallo al iniciar', message: _bootError!)
                         : _desktop,
               ),
-              // Gestos de cajón (swipe-up) y terminal Quake (swipe-down): se
-              // re-insertan MÁS ABAJO, por encima de las barras, para que las
-              // barras visibles (favoritos/plugins) no intercepten esos gestos.
-              // Se coloca DETRÁS de las cajas de borde para que los taps sobre
-              // estas últimas no sean interceptados; solo captura swipes en los
-              // bordes donde no hay caja.
+              // Drawer gestures (swipe-up) and Quake terminal (swipe-down): they
+              // re-insert LOWER, above the bars, so that the
+              // visible bars (favorites/plugins) do not intercept those gestures.
+              // It is placed BEHIND the edge boxes so that taps on
+              // these are not intercepted; it only captures swipes on the
+              // edges where there is no box.
               _GestureNavigationOverlay(
                 enabled: gestureFallback,
               ),
-              // Cajas de borde: agrupadas por borde, se pueden arrastrar entre bordes.
-              ..._buildEdgeBoxes(),
-              // Gestos por encima de las barras para que favoritos/plugins no los
-              // intercepten. translucent => los taps en barras siguen funcionando.
+              // Gestures above the bars so that favorites/plugins do not
+              // intercept. translucent => taps on bars keep working.
               if (_editWidget == null)
                 Positioned(
                   top: MediaQuery.sizeOf(context).height * 0.45,
@@ -2067,9 +2302,9 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                   child: RawGestureDetector(
                     behavior: HitTestBehavior.translucent,
                     gestures: <Type, GestureRecognizerFactory>{
-                      VerticalDragGestureRecognizer:
-                          GestureRecognizerFactoryWithHandlers<VerticalDragGestureRecognizer>(
-                        () => VerticalDragGestureRecognizer(),
+                      _YieldingVerticalDragGestureRecognizer:
+                          GestureRecognizerFactoryWithHandlers<_YieldingVerticalDragGestureRecognizer>(
+                        () => _YieldingVerticalDragGestureRecognizer(),
                         (recognizer) {
                           recognizer.onStart = (d) =>
                               _drawerKey.currentState?.onVerticalDragStart(d);
@@ -2092,9 +2327,9 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                   child: RawGestureDetector(
                     behavior: HitTestBehavior.translucent,
                     gestures: <Type, GestureRecognizerFactory>{
-                      VerticalDragGestureRecognizer:
-                          GestureRecognizerFactoryWithHandlers<VerticalDragGestureRecognizer>(
-                        () => VerticalDragGestureRecognizer(),
+                      _YieldingVerticalDragGestureRecognizer:
+                          GestureRecognizerFactoryWithHandlers<_YieldingVerticalDragGestureRecognizer>(
+                        () => _YieldingVerticalDragGestureRecognizer(),
                         (recognizer) {
                           recognizer.onStart = (d) {
                             _quakeStartY = d.localPosition.dy;
@@ -2115,7 +2350,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                     child: const SizedBox.expand(),
                   ),
                 ),
-              // Indicador de escritorios (arriba).
+              // Desktop indicator (top).
               if (_desktopCount > 1)
                 SafeArea(
                   child: Align(
@@ -2126,9 +2361,16 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                     ),
                   ),
                 ),
-              // Wireframe de destino mientras se arrastra una barra.
+              // Edge boxes and bars (favorites/plugins): are placed AT THE END
+              // of the Stack to guarantee they are ALWAYS visible above
+              // of the desktop (including the particle clock, which can occupy
+              // almost the whole screen) and above the gesture detectors
+              // translucent. Gestures keep working because the
+              // detectors are translucent and the bars capture their own taps.
+              ..._buildEdgeBoxes(),
+              // Wireframe of the target while dragging a bar.
               _wireframeOverlay(),
-              // Cajón de apps (aparece con swipe desde abajo).
+              // App drawer (appears with swipe up from below).
               _AppDrawer(
                 key: _drawerKey,
                 apps: _installedApps,
@@ -2136,15 +2378,15 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                 onAppTap: _openAppFromDrawer,
                 onAppLongPress: _showAppContextMenu,
               ),
-              // Depuración: muestra las zonas que capturan toques.
+              // Debug: shows the zones that capture touches.
               if ((_settings['showTapBoxes'] as bool?) ?? false)
                 _TapBoxesOverlay(
                   boxRects: _boxRects,
                   gestureFallback: gestureFallback,
                 ),
-              // Capa flotante de componentes generados por la IA / API local.
+              // Floating layer of components generated by the AI / local API.
               _buildRuntimeLayer(),
-              // Botón para abrir el asistente IA.
+              // Button to open the AI assistant.
               Align(
                 alignment: Alignment.bottomRight,
                 child: Padding(
@@ -2161,7 +2403,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                   ),
                 ),
               ),
-              // Panel de chat con la IA.
+              // AI chat panel.
               if (_aiPanelOpen)
                 AiPanel(
                   onSend: _chatWithAi,
@@ -2169,7 +2411,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                   onClear: () => unawaited(_clearRuntimeWidgets()),
                   configured: _buildAiClient().configured,
                 ),
-              // Terminal tipo Quake (swipe-down desde la mitad superior del desktop).
+              // Quake-style terminal (swipe-down from the upper half of the desktop).
               if (_quakeEnabled)
                 AnimatedPositioned(
                   duration: const Duration(milliseconds: 220),
@@ -2197,7 +2439,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                               onExit: _closeQuake,
                             ),
                           ),
-                          // Borde inferior para cerrar el terminal (tap o swipe-up).
+                          // Bottom edge to close the terminal (tap or swipe-up).
                           GestureDetector(
                             behavior: HitTestBehavior.opaque,
                             onTap: _closeQuake,
@@ -2230,7 +2472,54 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
 }
 
 // ---------------------------------------------------------------------------
-//  Terminal Quake: barra de agarre / cierre
+//  Vertical gesture recognizer that yields to desktop switching
+// ---------------------------------------------------------------------------
+
+/// Vertical recognizer that yields the gesture to the desktop PageView when the
+/// the swipe is predominantly horizontal, preventing swipes
+/// diagonals are "stolen" by the vertical gesture layer and break the switch
+/// of desktop. Keeps tracking with the finger for the drawer/Quake.
+class _YieldingVerticalDragGestureRecognizer
+    extends VerticalDragGestureRecognizer {
+  _YieldingVerticalDragGestureRecognizer();
+
+  double _dx = 0;
+  double _dy = 0;
+  bool _resolved = false;
+  bool _rejected = false;
+
+  @override
+  void addPointer(PointerDownEvent event) {
+    _dx = 0;
+    _dy = 0;
+    _resolved = false;
+    _rejected = false;
+    super.addPointer(event);
+  }
+
+  @override
+  void handleEvent(PointerEvent event) {
+    if (_rejected) return;
+    if (!_resolved && event is PointerMoveEvent) {
+      _dx += event.delta.dx;
+      _dy += event.delta.dy;
+      // Clear horizontal domain: release the recognizer so the PageView
+      // (change of desktop) to receive the gesture. 20px margin.
+      if (_dx.abs() > _dy.abs() + 20) {
+        _resolved = true;
+        _rejected = true;
+        resolve(GestureDisposition.rejected);
+        return;
+      }
+      // Clear vertical movement: commit to the vertical axis.
+      if (_dy.abs() > 20) _resolved = true;
+    }
+    super.handleEvent(event);
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  Quake terminal: grab / close bar
 // ---------------------------------------------------------------------------
 
 class _QuakeHandle extends StatelessWidget {
@@ -2278,7 +2567,7 @@ class _QuakeHandle extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-//  Pantalla de arranque
+//  Splash screen
 // ---------------------------------------------------------------------------
 
 class _BootScreen extends StatelessWidget {
@@ -2303,8 +2592,8 @@ class _BootScreen extends StatelessWidget {
   }
 }
 
-/// Destino de arrastre de cajas con resplandor "neon": pulsa el brillo del
-/// borde y un halo exterior mientras está resaltado.
+/// Drag target for boxes with "neon" glow: pulses the brightness of the
+/// and an outer halo while highlighted.
 class _PoleGlow extends StatefulWidget {
   const _PoleGlow({
     super.key,
@@ -2373,8 +2662,8 @@ class _PoleGlowState extends State<_PoleGlow>
         final alpha = widget.highlight ? (0.35 + 0.35 * p) : 0.08;
         final core = base.withValues(alpha: alpha);
         final fade = base.withValues(alpha: 0.0);
-        // Gradiente desde el borde de la pantalla hacia el centro: un glow
-        // amplio y suave, como el borde curvo de Samsung.
+        // Gradient from the screen edge toward the center: a glow
+        // wide and smooth, like Samsung's curved edge.
         final gradient = switch (widget.edge) {
           'top' => LinearGradient(
               begin: Alignment.topCenter,
@@ -2405,7 +2694,7 @@ class _PoleGlowState extends State<_PoleGlow>
   }
 }
 
-/// Tamaño de la caja fantasma del drop target según cuántos items tenga.
+/// Size of the drop-target phantom box depending on how many items it has.
 Size _dropGhostSize(int itemCount) {
   if (itemCount <= 1) return const Size(64, 64);
   if (itemCount <= 4) return const Size(96, 96);
@@ -2413,10 +2702,10 @@ Size _dropGhostSize(int itemCount) {
 }
 
 // ---------------------------------------------------------------------------
-//  Depuración: resalta las zonas que capturan toques (cajas de borde y
-//  detectores de gestos de los bordes) para diagnosticar taps bloqueados.
-//  Se redibuja en cada frame mientras está visible para seguir cambios de
-//  forma/posición de las cajas.
+//  Debug: highlights the zones that capture touches (edge boxes and
+//  edge gesture detectors) to diagnose blocked taps.
+//  It is redrawn every frame while visible to follow changes of
+//  shape/position of the boxes.
 // ---------------------------------------------------------------------------
 
 class _TapBoxesOverlay extends StatefulWidget {
@@ -2448,7 +2737,7 @@ class _TapBoxesOverlayState extends State<_TapBoxesOverlay>
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final children = <Widget>[];
 
-    // Cajas de borde.
+    // Edge boxes.
     for (final entry in widget.boxRects.entries) {
       children.add(
         Positioned.fromRect(
@@ -2463,7 +2752,7 @@ class _TapBoxesOverlayState extends State<_TapBoxesOverlay>
       );
     }
 
-    // Detectores de gestos de los bordes (mismas zonas que _GestureNavigationOverlay).
+    // Edge gesture detectors (same zones as _GestureNavigationOverlay).
     if (widget.gestureFallback) {
       final detector = BoxDecoration(
         border: Border.all(color: Colors.redAccent, width: 2),

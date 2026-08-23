@@ -1,7 +1,7 @@
 part of 'package:ohm_launcher/main.dart';
 
 // ---------------------------------------------------------------------------
-//  Selector de widgets para añadir a un escritorio
+//  Widget picker to add to a desktop
 // ---------------------------------------------------------------------------
 
 class _WidgetPickerSheet extends StatefulWidget {
@@ -94,7 +94,7 @@ class _WidgetPickerSheetState extends State<_WidgetPickerSheet> {
       final widgets = await OhmPlatform.getInstalledAppWidgets();
       if (mounted) setState(() => _systemWidgets = widgets);
     } catch (_) {
-      // Sin puente nativo (tests) -> no hay widgets del sistema.
+      // No native bridge (tests) -> no system widgets.
     } finally {
       if (mounted) setState(() => _loadingSystem = false);
     }
@@ -261,7 +261,7 @@ class _WidgetPickerSheetState extends State<_WidgetPickerSheet> {
   }
 }
 
-/// Vista previa en miniatura de un widget del launcher.
+/// Thumbnail preview of a launcher widget.
 class _MiniWidgetPreview extends StatelessWidget {
   const _MiniWidgetPreview({required this.node});
 
@@ -293,7 +293,7 @@ class _MiniWidgetPreview extends StatelessWidget {
   }
 }
 
-/// Icono de la app proveedora de un AppWidget del sistema.
+/// Icon of the provider app of a system AppWidget.
 class _AppIconLeading extends StatelessWidget {
   const _AppIconLeading({required this.app});
 
@@ -305,8 +305,8 @@ class _AppIconLeading extends StatelessWidget {
   }
 }
 
-/// Renderiza un AppWidget del sistema de verdad mediante AppWidgetHost
-/// (PlatformView de Android) embebido en Flutter.
+/// Renders a real system AppWidget via AppWidgetHost
+/// (PlatformView of Android) embedded in Flutter.
 class _BoxAppPickerSheet extends StatefulWidget {
   const _BoxAppPickerSheet({required this.apps, required this.favorites});
 
@@ -655,7 +655,7 @@ class _SystemAppWidgetState extends State<_SystemAppWidget> {
       final result = await OhmPlatform.bindAppWidget(widget.provider);
       if (!mounted) return;
       if (result['needsBind'] == true) {
-        // Espera la autorización del sistema; el resultado llega por callback.
+        // Waits for system authorization; the result arrives via callback.
         OhmPlatform.onWidgetBound = (id, provider) {
           if (!mounted) return;
           setState(() {

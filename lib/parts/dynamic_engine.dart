@@ -1,30 +1,30 @@
 part of 'package:ohm_launcher/main.dart';
 
 // ============================================================================
-//  3. MOTOR DE RENDERIZADO DINÁMICO (Custom Dynamic Interpreter)
+//  3. DYNAMIC RENDERING ENGINE (Custom Dynamic Interpreter)
 //  ============================================================================
-//  Convierte un String JSON en un Widget de Flutter sin dependencias de
-//  terceros. Nodos soportados:
+//  Converts a JSON String into a Flutter Widget without dependencies of
+//  third parties. Supported nodes:
 //
 //    * container       -> Container (color, padding, borderRadius, children)
 //    * text            -> Text (value, fontSize, color, fontWeight, letterSpacing)
-//    * clock           -> Text con hora en vivo (format, fontSize, color...)
-//                         style: "text" | "particles" (arena) | "ticker"
-//    * tiling_layout   -> Row/Column según "orientation" (spacing, flex, ejes)
-//    * spacer          -> SizedBox flexible para separar bloques del mosaico
+//    * clock           -> Text with live time (format, fontSize, color...)
+//                         style: "text" | "particles" (sandbox) | "ticker"
+//    * tiling_layout   -> Row/Column by "orientation" (spacing, flex, axes)
+//    * spacer          -> flexible SizedBox to separate mosaic blocks
 //
-//  Un JSON mal formado NUNCA crashea la app: se muestra un widget de error.
+//  A malformed JSON NEVER crashes the app: an error widget is shown.
 // ============================================================================
 
 class DynamicWidgetEngine {
   DynamicWidgetEngine._();
 
-  /// Tipografías activas del escritorio actual (seteadas por _DesktopPage).
+  /// Active typographies of the current desktop (set by _DesktopPage).
   static String baseFont = '';
   static String titleFont = '';
 
-  /// Callback global para cuando una caja pide añadir contenido.
-  /// Se asigna desde _OhmHomeScreenState y se limpia al salir.
+  /// Global callback for when a box asks to add content.
+  /// Assigned from _OhmHomeScreenState and cleared on exit.
   static void Function(int boxIndex)? onBoxAddContent;
 
   static String _fontFor(Map<String, dynamic> node) {
@@ -39,7 +39,7 @@ class DynamicWidgetEngine {
     return f;
   }
 
-  /// Parsea un String JSON y lo convierte en el Widget raíz de la UI.
+  /// Parses a JSON String and converts it into the root UI Widget.
   static Widget parse(String source, {String origin = 'widgets_config.json'}) {
     try {
       final decoded = jsonDecode(source);
@@ -57,7 +57,7 @@ class DynamicWidgetEngine {
     }
   }
 
-  /// Mapea un nodo JSON a un Widget concreto de Flutter.
+  /// Maps a JSON node to a concrete Flutter Widget.
   static Widget buildNode(Map<String, dynamic> node, {String origin = ''}) {
     final type = _asString(node['type'], 'container');
     switch (type) {
@@ -90,8 +90,8 @@ class DynamicWidgetEngine {
     }
   }
 
-  /// Parsea la config del escritorio: si tiene `desktops`, devuelve un
-  /// PageView con un escritorio por página; si no, el nodo único de siempre.
+  /// Parses the desktop config: if it has `desktops`, returns a
+  /// PageView with one desktop per page; otherwise the usual single node.
   static Widget parseDesktop(
     String source, {
     String origin = 'widgets_config.json',
@@ -134,7 +134,7 @@ class DynamicWidgetEngine {
     }
   }
 
-  /// Número de escritorios (1 si la config es de escritorio único).
+  /// Number of desktops (1 if the config is single-desktop).
   static int desktopCount(String source) {
     try {
       final root = _asMap(jsonDecode(source));
@@ -145,7 +145,7 @@ class DynamicWidgetEngine {
     }
   }
 
-  /// Nombre de un escritorio (por índice) para la UI.
+  /// Name of a desktop (by index) for the UI.
   static String desktopName(String source, int index) {
     try {
       final root = _asMap(jsonDecode(source));
@@ -159,7 +159,7 @@ class DynamicWidgetEngine {
     }
   }
 
-  // ------------------------------------------------------------------ nodos
+  // ------------------------------------------------------------------ nodes
 
   static Widget _buildContainer(Map<String, dynamic> node, String origin) {
     final rawChildren = _asList(node['children']);
@@ -287,7 +287,7 @@ class DynamicWidgetEngine {
     return SizedBox(width: horizontal ? size : 0, height: horizontal ? 0 : size);
   }
 
-  /// Rejilla de aplicaciones instaladas (widget del escritorio).
+  /// Grid of installed apps (desktop widget).
   static Widget _buildAppsGrid(Map<String, dynamic> node) {
     return GridView.count(
       crossAxisCount: _asInt(node['columns'], 4),
@@ -300,7 +300,7 @@ class DynamicWidgetEngine {
     );
   }
 
-  /// Widget de batería (canal nativo).
+  /// Battery widget (native channel).
   static Widget _buildBattery(Map<String, dynamic> node) {
     return BatteryWidget(
       style: TextStyle(
@@ -312,7 +312,7 @@ class DynamicWidgetEngine {
     );
   }
 
-  /// Widget de un plugin Omarchy instalado (renderizado por el bridge).
+  /// An installed Omarchy plugin widget (rendered by the bridge).
   static Widget _buildPluginWidget(Map<String, dynamic> node, String origin) {
     final id = _asString(node['pluginId'], '');
     final kind = _asString(node['kind'], 'bar-widget');
@@ -333,15 +333,15 @@ class DynamicWidgetEngine {
     return ClipRect(child: PluginRenderer.renderForKind(plugin, kind));
   }
 
-  /// Placeholder de un AppWidget del sistema. El puente real (AppWidgetHost)
-  /// está pendiente; mostramos el nombre y el proveedor por ahora.
+  /// Placeholder for a system AppWidget. The real bridge (AppWidgetHost)
+  /// is pending; we show the name and provider for now.
   static Widget _buildSystemWidget(Map<String, dynamic> node) {
     final provider = _asString(node['provider'], '');
     final label = _asString(node['label'], 'Widget del sistema');
     return _SystemAppWidget(provider: provider, fallbackLabel: label);
   }
 
-  /// Caja configurable: contiene apps, widgets del sistema o plugins.
+  /// Configurable box: contains apps, system widgets or plugins.
   static Widget _buildBox(Map<String, dynamic> node) {
     final items = _asList(node['items']);
     final direction = _asString(node['direction'], 'horizontal');
@@ -354,13 +354,13 @@ class DynamicWidgetEngine {
     );
   }
 
-  /// Expone el parseo de un valor JSON a Map (usado por el escritorio).
+  /// Exposes parsing a JSON value to a Map (used by the desktop).
   static Map<String, dynamic>? asMapPublic(Object? v) => _asMap(v);
 
-  /// Expone la lectura de un int con fallback (usado por el editor).
+  /// Exposes reading an int with fallback (used by the editor).
   static int asIntPublic(Object? v, int fallback) => _asInt(v, fallback);
 
-  // ------------------------------------------------------- parseo de valores
+  // ------------------------------------------------------- value parsing
 
   static Map<String, dynamic>? _asMap(Object? v) =>
       v is Map<String, dynamic> ? v : (v is Map ? v.cast<String, dynamic>() : null);
@@ -377,7 +377,7 @@ class DynamicWidgetEngine {
 
   static double? _asNullableDouble(Object? v) => v is num ? v.toDouble() : null;
 
-  /// Convierte "#RGB", "#RRGGBB" o "#AARRGGBB" en un Color.
+  /// Converts "#RGB", "#RRGGBB" or "#AARRGGBB" into a Color.
   static Color _parseColor(Object? raw, Color fallback) {
     if (raw is! String) return fallback;
     var hex = raw.trim();
@@ -390,10 +390,10 @@ class DynamicWidgetEngine {
     return value == null ? fallback : Color(value);
   }
 
-  /// Parsea un color hexadecimal para uso fuera del motor (config, ajustes).
+  /// Parses a hexadecimal color for use outside the engine (config, settings).
   static Color colorFromHex(String hex) => _parseColor(hex, Colors.transparent);
 
-  /// Acepta un número, "1 2 3 4", "1 2" o {left, top, right, bottom}.
+  /// Accepts a number, "1 2 3 4", "1 2" or {left, top, right, bottom}.
   static EdgeInsets _asEdgeInsets(Object? raw, EdgeInsets fallback) {
     if (raw is num) return EdgeInsets.all(raw.toDouble());
     if (raw is String) {

@@ -1,16 +1,16 @@
 part of 'package:ohm_launcher/main.dart';
 
 // ============================================================================
-//  4b. INSTALADOR DE PLUGINS DESDE EL MARKETPLACE
+//  4b. PLUGIN INSTALLER FROM THE MARKETPLACE
 //  ============================================================================
-//  Descarga un plugin desde su repositorio de GitHub:
-//    1. Localiza manifest.json (raíz, <id>/, plugins/<id>/ o barrido de la
-//       GitHub Contents API) — verificado contra repos reales.
-//    2. Verifica el contrato (id no reservado, entryPoints presentes).
-//    3. Descarga los entry points junto al manifest y los guarda en
-//       plugins/<id>/. Los .json se interpretan al instante; los .qml se
-//       respetan (contrato) pero no son renderizables en Android.
-//    4. Devuelve un resumen; la UI lanza un rescan inmediato.
+//  Downloads a plugin from its GitHub repository:
+//    1. Locates manifest.json (root, <id>/, plugins/<id>/ or a sweep of the
+//       GitHub Contents API) — verified against real repos.
+//    2. Verifies the contract (id not reserved, entryPoints present).
+//    3. Downloads the entry points together with the manifest and saves them in
+//       plugins/<id>/. .json files are interpreted instantly; .qml files are
+//       respected (contract) but not renderable on Android.
+//    4. Returns a summary; the UI triggers an immediate rescan.
 // ============================================================================
 
 class PluginInstaller {

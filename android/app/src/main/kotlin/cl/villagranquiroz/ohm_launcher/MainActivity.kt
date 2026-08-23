@@ -5,6 +5,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.BroadcastReceiver
 import android.content.IntentFilter
+import android.os.Bundle
+import android.media.ImageReader
+import android.media.projection.MediaProjection
+import android.media.projection.MediaProjectionManager
 import android.app.PendingIntent
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -55,7 +59,7 @@ class MainActivity : FlutterActivity() {
         private const val REQUEST_CODE_BIND_WIDGET = 0xA11CE5
     }
 
-    /** Oculta la barra de navegación del sistema para que nuestro launcher pueda usar gestos propios. */
+    /** Hides the system navigation bar so the launcher can use its own gestures. */
     private fun applyImmersiveMode() {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -76,7 +80,7 @@ class MainActivity : FlutterActivity() {
         } catch (_: Exception) { /* noop */ }
     }
 
-    /** Restaura la barra de navegación del sistema. */
+    /** Restores the system navigation bar. */
     private fun disableImmersiveMode() {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -112,6 +116,28 @@ class MainActivity : FlutterActivity() {
         try {
             Runtime.getRuntime().exec("input keyevent KEYCODE_APP_SWITCH")
         } catch (_: Exception) { /* noop */ }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        handleOmarchyLinkIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleOmarchyLinkIntent(intent)
+    }
+
+    /** Si el intent trae un `omarchy://` (QR escaneado con la cámara del
+     *  sistema), lo pasa a Flutter para que conecte con la PC. */
+    private fun handleOmarchyLinkIntent(intent: Intent?) {
+        val uri = intent?.data?.toString() ?: return
+        if (uri.startsWith("omarchy://")) {
+            try {
+                methodChannel?.invokeMethod("onOmarchyPeerLink", mapOf("uri" to uri))
+            } catch (_: Exception) { /* noop */ }
+        }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -151,6 +177,7 @@ class MainActivity : FlutterActivity() {
         )
 
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
+        setupScreenChannel(flutterEngine)
         try {
             ContextCompat.registerReceiver(
                 this,
@@ -239,7 +266,7 @@ class MainActivity : FlutterActivity() {
             }
     }
 
-    /** Enlaza un AppWidget del sistema y devuelve su appWidgetId. */
+    /** Binds a system AppWidget and returns its appWidgetId. */
     private fun bindAppWidget(provider: String, result: MethodChannel.Result) {
         val component = ComponentName.unflattenFromString(provider)
         if (component == null) {
@@ -253,7 +280,7 @@ class MainActivity : FlutterActivity() {
             try { appWidgetHost.startListening() } catch (_: Exception) { /* noop */ }
             result.success(id)
         } else {
-            // Guarda el id para completar el binding tras el permiso del sistema.
+            // Stores the id to finish the binding after the system permission.
             pendingBindWidgetId = id
             pendingBindWidgetComponent = component
             pendingBindProvider = provider
@@ -296,6 +323,10 @@ class MainActivity : FlutterActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == reqScreenCapture) {
+            _handleScreenResult(resultCode, data)
+            return
+        }
         if (requestCode == REQUEST_CODE_BIND_WIDGET && resultCode == RESULT_OK) {
             completePendingWidgetBind()
         } else if (requestCode == REQUEST_CODE_BIND_WIDGET) {
@@ -358,7 +389,7 @@ class MainActivity : FlutterActivity() {
         return list
     }
 
-    /** Icono PNG de una app concreta, cargado bajo demanda. */    private fun getAppIcon(packageName: String, activityName: String): ByteArray? {
+    /** PNG icon of a specific app, loaded on demand. */    private fun getAppIcon(packageName: String, activityName: String): ByteArray? {
         return try {
             val pm = applicationContext.packageManager
             val info = if (activityName.isEmpty()) {
@@ -397,7 +428,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    /** Abre la pantalla de información de la app para gestionar permisos. */
+    /** Opens the app info screen to manage permissions. */
     private fun openAppSettings() {
         try {
             val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -419,8 +450,8 @@ class MainActivity : FlutterActivity() {
     private fun requestDefaultLauncher() {
         val attempts = mutableListOf<Intent>()
 
-        // 1) Selector directo de "Aplicación de inicio" (AOSP, MIUI, HyperOS).
-        //    Este intent abre la pantalla con los radio buttons de launchers instalados.
+        // 1) Direct "Home app" picker (AOSP, MIUI, HyperOS).
+        //    This intent opens the screen with the radio buttons of installed launchers.
         try {
             attempts.add(Intent(android.provider.Settings.ACTION_HOME_SETTINGS).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -472,7 +503,7 @@ class MainActivity : FlutterActivity() {
 
     /** Restaura la navegación por gestos (navigation_mode=2) cuando Xiaomi/HyperOS
      *  la ha desactivado por usar un launcher de terceros.
-     *  Requiere el permiso WRITE_SECURE_SETTINGS concedido vía ADB. */
+     *  Requires the WRITE_SECURE_SETTINGS permission granted via ADB. */
     private fun restoreGestureNavigation(): Boolean {
         return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
@@ -531,7 +562,7 @@ class MainActivity : FlutterActivity() {
                 }
             } catch (_: Exception) { /* prueba la siguiente */ }
         }
-        // Fallback: pantalla de gestos del sistema.
+        // Fallback: system gesture screen.
         try {
             val intent = Intent("android.settings.SYSTEM_NAVIGATION_SETTINGS").apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -593,10 +624,10 @@ class MainActivity : FlutterActivity() {
         recreate()
     }
 
-    /** Ejecuta [command] en Termux vía el intent com.termux.RUN_COMMAND
-     *  (requiere Termux:API instalado). El resultado llega por broadcast a
-     *  [termuxReceiver] y se entrega al [result] de Dart. Si Termux no está
-     *  disponible, el lado Dart hace fallback a Process.run. */
+    /** Runs [command] in Termux via the com.termux.RUN_COMMAND intent
+     *  (requires Termux:API installed). The result arrives by broadcast to
+     *  [termuxReceiver] and is handed to Dart's [result]. If Termux is not
+     *  available, the Dart side falls back to Process.run. */
     private fun runInTermux(command: String, args: Array<String>, result: MethodChannel.Result) {
         try {
             val id = ++termuxRequestId
@@ -632,6 +663,93 @@ class MainActivity : FlutterActivity() {
             packageManager.getPackageInfo("com.termux.api", 0) != null
         } catch (_: Exception) {
             false
+        }
+    }
+
+    // ============================================================
+    //  Screen sharing (scrcpy-like) via MediaProjection.
+    //  The launcher captures the screen and sends JPEG frames over the
+    //  'ohm/screen' channel to the Dart side, which forwards them over
+    //  WebSocket to the peer.
+    // ============================================================
+    private val screenChannelName = "ohm/screen"
+    private var screenChannel: MethodChannel? = null
+    private var mediaProjectionManager: MediaProjectionManager? = null
+    private var mediaProjection: MediaProjection? = null
+    private var imageReader: ImageReader? = null
+    private var screenThread: Thread? = null
+    private var screenRunning = false
+    private val reqScreenCapture = 0x5CEE
+
+    private fun setupScreenChannel(flutterEngine: FlutterEngine) {
+        screenChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, screenChannelName)
+        screenChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "startCapture" -> startScreenCapture(result)
+                "stopCapture" -> { stopScreenCapture(); result.success(true) }
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    private fun startScreenCapture(result: MethodChannel.Result) {
+        try {
+            mediaProjectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            val intent = mediaProjectionManager!!.createScreenCaptureIntent()
+            startActivityForResult(intent, reqScreenCapture)
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("screen_failed", e.message, null)
+        }
+    }
+
+    private fun stopScreenCapture() {
+        screenRunning = false
+        try { screenThread?.join(500) } catch (_: Exception) {}
+        try { mediaProjection?.stop() } catch (_: Exception) {}
+        mediaProjection = null
+        try { imageReader?.close() } catch (_: Exception) {}
+        imageReader = null
+    }
+
+    private fun _handleScreenResult(resultCode: Int, data: Intent?) {
+        if (resultCode != RESULT_OK || data == null) return
+        try {
+            mediaProjection = mediaProjectionManager?.getMediaProjection(resultCode, data!!)
+            val metrics = resources.displayMetrics
+            val w = metrics.widthPixels
+            val h = metrics.heightPixels
+            imageReader = ImageReader.newInstance(w, h, android.graphics.PixelFormat.RGBA_8888, 2)
+            val handler = android.os.Handler(android.os.Looper.getMainLooper())
+            mediaProjection?.registerCallback(object : MediaProjection.Callback() {
+                override fun onStop() { stopScreenCapture() }
+            }, handler)
+            screenRunning = true
+            screenThread = Thread {
+                while (screenRunning) {
+                    try {
+                        val image = imageReader?.acquireLatestImage() ?: run { Thread.sleep(100); continue }
+                        val planes = image.planes
+                        val buffer = planes[0].buffer
+                        val pixelStride = planes[0].pixelStride
+                        val rowStride = planes[0].rowStride
+                        val rowPadding = rowStride - pixelStride * w
+                        val bitmap = Bitmap.createBitmap(w + rowPadding / pixelStride, h, Bitmap.Config.ARGB_8888)
+                        bitmap.copyPixelsFromBuffer(buffer)
+                        image.close()
+                        val out = ByteArrayOutputStream()
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 60, out)
+                        bitmap.recycle()
+                        val jpeg = out.toByteArray()
+                        runOnUiThread { screenChannel?.invokeMethod("onFrame", jpeg) }
+                    } catch (_: Exception) {
+                        Thread.sleep(100)
+                    }
+                }
+            }
+            screenThread?.start()
+        } catch (e: Exception) {
+            Log.e("OhmScreen", "capture error: ${e.message}")
         }
     }
 

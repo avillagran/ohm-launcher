@@ -16,17 +16,17 @@ import android.view.accessibility.AccessibilityEvent
 import kotlin.math.abs
 
 /**
- * Servicio de accesibilidad que dibuja pequeños overlays transparentes en los
- * bordes de la pantalla para capturar gestos de navegación globales cuando
- * MIUI/HyperOS no proporciona gestos nativos para launchers de terceros.
+ * Accessibility service that draws small transparent overlays at the screen
+ * edges to capture global navigation gestures when MIUI/HyperOS does not
+ * provide native gestures for third-party launchers.
  *
- * SOLO se dibujan cuando el sistema usa navegación por gestos (navigation_mode
- * = 2). Si se usan los botones de Android (navigation_mode = 0) los overlays
- * taparían los botones y los bordes, así que se eliminan.
+ * Overlays are ONLY drawn when the system uses gesture navigation
+ * (navigation_mode = 2). If Android buttons are used (navigation_mode = 0)
+ * the overlays would cover the buttons and edges, so they are removed.
  *
- * Se crean tres ventanas independientes (izquierda, derecha, abajo) en lugar
- * de una ventana a pantalla completa, para que los toques en el centro de la
- * pantalla (p. ej. al elegir una ventana en Recientes) pasen a la app de abajo.
+ * Three independent windows (left, right, bottom) are created instead of a
+ * full-screen window, so touches in the center of the screen (e.g. when
+ * picking a window in Recents) pass through to the app below.
  */
 class OhmGestureAccessibilityService : AccessibilityService() {
 
@@ -59,7 +59,7 @@ class OhmGestureAccessibilityService : AccessibilityService() {
         // Ignorar eventos de nuestros propios overlays (View/FrameLayout):
         // agregarlos o quitarlos genera eventos que provocan un ciclo.
         if (pkg == packageName && className != "$packageName.MainActivity") return
-        // Con botones de Android activos no debe haber overlays.
+        // With Android buttons active there must be no overlays.
         if (!navModeIsGesture()) {
             if (overlayViews.isNotEmpty()) {
                 Log.d(TAG, "buttons mode, removing overlays")
@@ -68,12 +68,11 @@ class OhmGestureAccessibilityService : AccessibilityService() {
             recentsWasShown = false
             return
         }
-        // Cuando se abre la vista de Recientes de MIUI/HyperOS, sus tarjetas
-        // llegan hasta los bordes de la pantalla y nuestros overlays les roban
-        // los toques. Los quitamos mientras Recientes esté al frente y los
-        // restauramos al volver a cualquier otra ventana.
-        // Verificar la ventana realmente enfocada: los eventos pueden mentir
-        // (p. ej. MainActivity parpadeando al quitar overlays con Recientes abierto).
+        // When MIUI/HyperOS Recents opens, its cards reach the screen edges
+        // and our overlays steal their touches. We remove them while Recents
+        // is in front and restore them when returning to any other window.
+        // Check the actually focused window: events can lie.
+        // (e.g. MainActivity flickering when removing overlays with Recents open).
         val recentsFocused = isRecentsFocused()
         if (recentsFocused) {
             if (overlayViews.isNotEmpty()) {
@@ -164,7 +163,7 @@ class OhmGestureAccessibilityService : AccessibilityService() {
             gravity = Gravity.TOP or Gravity.START,
             onRelease = { dx, dy ->
                 when {
-                    // dy > 0 significa swipe hacia arriba; debe dominar sobre lo horizontal.
+                    // dy > 0 means swipe up; it must dominate over horizontal.
                     dy > swipeThreshold && dy > abs(dx) -> {
                         Log.d(TAG, "home from left edge swipe up")
                         performHome()
@@ -243,9 +242,9 @@ class OhmGestureAccessibilityService : AccessibilityService() {
                         lastMoveTime = System.currentTimeMillis()
                         triggered = false
                         holdRunnable?.let { handler.removeCallbacks(it) }
-                        // Recientes solo si el dedo subió lo suficiente Y se quedó
-                        // quieto (hold). Un swipe continuo lento no debe dispararlo.
-                        // OJO: no capturar el MotionEvent (se recicla); usamos lastY.
+                        // Recents only if the finger rose enough AND stayed
+                        // still (hold). A slow continuous swipe must not trigger it.
+                        // NOTE: do not capture the MotionEvent (it is recycled); use lastY.
                         holdRunnable = object : Runnable {
                             override fun run() {
                                 if (triggered) return
@@ -257,7 +256,7 @@ class OhmGestureAccessibilityService : AccessibilityService() {
                                     Log.d(TAG, "recents from bottom hold")
                                     performRecents()
                                 } else {
-                                    // Sigue moviéndose: reintenta mientras el dedo esté abajo.
+                                    // Still moving: retry while the finger is down.
                                     handler.postDelayed(this, 80)
                                 }
                             }

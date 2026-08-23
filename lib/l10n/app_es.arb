@@ -1,0 +1,19 @@
+{
+  "@@locale": "es",
+  "connectWithOmarchy": "Conectar con Omarchy",
+  "sharedConnectionInfo": "Información de conexión compartida",
+  "networkConnectionMdnsQr": "Conexión en la red (mDNS/QR)",
+  "scanBluetooth": "Escanear Bluetooth",
+  "noPeerNearby": "Ningún peer Omarchy cercano",
+  "close": "Cerrar",
+  "addLeft": "Agregar izquierda",
+  "addWidget": "Agregar widget",
+  "addBox": "Agregar caja",
+  "editWidgets": "Editar widgets",
+  "desktopSettings": "Config escritorio",
+  "launcherSettings": "Config launcher",
+  "connectOmarchy": "Conectar Omarchy",
+  "restart": "Reiniciar",
+  "addRight": "Agregar derecha",
+  "connectedToOmarchy": "Conectado a Omarchy: {id} ({ip}:{port})"
+}

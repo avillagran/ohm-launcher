@@ -1,10 +1,10 @@
 part of 'package:ohm_launcher/main.dart';
 
 // ---------------------------------------------------------------------------
-//  Barra de favoritos: reutiliza la lógica de arrastre de [_EdgeBox].
-//  * Tap corto en un icono: lanza la app.
-//  * Long-press 1s en un icono y arrastrar dentro de la barra: reordena.
-//  * Arrastrar fuera y soltar: por ahora vuelve a su lugar.
+//  Favorites bar: reuses the drag logic from [_EdgeBox].
+//  * Short tap on an icon: launches the app.
+//  * Long-press 1s on an icon and drag within the bar: reorders.
+//  * Drag out and drop: for now it returns to its place.
 // ---------------------------------------------------------------------------
 
 class _FavoritesBar extends StatelessWidget {
@@ -17,6 +17,7 @@ class _FavoritesBar extends StatelessWidget {
     required this.onReordered,
     this.orientation = 'horizontal',
     this.mode,
+    this.radius = 14,
   });
 
   final List<InstalledApp> apps;
@@ -27,6 +28,7 @@ class _FavoritesBar extends StatelessWidget {
   final ValueChanged<List<String>> onReordered;
   final String orientation;
   final String? mode;
+  final double radius;
 
   Map<String, dynamic> get _box => {
         'edge': position,
@@ -51,7 +53,7 @@ class _FavoritesBar extends StatelessWidget {
       boxIndex: -1,
       visible: visible,
       onToggle: onToggle,
-      onAddContent: () {}, // evita ocultar la barra de favoritos al tocar "+"
+      onAddContent: () {}, // avoids hiding the favorites bar when touching "+"
       onConfig: () {},
       onDragUpdate: (d, accent) {},
       onDragEnd: (d) {},
@@ -65,12 +67,13 @@ class _FavoritesBar extends StatelessWidget {
       onReportRect: (box, rect) {},
       boxRects: const {},
       allowBoxDrag: false,
+      radius: radius,
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-//  Indicador de escritorios
+//  Desktop indicator
 // ---------------------------------------------------------------------------
 
 class _DesktopDots extends StatelessWidget {

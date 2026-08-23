@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.ohm.omarchy-link",
+  "name": "Omarchy Link",
+  "version": "1.0.0",
+  "author": "Ohm Launcher",
+  "license": "MIT",
+  "description": "Manages the connection with OhmLauncher (Android): discovers the peer on the LAN (mDNS/QR/Bluetooth), shares files, syncs clipboard and themes, backs up photos, and shares the screen.",
+  "kinds": ["bar-widget", "panel"],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml",
+    "panel": "Panel.qml"
+  }
+}

@@ -1,7 +1,7 @@
 part of 'package:ohm_launcher/main.dart';
 
-/// Interpreta un archivo de UI según su extensión (.json = motor dinámico,
-/// .qml = bridge QML).
+/// Interprets a UI file by extension (.json = dynamic engine,
+/// .qml = QML bridge).
 Widget _renderEntryFile(File file) {
   if (file.path.endsWith('.json')) {
     return DynamicWidgetEngine.parse(file.readAsStringSync(), origin: _basename(file.path));
@@ -14,7 +14,7 @@ Widget _renderEntryFile(File file) {
 }
 
 // ---------------------------------------------------------------------------
-//  Pantalla para plugins de tipo overlay (superficie a pantalla completa)
+//  Screen for overlay-type plugins (full-screen surface)
 // ---------------------------------------------------------------------------
 
 class _PluginSurfaceScreen extends StatelessWidget {
@@ -68,10 +68,10 @@ class _PluginSurfaceScreen extends StatelessWidget {
 }
 
 // ============================================================================
-//  6b. MARKETPLACE — pantalla de exploración e instalación
+//  6b. MARKETPLACE — exploration and installation screen
 // ============================================================================
 
-/// Pantalla completa que lista los plugins de omarchyplugins.com.
+/// Full screen that lists the plugins from omarchyplugins.com.
 class _MarketplaceScreen extends StatelessWidget {
   const _MarketplaceScreen({
     required this.entries,
@@ -267,7 +267,7 @@ class _Tag extends StatelessWidget {
   }
 }
 
-/// Diálogo de detalle + instalación de un plugin del marketplace.
+/// Plugin detail + installation dialog from the marketplace.
 class _MarketplaceInstallDialog extends StatefulWidget {
   const _MarketplaceInstallDialog({required this.entry, required this.onInstalled});
 

@@ -1,26 +1,26 @@
 part of 'package:ohm_launcher/main.dart';
 
 // ============================================================================
-//  4. SISTEMA DE PLUGINS — CONTRATO OMARCHY (omarchyplugins.com)
+//  4. PLUGIN SYSTEM — OMARCHY CONTRACT (omarchyplugins.com)
 //  ============================================================================
-//  Replica la especificación oficial de plugins:
+//  Replicates the official plugin specification:
 //
 //    manifest.json:
 //      { "schemaVersion": 1,
-//        "id": "tu.nombre.plugin",        // terceros NO usan prefijo "omarchy."
+//        "id": "your.name.plugin",        // third parties must NOT use the "omarchy." prefix
 //        "name", "version", "author", "license", "description",
 //        "kinds": ["bar-widget"|"panel"|"overlay"|"menu"|"service"|"bar"],
 //        "entryPoints": { "barWidget": "BarWidget.json", ... } }
 //
-//  Reglas de validación replicadas:
+//  Validation rules replicated:
 //    - schemaVersion == 1
-//    - kind y entry point coherentes (bar-widget -> entryPoints.barWidget)
-//    - todo entry point existe y es una ruta relativa segura (sin "..")
-//    - sin symlinks dentro de la carpeta del plugin
-//    - IDs de terceros prohibidos con prefijo "omarchy."
+//    - kind and entry point coherent (bar-widget -> entryPoints.barWidget)
+//    - every entry point exists and is a safe relative path (no "..")
+//    - no symlinks inside the plugin folder
+//    - Third-party IDs are forbidden with the "omarchy." prefix
 // ============================================================================
 
-/// Manifest de un plugin Omarchy ya parseado y tipado.
+/// Already parsed and typed manifest of an Omarchy plugin.
 class OhmManifest {
   OhmManifest({
     required this.schemaVersion,
@@ -69,7 +69,7 @@ class OhmManifest {
   }
 }
 
-/// Un plugin descubierto en disco, junto con sus errores de validación.
+/// A plugin discovered on disk, along with its validation errors.
 class OhmPlugin {
   const OhmPlugin({
     required this.id,
@@ -87,7 +87,7 @@ class OhmPlugin {
   List<String> get kinds => manifest?.kinds ?? const [];
   String get statusLabel => isValid ? 'activo' : validationErrors.first;
 
-  /// Entry point asociado a un kind ("bar-widget" -> "barWidget").
+  /// Entry point associated with a kind ("bar-widget" -> "barWidget").
   File? entryFileForKind(String kind) {
     final key = _kindToEntryKey(kind);
     if (key == null) return null;
@@ -96,8 +96,8 @@ class OhmPlugin {
     return File('${folder.path}/$fileName');
   }
 
-  /// Entry point del panel asociado (convención: Panel.json o Panel.qml
-  /// junto al bar-widget).
+  /// Associated panel entry point (convention: Panel.json or Panel.qml
+  /// next to the bar-widget).
   File? panelFile() {
     for (final name in const ['Panel.json', 'Panel.qml']) {
       final f = File('${folder.path}/$name');
@@ -109,7 +109,7 @@ class OhmPlugin {
 
 String? _kindToEntryKey(String kind) => PluginDiscovery.kKindToEntryKey[kind];
 
-/// Descubrimiento, validación y hot-reload de plugins (equivale a
+/// Discovery, validation and hot-reload of plugins (equivalent to
 /// `omarchy-shell shell rescanPlugins`).
 class PluginDiscovery {
   PluginDiscovery._();
@@ -125,7 +125,7 @@ class PluginDiscovery {
     'bar': 'bar',
   };
 
-  /// Escanea [root]/plugins y devuelve todos los plugins (válidos o no).
+  /// Scans [root]/plugins and returns all plugins (valid or not).
   static Future<List<OhmPlugin>> discover(Directory root) async {
     if (!await root.exists()) return const [];
     final plugins = <OhmPlugin>[];
@@ -165,7 +165,7 @@ class PluginDiscovery {
     return plugins;
   }
 
-  /// Aplica las reglas de validación del contrato Omarchy.
+  /// Applies the Omarchy contract validation rules.
   static List<String> _validate(Directory folder, OhmManifest m) {
     final errors = <String>[];
 
@@ -207,19 +207,19 @@ class PluginDiscovery {
   }
 }
 
-/// Renderiza el entry point de un plugin con el motor dinámico.
+/// Renders a plugin entry point with the dynamic engine.
 class PluginRenderer {
   PluginRenderer._();
 
-  /// Clasifica el entry point de un kind para decidir cómo renderizarlo.
+  /// Classifies the entry point of a kind to decide how to render it.
   static EntryKind entryKindFor(OhmPlugin plugin, String kind) {
     final file = plugin.entryFileForKind(kind);
     if (file == null || !file.existsSync()) return EntryKind.missing;
     return file.path.endsWith('.json') ? EntryKind.json : EntryKind.qml;
   }
 
-  /// Carga el archivo del kind indicado y lo convierte en Widget.
-  /// JSON se interpreta con el motor dinámico; QML con el bridge QML.
+  /// Loads the file of the indicated kind and converts it into a Widget.
+  /// JSON is interpreted with the dynamic engine; QML with the QML bridge.
   static Widget renderForKind(OhmPlugin plugin, String kind) {
     final file = plugin.entryFileForKind(kind);
     if (file == null || !file.existsSync()) {
@@ -243,10 +243,10 @@ class PluginRenderer {
   }
 }
 
-/// Tipos de entry point: JSON o QML (interpretables) o ausente.
+/// Entry point types: JSON or QML (interpretable) or absent.
 enum EntryKind { json, qml, missing }
 
-/// Catálogo del marketplace comunitario (omarchyplugins.com/registry.json).
+/// Community marketplace catalog (omarchyplugins.com/registry.json).
 class MarketplaceEntry {
   const MarketplaceEntry({
     required this.id,
@@ -282,7 +282,7 @@ class MarketplaceRegistry {
   static const String fallbackUrl =
       'https://raw.githubusercontent.com/HANCORE-linux/omarchy-plugin-marketplace/main/registry.json';
 
-  /// Descarga y parsea el registro oficial del marketplace.
+  /// Downloads and parses the official marketplace registry.
   static Future<List<MarketplaceEntry>> fetch() async {
     final body =
         await HttpUtil.fetch(primaryUrl) ?? await HttpUtil.fetch(fallbackUrl);
@@ -303,7 +303,7 @@ class MarketplaceRegistry {
       if (s == null) continue;
       final repo = s['repo'] is String ? s['repo'] as String : '';
 
-      // Suites: tienen un objeto "catalog".
+      // Suites: they have a "catalog" object.
       final catalog = _mapOf(s['catalog']);
       if (catalog != null) {
         out.add(MarketplaceEntry(
@@ -321,7 +321,7 @@ class MarketplaceRegistry {
         ));
       }
 
-      // Fuentes de plugins: mapa id -> metadatos.
+      // Plugin sources: map id -> metadata.
       final plugins = _mapOf(s['plugins']);
       plugins?.forEach((id, meta) {
         final m = _mapOf(meta);

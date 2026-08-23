@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.ohm.demo.weather",
+  "name": "Ohm Weather",
+  "version": "1.0.0",
+  "author": "Ohm Launcher",
+  "license": "MIT",
+  "description": "Widget de clima demo (Santiago) que demuestra el bridge QML interpretado en caliente. Datos de ejemplo; para clima en vivo extender el bridge con un nodo de red.",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  }
+}

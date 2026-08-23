@@ -1,14 +1,14 @@
 part of 'package:ohm_launcher/main.dart';
 
 // ---------------------------------------------------------------------------
-//  Navegación por gestos propia para reemplazar los botones forzados por MIUI
+//  Custom gesture navigation to replace the buttons forced by MIUI
 // ---------------------------------------------------------------------------
 
-/// Captura gestos en los bordes de la pantalla cuando MIUI/HyperOS fuerza
-/// la navegación por botones en launchers de terceros.
-/// - Deslizar desde el borde izquierdo/derecho hacia adentro = Atrás.
-/// - Deslizar desde el borde inferior hacia arriba = Inicio (cierra cajón/dialogs).
-/// - Deslizar desde el borde inferior hacia arriba y mantener = Recientes.
+/// Captures gestures on the screen edges when MIUI/HyperOS forces
+/// button navigation on third-party launchers.
+/// - Swipe in from the left/right edge = Back.
+/// - Swipe up from the bottom edge = Home (closes drawer/dialogs).
+/// - Swipe up from the bottom edge and hold = Recents.
 class _GestureNavigationOverlay extends StatelessWidget {
   const _GestureNavigationOverlay({
     required this.enabled,
@@ -28,7 +28,7 @@ class _GestureNavigationOverlay extends StatelessWidget {
 
     return Stack(
       children: [
-        // Atrás: borde izquierdo.
+        // Back: left edge.
         Positioned(
           left: 0,
           top: 0,
@@ -39,7 +39,7 @@ class _GestureNavigationOverlay extends StatelessWidget {
             onBack: () => _goBack(context),
           ),
         ),
-        // Atrás: borde derecho.
+        // Back: right edge.
         Positioned(
           right: 0,
           top: 0,
@@ -50,7 +50,7 @@ class _GestureNavigationOverlay extends StatelessWidget {
             onBack: () => _goBack(context),
           ),
         ),
-        // Píldora visual para indicar zona de gestos (solo cuando no hay botones).
+        // Visual pill to indicate a gesture zone (only when there are no buttons).
         IgnorePointer(
           child: Align(
             alignment: Alignment.bottomCenter,
@@ -108,10 +108,10 @@ class _EdgeBackDetectorState extends State<_EdgeBackDetector> {
 
   @override
   Widget build(BuildContext context) {
-    // Listener puro (observador): NO es un reconocedor de gestos, por lo que
-    // nunca participa en la arena y nunca bloquea los taps de la caja de borde
-    // que esté detrás. Solo detecta desplazamientos horizontales reales (swipe)
-    // y deja pasar los taps sin movimiento.
+    // Pure listener (observer): it is NOT a gesture recognizer, so
+    // never participates in the arena and never blocks the edge box taps
+    // that it is behind. It only detects real horizontal shifts (swipe)
+    // and lets taps through without movement.
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: _down,

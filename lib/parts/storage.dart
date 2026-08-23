@@ -1,11 +1,11 @@
 part of 'package:ohm_launcher/main.dart';
 
 // ============================================================================
-//  1. STORAGE — rutas, permisos de almacenamiento y semilla inicial
+//  1. STORAGE — paths, storage permissions and initial seed
 //  ============================================================================
-//  Prioriza la ruta pública /sdcard/OhmLauncher (editable con Acode o
-//  cualquier editor). Si los permisos no se conceden, degrada a la carpeta
-//  externa privada de la app, que no exige permisos.
+//  Prioritizes the public path /sdcard/OhmLauncher (editable with Acode or
+//  any editor). If permissions are not granted, it degrades to the folder
+//  private external app folder, which requires no permissions.
 // ============================================================================
 
 class StorageService {
@@ -21,10 +21,10 @@ class StorageService {
 
   Directory? _baseDir;
 
-  /// Carpeta activa elegida tras [ensureInitialized].
+  /// Active folder chosen after [ensureInitialized].
   Directory? get baseDir => _baseDir;
 
-  /// True si se logró usar la ruta pública editable por el usuario.
+  /// True if the user-editable public path was used successfully.
   bool get usesPublicPath => _baseDir?.path == kPublicRoot;
 
   String get configPath => '${_baseDir!.path}/$kConfigFileName';
@@ -33,9 +33,9 @@ class StorageService {
   String get settingsPath => '${_baseDir!.path}/$kSettingsFileName';
   String get runtimeWidgetsPath => '${_baseDir!.path}/runtime_widgets.json';
 
-  /// Capa de componentes generados en caliente (IA / API). Es un array JSON
-  /// de nodos que se renderizan en un overlay flotante y se pueden limpiar
-  /// sin tocar la configuración del usuario.
+  /// Layer of components generated hot (AI / API). It is a JSON array
+  /// of nodes rendered in a floating overlay and can be cleared
+  /// without touching the user's configuration.
   List<Map<String, dynamic>> loadRuntimeWidgets() {
     try {
       final file = File(runtimeWidgetsPath);
@@ -44,7 +44,7 @@ class StorageService {
       if (decoded is List) {
         return decoded.whereType<Map<String, dynamic>>().toList();
       }
-    } catch (_) {/* corrupto */}
+    } catch (_) {/* corrupt */}
     return <Map<String, dynamic>>[];
   }
 
@@ -61,7 +61,7 @@ class StorageService {
     } catch (_) {/* noop */}
   }
 
-  /// Inicializa el almacenamiento eligiendo la mejor ruta disponible.
+  /// Initializes storage by choosing the best available path.
   Future<Directory> ensureInitialized() async {
     if (_baseDir != null) return _baseDir!;
 
@@ -73,7 +73,7 @@ class StorageService {
       return _baseDir!;
     }
 
-    // Degradación: almacenamiento externo privado (sin permisos).
+    // Degradation: private external storage (no permissions).
     Directory? appExt;
     try {
       appExt = await getExternalStorageDirectory();
@@ -88,8 +88,8 @@ class StorageService {
     return _baseDir!;
   }
 
-  /// Migración única: mueve /sdcard/OmarchyLauncher -> /sdcard/OhmLauncher
-  /// para no perder plugins, favoritos ni configuración al renombrar.
+  /// One-time migration: moves /sdcard/OmarchyLauncher -> /sdcard/OhmLauncher
+  /// so as not to lose plugins, favorites or config when renaming.
   Future<void> _migrateLegacyRoot() async {
     try {
       final legacy = Directory(kLegacyPublicRoot);
@@ -97,24 +97,24 @@ class StorageService {
       if (legacy.existsSync() && !current.existsSync()) {
         await legacy.rename(kPublicRoot);
       }
-    } catch (_) {/* sin permisos o ya migrado */}
+    } catch (_) {/* without permissions or already migrated */}
   }
 
-  /// Solicita de forma segura el acceso a /sdcard según la versión de Android.
+  /// Safely requests access to /sdcard depending on the Android version.
   Future<bool> _grantStorageAccess() async {
     if (!Platform.isAndroid) return true;
     try {
       // Android 11+ -> All Files Access (MANAGE_EXTERNAL_STORAGE).
       if (await Permission.manageExternalStorage.isGranted) return true;
       if (await Permission.manageExternalStorage.request().isGranted) return true;
-      // Android <= 10 -> permisos clásicos.
+      // Android <= 10 -> classic permissions.
       return await Permission.storage.request().isGranted;
     } catch (_) {
       return false;
     }
   }
 
-  /// Comprueba que realmente podemos escribir en la ruta antes de usarla.
+  /// Checks that we can actually write to the path before using it.
   Future<bool> _probeWrite(Directory dir) async {
     try {
       await dir.create(recursive: true);
@@ -127,8 +127,8 @@ class StorageService {
     }
   }
 
-  /// Config por defecto: si no existe widgets_config.json se crea con un
-  /// escritorio elegante (fondo oscuro + reloj en vivo + bienvenida).
+  /// Default config: if widgets_config.json does not exist it is created with a
+  /// elegant desktop (dark background + live clock + welcome).
   static const String kDefaultConfig = '''
 {
   "type": "container",
@@ -152,7 +152,7 @@ class StorageService {
 }
 ''';
 
-  /// Garantiza que el archivo de config existe y devuelve su contenido.
+  /// Guarantees the config file exists and returns its content.
   Future<String> ensureConfigFile() async {
     final file = File(configPath);
     if (!await file.exists()) {
@@ -160,7 +160,7 @@ class StorageService {
       return kDefaultConfigMulti;
     }
     final existing = await file.readAsString();
-    // Migración del formato de escritorio único (legacy) al multi-escritorio.
+    // Migration from the single-desktop format (legacy) to multi-desktop.
     if (existing.trim() == kDefaultConfig.trim() ||
         existing.contains('Bienvenido al escritorio autogestionado') &&
             !existing.contains('desktops')) {
@@ -170,8 +170,8 @@ class StorageService {
     return existing;
   }
 
-  /// Siembra un plugin de ejemplo (bar-widget con reloj) la primera vez,
-  /// replicando el tutorial oficial de Omarchy ("custom-clock") en JSON.
+  /// Seeds an example plugin (bar-widget with clock) the first time,
+  /// replicating the official Omarchy tutorial ("custom-clock") in JSON.
   static const String kSeedPluginId = 'io.github.ohm.demo.clock';
 
   Future<void> seedExamplePlugin() async {
@@ -249,10 +249,10 @@ class StorageService {
 }
 ''';
 
-  // ---------------------------------------------- favoritos
+  // ---------------------------------------------- favorites
 
-  /// Claves de apps favoritas (package/activity), persistidas en
-  /// favorites.json. Ahora se respeta el orden definido por el usuario.
+  /// Favorite app keys (package/activity), persisted in
+  /// favorites.json. Now the user-defined order is respected.
   List<String> loadFavorites() {
     try {
       final file = File(favoritesPath);
@@ -269,12 +269,12 @@ class StorageService {
     try {
       await File(favoritesPath)
           .writeAsString(const JsonEncoder.withIndent('  ').convert(keys), flush: true);
-    } catch (_) {/* sin permisos: los favoritos no persisten */}
+    } catch (_) {/* without permissions: favorites do not persist */}
   }
 
-  // ---------------------------------------------- ajustes del launcher
+  // ---------------------------------------------- launcher settings
 
-  /// Ajustes de UI del launcher (tipografía, escala, fondo).
+  /// Launcher UI settings (typography, scale, background).
   Map<String, dynamic> loadSettings() {
     try {
       final file = File(settingsPath);
@@ -290,13 +290,13 @@ class StorageService {
     try {
       await File(settingsPath)
           .writeAsString(const JsonEncoder.withIndent('  ').convert(settings), flush: true);
-    } catch (_) {/* sin permisos */}
+    } catch (_) {/* without permissions */}
   }
 
-  // ---------------------------------------------- escritorios (multi-desktop)
+  // ---------------------------------------------- desktops (multi-desktop)
 
-  /// Config por defecto con varios escritorios y widgets, para instalaciones
-  /// nuevas y para migrar la configuración antigua de escritorio único.
+  /// Default config with several desktops and widgets, for fresh installs
+  /// new and to migrate the old single-desktop config.
   static const String kDefaultConfigMulti = '''
 {
   "wallpaper": "#0B0F14",
@@ -320,7 +320,7 @@ class StorageService {
 }
 ''';
 
-  /// Lee el JSON actual de la config (mapa mutable) o null si no es objeto.
+  /// Reads the current config JSON (mutable map) or null if not an object.
   Map<String, dynamic>? readConfigMap() {
     try {
       final file = File(configPath);
@@ -337,7 +337,7 @@ class StorageService {
         .writeAsString(const JsonEncoder.withIndent('  ').convert(map), flush: true);
   }
 
-  /// Inserta/agrega un escritorio en la posición dada (índice relativo).
+  /// Inserts/adds a desktop at the given position (relative index).
   Future<void> addDesktop({required int index}) async {
     final map = readConfigMap();
     if (map == null) return;
@@ -353,7 +353,7 @@ class StorageService {
     await writeConfigMap(map);
   }
 
-  /// Agrega un widget al escritorio [index].
+  /// Adds a widget to desktop [index].
   Future<void> addWidgetToDesktop(int index, Map<String, dynamic> widgetNode) async {
     final map = readConfigMap();
     if (map == null) return;
@@ -366,13 +366,13 @@ class StorageService {
     await writeConfigMap(map);
   }
 
-  /// Número de escritorios en la config (1 si no hay array).
+  /// Number of desktops in the config (1 if there is no array).
   static int desktopCountOf(Map<String, dynamic> map) {
     final d = map['desktops'];
     return d is List && d.isNotEmpty ? d.length : 1;
   }
 
-  /// Muta la lista de widgets de un escritorio y persiste.
+  /// Mutates a desktop's widget list and persists it.
   Future<void> mutateDesktopWidgets(
     int index,
     List<dynamic> Function(List<dynamic>) fn,
@@ -389,14 +389,14 @@ class StorageService {
     await writeConfigMap(map);
   }
 
-  /// Lista las cajas de borde configuradas.
+  /// Lists the configured edge boxes.
   static List<Map<String, dynamic>> edgeBoxesOf(Map<String, dynamic> map) {
     final boxes = map['edgeBoxes'];
     if (boxes is! List) return <Map<String, dynamic>>[];
     return boxes.whereType<Map<String, dynamic>>().toList();
   }
 
-  /// Añade una caja de borde vacía y devuelve su índice.
+  /// Adds an empty edge box and returns its index.
   Future<int> addEdgeBox({required String edge}) async {
     final map = readConfigMap() ?? <String, dynamic>{};
     final boxes = map['edgeBoxes'] is List ? List<Map<String, dynamic>>.from(map['edgeBoxes'] as List) : <Map<String, dynamic>>[];
@@ -413,7 +413,7 @@ class StorageService {
     return boxes.length - 1;
   }
 
-  /// Actualiza una caja de borde por índice.
+  /// Updates an edge box by index.
   Future<void> updateEdgeBox(int index, Map<String, dynamic> Function(Map<String, dynamic>) fn) async {
     final map = readConfigMap();
     if (map == null) return;
@@ -425,7 +425,7 @@ class StorageService {
     await writeConfigMap(map);
   }
 
-  /// Elimina una caja de borde por índice.
+  /// Removes an edge box by index.
   Future<void> deleteEdgeBox(int index) async {
     final map = readConfigMap();
     if (map == null) return;
@@ -435,8 +435,51 @@ class StorageService {
     await writeConfigMap(map);
   }
 
+  /// Disables a plugin by moving its folder out of [kPluginsDirName]
+  /// (to [kPluginsDirName].disabled/ID). Discovery ignores that
+  /// folder, so the plugin stops being listed/used without deleting it.
+  Future<void> disablePlugin(String id) async {
+    final src = Directory('$pluginsPath/$id');
+    if (!await src.exists()) return;
+    final destDir = Directory('$pluginsPath.disabled');
+    await destDir.create(recursive: true);
+    final dest = Directory('${destDir.path}/$id');
+    if (await dest.exists()) await dest.delete(recursive: true);
+    await src.rename(dest.path);
+  }
+
+  /// Reactivates a previously disabled plugin.
+  Future<void> enablePlugin(String id) async {
+    final src = Directory('$pluginsPath.disabled/$id');
+    if (!await src.exists()) return;
+    final dest = Directory('$pluginsPath/$id');
+    if (await dest.exists()) await dest.delete(recursive: true);
+    await src.rename(dest.path);
+  }
+
+  /// Physically removes a plugin's folder.
+  Future<void> deletePlugin(String id) async {
+    for (final base in [pluginsPath, '$pluginsPath.disabled']) {
+      final dir = Directory('$base/$id');
+      if (await dir.exists()) await dir.delete(recursive: true);
+    }
+  }
+
+  /// IDs of currently disabled plugins (the .disabled folder).
+  List<String> disabledPluginIds() {
+    final dir = Directory('$pluginsPath.disabled');
+    if (!dir.existsSync()) return const [];
+    return dir
+        .listSync()
+        .whereType<Directory>()
+        .map((d) => _basename(d.path))
+        .toList();
+  }
+
   static List<dynamic> _desktopsOf(Map<String, dynamic> map) {
     final d = map['desktops'];
     return d is List ? d : <dynamic>[];
   }
+
+  static String _basename(String p) => p.split(Platform.pathSeparator).last;
 }

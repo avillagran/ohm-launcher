@@ -19,6 +19,11 @@ class _OhmBottomBar extends StatefulWidget {
     required this.serviceCount,
     required this.onOpenSettings,
     this.orientation = 'horizontal',
+    this.radius = 18,
+    this.disabledPluginIds = const [],
+    this.onTogglePluginEnabled,
+    this.onDeletePlugin,
+    this.onAddPluginWidget,
   });
 
   final List<OhmPlugin> plugins;
@@ -38,6 +43,11 @@ class _OhmBottomBar extends StatefulWidget {
   final int pluginCount;
   final int serviceCount;
   final String orientation;
+  final double radius;
+  final List<String> disabledPluginIds;
+  final void Function(String id)? onTogglePluginEnabled;
+  final void Function(String id)? onDeletePlugin;
+  final void Function(OhmPlugin plugin)? onAddPluginWidget;
 
   @override
   State<_OhmBottomBar> createState() => _OhmBottomBarState();
@@ -82,15 +92,28 @@ class _OhmBottomBarState extends State<_OhmBottomBar> {
       padding: widget.orientation == 'vertical'
           ? const EdgeInsets.all(8)
           : const EdgeInsets.fromLTRB(12, 8, 12, 14),
-      child: Material(
+      child: ConstrainedBox(
+        // In horizontal orientation (top/bottom edges) the bar must have a
+        // constrained width: the inner TextField and ListView have no fixed width
+        // own and, inside the group's Row, collapsed to 0 and the bar
+        // "disappeared". A finite maxWidth renders it correctly.
+        constraints: widget.orientation == 'vertical'
+            ? const BoxConstraints()
+            : BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width - 24),
+        child: Material(
         color: const Color(0xEE0F151B),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(widget.radius),
         elevation: 16,
         child: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0x2BFFFFFF)),
+            borderRadius: BorderRadius.circular(widget.radius),
+            border: const Border(
+              top: BorderSide(color: Color(0x2BFFFFFF)),
+              left: BorderSide(color: Color(0x2BFFFFFF)),
+              right: BorderSide(color: Color(0x2BFFFFFF)),
+              bottom: BorderSide(color: Color(0x2BFFFFFF)),
+            ),
           ),
           child: widget.orientation == 'vertical'
               ? SizedBox(
@@ -124,6 +147,7 @@ class _OhmBottomBarState extends State<_OhmBottomBar> {
                 )
               : Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Row(
                       mainAxisSize: MainAxisSize.min,
@@ -154,6 +178,7 @@ class _OhmBottomBarState extends State<_OhmBottomBar> {
                     ..._horizontalBarContent(context),
                   ],
                 ),
+        ),
       ),
       ),
     );
@@ -178,7 +203,12 @@ class _OhmBottomBarState extends State<_OhmBottomBar> {
               scrollDirection: Axis.horizontal,
               itemCount: barPlugins.length,
               separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (context, i) => _BarWidgetTile(plugin: barPlugins[i]),
+              itemBuilder: (context, i) => _BarWidgetTile(
+                plugin: barPlugins[i],
+                onAdd: widget.onAddPluginWidget == null
+                    ? null
+                    : () => widget.onAddPluginWidget!.call(barPlugins[i]),
+              ),
             ),
           ),
         if (barPlugins.isNotEmpty)
@@ -237,7 +267,7 @@ class _OhmBottomBarState extends State<_OhmBottomBar> {
 
   bool get _vertical => widget.orientation == 'vertical';
 
-  // ------------------------------------------------------- resultados
+  // ------------------------------------------------------- results
 
   List<_SearchEntry> _buildResultEntries(BuildContext context) {
     final q = _query.trim().toLowerCase();
@@ -334,7 +364,7 @@ class _OhmBottomBarState extends State<_OhmBottomBar> {
     setState(() => _query = '');
   }
 
-  /// Lanza una app instalada vía el canal nativo.
+  /// Launches an installed app via the native channel.
   void _launchApp(BuildContext context, InstalledApp app) {
     _clear();
     unawaited(_doLaunchApp(context, app));
@@ -352,12 +382,15 @@ class _OhmBottomBarState extends State<_OhmBottomBar> {
     }
   }
 
-  // ------------------------------------------------------- acciones
+  // ------------------------------------------------------- actions
 
-  /// Abre el panel/overlay/menu asociado a un plugin.
+  /// Opens the panel/overlay/menu/bar-widget associated with a plugin, with a button
+  /// to add it to the desktop.
   void _summonPlugin(BuildContext context, OhmPlugin plugin) {
     final kinds = plugin.kinds;
     _clear();
+    Widget? sheetChild;
+    String? kindLabel;
     if (kinds.contains('overlay')) {
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -365,39 +398,35 @@ class _OhmBottomBarState extends State<_OhmBottomBar> {
           builder: (_) => _PluginSurfaceScreen(plugin: plugin, kind: 'overlay'),
         ),
       );
+      return;
     } else if (kinds.contains('panel')) {
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: const Color(0xFF10161C),
-        isScrollControlled: true,
-        builder: (_) => _PluginSheet(
-          title: plugin.manifest?.name ?? plugin.id,
-          subtitle: '${plugin.id} · panel · bridge QML',
-          child: PluginRenderer.renderForKind(plugin, 'panel'),
-        ),
-      );
+      sheetChild = PluginRenderer.renderForKind(plugin, 'panel');
+      kindLabel = 'panel';
     } else if (kinds.contains('menu')) {
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: const Color(0xFF10161C),
-        isScrollControlled: true,
-        builder: (_) => _PluginSheet(
-          title: plugin.manifest?.name ?? plugin.id,
-          subtitle: '${plugin.id} · menu · bridge QML',
-          child: PluginRenderer.renderForKind(plugin, 'menu'),
-        ),
-      );
+      sheetChild = PluginRenderer.renderForKind(plugin, 'menu');
+      kindLabel = 'menu';
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: const Color(0xFF12202B),
-          content: Text('${plugin.manifest?.name ?? plugin.id}: ${plugin.statusLabel}'),
-        ),
-      );
+      // bar-widget / bar: rendered the same and can be added to the desktop.
+      sheetChild = PluginRenderer.renderForKind(plugin, 'bar-widget');
+      kindLabel = 'bar-widget';
     }
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF10161C),
+      isScrollControlled: true,
+      builder: (_) => _PluginSheet(
+        title: plugin.manifest?.name ?? plugin.id,
+        subtitle: '${plugin.id} · $kindLabel · bridge QML',
+        child: sheetChild!,
+        onAdd: widget.onAddPluginWidget == null
+            ? null
+            : () => widget.onAddPluginWidget!.call(plugin),
+        addLabel: 'Agregar widget al escritorio',
+      ),
+    );
   }
 
-  /// Abre el panel de un bar-widget (Panel.json si existe).
+  /// Opens the panel of a bar-widget (Panel.json if present).
   void _showPluginSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -428,28 +457,80 @@ class _OhmBottomBarState extends State<_OhmBottomBar> {
                   child: ListView(
                     shrinkWrap: true,
                     children: widget.plugins.map((p) {
+                      final id = p.manifest?.id ?? p.id;
+                      final enabled = !widget.disabledPluginIds.contains(id);
                       return ListTile(
                         dense: true,
-                        leading: Icon(
-                          p.isValid ? Icons.check_circle_outline : Icons.error_outline,
-                          color: p.isValid ? const Color(0xFF7EE787) : const Color(0xFFFF6B7A),
+                        leading: IconButton(
+                          icon: Icon(
+                            enabled ? Icons.check_circle : Icons.check_circle_outline,
+                            color: enabled ? const Color(0xFF7EE787) : const Color(0xFF5A6B7A),
+                          ),
+                          tooltip: enabled ? 'Desactivar' : 'Activar',
+                          onPressed: () {
+                            widget.onTogglePluginEnabled?.call(id);
+                            // Rebuilds the sheet to reflect the new state.
+                            (context as Element).markNeedsBuild();
+                          },
                         ),
                         title: Text(p.manifest?.name ?? p.id,
                             style: const TextStyle(fontSize: 13, color: Color(0xFFE8F1F8))),
                         subtitle: Text(
-                          '${p.id} · ${p.kinds.join('/')} · ${p.statusLabel}',
+                          '${p.id} · ${p.kinds.join('/')} · ${enabled ? p.statusLabel : 'desactivado'}',
                           style: const TextStyle(fontSize: 11, color: Color(0xFF7A8A99)),
                         ),
-                        trailing: p.isValid && (p.kinds.contains('panel') || p.kinds.contains('overlay') || p.kinds.contains('menu'))
-                            ? IconButton(
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (p.isValid &&
+                                (p.kinds.contains('panel') ||
+                                    p.kinds.contains('overlay') ||
+                                    p.kinds.contains('menu')))
+                              IconButton(
                                 icon: const Icon(Icons.launch, size: 18),
                                 color: const Color(0xFF66E0FF),
                                 onPressed: () {
                                   Navigator.of(sheetContext).pop();
                                   _summonPlugin(context, p);
                                 },
-                              )
-                            : null,
+                              ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, size: 18),
+                              color: const Color(0xFFFF6B7A),
+                              tooltip: 'Eliminar',
+                              onPressed: () async {
+                                final confirm = await showDialog<bool>(
+                                  context: sheetContext,
+                                  builder: (_) => AlertDialog(
+                                    backgroundColor: const Color(0xFF10161C),
+                                    title: const Text('Eliminar plugin',
+                                        style: TextStyle(color: Color(0xFFE8F1F8))),
+                                    content: Text(
+                                      '¿Eliminar "${p.manifest?.name ?? p.id}"? '
+                                      'Se borrará su carpeta y no se podrá recuperar.',
+                                      style: const TextStyle(color: Color(0xFF9AA7B4)),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.of(sheetContext).pop(false),
+                                        child: const Text('Cancelar'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () => Navigator.of(sheetContext).pop(true),
+                                        child: const Text('Eliminar',
+                                            style: TextStyle(color: Color(0xFFFF6B7A))),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirm == true) {
+                                  widget.onDeletePlugin?.call(id);
+                                  (context as Element).markNeedsBuild();
+                                }
+                              },
+                            ),
+                          ],
+                        ),
                       );
                     }).toList(),
                   ),
@@ -489,7 +570,7 @@ class _OhmBottomBarState extends State<_OhmBottomBar> {
     );
   }
 
-  /// Abre la pantalla completa de exploración del marketplace.
+  /// Opens the full marketplace exploration screen.
   void _showMarketplaceScreen(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -504,7 +585,7 @@ class _OhmBottomBarState extends State<_OhmBottomBar> {
     );
   }
 
-  /// Detalle e instalación de un plugin del marketplace.
+  /// Plugin detail and installation from the marketplace.
   void _showMarketplaceDialog(BuildContext context, MarketplaceEntry entry) {
     showDialog<void>(
       context: context,
@@ -516,7 +597,7 @@ class _OhmBottomBarState extends State<_OhmBottomBar> {
   }
 }
 
-/// Resultado de búsqueda del lanzador de comandos.
+/// Command launcher search result.
 class _SearchEntry {
   const _SearchEntry({
     required this.label,
@@ -537,7 +618,7 @@ class _SearchEntry {
   final VoidCallback onTap;
   final InstalledApp? app;
 
-  /// Widget opcional a la derecha (estrella de favoritos, etc.).
+  /// Optional widget on the right (favorites star, etc.).
   final Widget? trailing;
 
   Widget toListTile() {
@@ -559,13 +640,14 @@ class _SearchEntry {
 }
 
 // ---------------------------------------------------------------------------
-//  Tile de bar-widget en el dock
+//  bar-widget tile in the dock
 // ---------------------------------------------------------------------------
 
 class _BarWidgetTile extends StatelessWidget {
-  const _BarWidgetTile({required this.plugin});
+  const _BarWidgetTile({required this.plugin, this.onAdd});
 
   final OhmPlugin plugin;
+  final VoidCallback? onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -592,9 +674,9 @@ class _BarWidgetTile extends StatelessWidget {
     );
   }
 
-  /// Renderiza el contenido del bar-widget de forma segura sea cual sea su
-  /// tipo: JSON y QML se interpretan (QML vía bridge) y un entry ausente
-  /// muestra un aviso (nunca desborda ni crashea).
+  /// Safely renders the bar-widget content whatever its
+  /// type: JSON and QML are interpreted (QML via bridge) and an absent entry
+  /// shows a notice (never overflows or crashes).
   Widget _buildContent(EntryKind kind, String label) {
     Widget? rendered;
     switch (kind) {
@@ -658,23 +740,28 @@ class _BarWidgetTile extends StatelessWidget {
         child: panel != null
             ? _renderEntryFile(panel)
             : PluginRenderer.renderForKind(plugin, 'bar-widget'),
+        onAdd: onAdd,
       ),
     );
   }
 }
 
-/// Hoja inferior con cabecera siempre visible, para que abrir un plugin nunca
-/// "no haga nada": se ve el nombre, el id y su contenido interpretado.
+/// Bottom sheet with always-visible header, so opening a plugin never
+/// "do nothing": you see the name, the id and its interpreted content.
 class _PluginSheet extends StatelessWidget {
   const _PluginSheet({
     required this.title,
     required this.subtitle,
     required this.child,
+    this.onAdd,
+    this.addLabel = 'Agregar widget al escritorio',
   });
 
   final String title;
   final String subtitle;
   final Widget child;
+  final VoidCallback? onAdd;
+  final String addLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -698,6 +785,19 @@ class _PluginSheet extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (onAdd != null)
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF66E0FF),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    ),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('Agregar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      onAdd!();
+                    },
+                  ),
                 IconButton(
                   icon: const Icon(Icons.close, size: 18, color: Color(0xFF9AA7B4)),
                   onPressed: () => Navigator.of(context).pop(),

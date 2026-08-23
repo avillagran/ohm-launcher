@@ -1,0 +1,54 @@
+{
+  "@@locale": "en",
+  "connectWithOmarchy": "Connect with Omarchy",
+  "@connectWithOmarchy": {
+    "description": "Title of the Omarchy connection dialog"
+  },
+  "sharedConnectionInfo": "Shared connection info",
+  "@sharedConnectionInfo": {
+    "description": "Subtitle shown above the IP/port in the connection dialog"
+  },
+  "networkConnectionMdnsQr": "Network connection (mDNS/QR)",
+  "@networkConnectionMdnsQr": {
+    "description": "Label for the mDNS/QR connection section"
+  },
+  "scanBluetooth": "Scan Bluetooth",
+  "@scanBluetooth": {
+    "description": "Button to scan for Omarchy peers over Bluetooth"
+  },
+  "noPeerNearby": "No Omarchy peer nearby",
+  "@noPeerNearby": {
+    "description": "Status when no Bluetooth peer was found"
+  },
+  "close": "Close",
+  "@close": {
+    "description": "Dialog close button"
+  },
+  "addLeft": "Add left",
+  "@addLeft": { "description": "Radial menu: add desktop to the left" },
+  "addWidget": "Add widget",
+  "@addWidget": { "description": "Radial menu: add widget" },
+  "addBox": "Add box",
+  "@addBox": { "description": "Radial menu: add edge box" },
+  "editWidgets": "Edit widgets",
+  "@editWidgets": { "description": "Radial menu: edit widgets" },
+  "desktopSettings": "Desktop settings",
+  "@desktopSettings": { "description": "Radial menu: desktop settings" },
+  "launcherSettings": "Launcher settings",
+  "@launcherSettings": { "description": "Radial menu: launcher settings" },
+  "connectOmarchy": "Connect Omarchy",
+  "@connectOmarchy": { "description": "Radial menu: connect to Omarchy" },
+  "restart": "Restart",
+  "@restart": { "description": "Radial menu: restart launcher" },
+  "addRight": "Add right",
+  "@addRight": { "description": "Radial menu: add desktop to the right" },
+  "connectedToOmarchy": "Connected to Omarchy: {id} ({ip}:{port})",
+  "@connectedToOmarchy": {
+    "description": "Snackbar shown after scanning the omarchy:// QR",
+    "placeholders": {
+      "id": { "type": "String" },
+      "ip": { "type": "String" },
+      "port": { "type": "int" }
+    }
+  }
+}

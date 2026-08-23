@@ -22,7 +22,19 @@
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
 
     <!-- Acceso de red: registro del marketplace de plugins (omarchyplugins.com). -->
-    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Bluetooth (autodetección de peer Omarchy por BLE). -->
+    <uses-permission android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30" />
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
 
     <!-- Permite enviar comandos a Termux vía el intent com.termux.RUN_COMMAND
          (requiere Termux:API instalado). Sin este permiso el broadcast se descarta. -->
@@ -69,6 +81,16 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+
+            <!-- 3) Protocolo de enlace con Omarchy: al escanear un QR
+                 `omarchy://<ip>:<port>?id=<nombre>` con la cámara del sistema,
+                 Android enruta el intent a este launcher, que conecta con la PC. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="omarchy"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

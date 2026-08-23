@@ -1,7 +1,7 @@
 part of 'package:ohm_launcher/main.dart';
 
 // ---------------------------------------------------------------------------
-//  Indicador de almacenamiento activo
+//  Active storage indicator
 // ---------------------------------------------------------------------------
 
 class _StorageStatusPill extends StatelessWidget {

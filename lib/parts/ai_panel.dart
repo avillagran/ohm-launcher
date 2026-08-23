@@ -1,10 +1,10 @@
 // ============================================================================
-//  AI PANEL — input flotante para chatear con la IA desde el launcher
+//  AI PANEL — floating input to chat with the AI from the launcher
 // ============================================================================
-//  Envía el prompt al backend configurado (OpenAI-compatible, cualquier
-//  proveedor) y, si la respuesta trae un bloque de componente, lo inyecta en
-//  la capa flotante en caliente. El panel solo muestra la explicación y el
-//  estado; la inyección la hace el llamador vía [onSend].
+//  Sends the prompt to the configured backend (OpenAI-compatible, any
+//  provider) and, if the response brings a component block, injects it into
+//  the hot floating layer. The panel only shows the explanation and the
+//  state; the injection is done by the caller via [onSend].
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -83,7 +83,7 @@ class _AiPanelState extends State<AiPanel> {
           color: const Color(0x66000000),
           alignment: Alignment.bottomCenter,
           child: GestureDetector(
-            onTap: () {}, // evita cerrar al tocar el panel
+            onTap: () {}, // avoids closing when touching the panel
             child: SafeArea(
               child: Container(
                 width: double.infinity,

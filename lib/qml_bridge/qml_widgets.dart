@@ -31,7 +31,7 @@ class QmlInterpretResult {
   final String? error;
 }
 
-/// Punto de entrada: interpreta [source] y devuelve el Widget raíz.
+/// Entry point: interprets [source] and returns the root Widget.
 class QmlInterpreter {
   QmlInterpreter._();
 
@@ -56,7 +56,7 @@ class QmlInterpreter {
       final root = doc.elements.first;
       final scope = QmlScope();
 
-      // Pase 1: registrar ids y el elemento raíz para resolver propiedades
+      // Pass 1: register ids and the root element to resolve properties
       // (root.icon, button.text, clock.date...).
       scope.values['root'] = QmlElementValue(root, scope);
       void register(QmlElement el) {
@@ -301,8 +301,8 @@ class _Builder {
     final children = el.children.map(build).toList();
     if (children.isEmpty) return const SizedBox.shrink();
 
-    // En modo compacto (dock), un bar-widget muestra solo su botón, tanto si
-    // la raíz es BarWidget como Panel (convención usada por muchos plugins).
+    // In compact mode (dock), a bar-widget shows only its button, whether the
+    // root is a BarWidget or a Panel (convention used by many plugins).
     if (ctx.compact && (el.baseType == 'BarWidget' || el.baseType == 'Panel')) {
       final buttons = el.children
           .where((c) => _isButtonType(c.baseType))
@@ -366,7 +366,7 @@ class _Builder {
 
   // ------------------------------------------------------------ específicos
 
-  /// Popup/sobrevolante: solo se muestra cuando `open` es true (en el dock se
+  /// Popup/overlay: only shown when `open` is true (in the dock it
   /// oculta; el panel se abre con un clic en el tile).
   Widget _buildPopup(QmlElement el) {
     if (ctx.compact) return const SizedBox.shrink();

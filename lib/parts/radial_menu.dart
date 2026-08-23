@@ -1,7 +1,7 @@
 part of 'package:ohm_launcher/main.dart';
 
 // ---------------------------------------------------------------------------
-//  Menú radial del escritorio (long-press en el fondo)
+//  Desktop radial menu (long-press on the background)
 // ---------------------------------------------------------------------------
 
 class _RadialDesktopMenu extends StatelessWidget {
@@ -16,6 +16,7 @@ class _RadialDesktopMenu extends StatelessWidget {
     required this.onLauncherSettings,
     required this.onDeleteDesktop,
     required this.onRestart,
+    required this.onConnectOmarchy,
   });
 
   final String desktopName;
@@ -28,19 +29,22 @@ class _RadialDesktopMenu extends StatelessWidget {
   final VoidCallback onLauncherSettings;
   final VoidCallback onDeleteDesktop;
   final VoidCallback onRestart;
+  final VoidCallback onConnectOmarchy;
 
   @override
   Widget build(BuildContext context) {
-    // Arreglo radial: izquierda, widget, caja, editar, config desktop/launcher y derecha.
+    final l10n = AppLocalizations.of(context)!;
+    // Radial menu: left, widget, box, edit, desktop/launcher config and right.
     final items = [
-      _RadialItem(icon: Icons.arrow_back, label: 'Agregar\nizquierda', onTap: onAddLeft),
-      _RadialItem(icon: Icons.add_box_outlined, label: 'Agregar\nwidget', onTap: onAddWidget),
-      _RadialItem(icon: Icons.inventory_2_outlined, label: 'Agregar\ncaja', onTap: onAddBox),
-      _RadialItem(icon: Icons.drag_indicator, label: 'Editar\nwidgets', onTap: onEditWidgets),
-      _RadialItem(icon: Icons.settings_outlined, label: 'Config\nescritorio', onTap: onSettings),
-      _RadialItem(icon: Icons.tune, label: 'Config\nlauncher', onTap: onLauncherSettings),
-      _RadialItem(icon: Icons.restart_alt, label: 'Reiniciar', onTap: onRestart),
-      _RadialItem(icon: Icons.arrow_forward, label: 'Agregar\nderecha', onTap: onAddRight),
+      _RadialItem(icon: Icons.arrow_back, label: l10n.addLeft, onTap: onAddLeft),
+      _RadialItem(icon: Icons.add_box_outlined, label: l10n.addWidget, onTap: onAddWidget),
+      _RadialItem(icon: Icons.inventory_2_outlined, label: l10n.addBox, onTap: onAddBox),
+      _RadialItem(icon: Icons.drag_indicator, label: l10n.editWidgets, onTap: onEditWidgets),
+      _RadialItem(icon: Icons.settings_outlined, label: l10n.desktopSettings, onTap: onSettings),
+      _RadialItem(icon: Icons.tune, label: l10n.launcherSettings, onTap: onLauncherSettings),
+      _RadialItem(icon: Icons.link_outlined, label: l10n.connectOmarchy, onTap: onConnectOmarchy),
+      _RadialItem(icon: Icons.restart_alt, label: l10n.restart, onTap: onRestart),
+      _RadialItem(icon: Icons.arrow_forward, label: l10n.addRight, onTap: onAddRight),
     ];
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -78,7 +82,7 @@ class _RadialDesktopMenu extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 28),
-                    // Basurero: eliminar escritorio.
+                    // Trash: remove desktop.
                     Tooltip(
                       message: 'Eliminar escritorio',
                       child: InkWell(

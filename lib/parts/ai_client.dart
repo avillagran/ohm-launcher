@@ -1,13 +1,13 @@
 // ============================================================================
-//  AI CLIENT — cliente agnóstico de proveedor (OpenAI-compatible)
+//  AI CLIENT — provider-agnostic client (OpenAI-compatible)
 // ============================================================================
-//  Habla con cualquier endpoint tipo /v1/chat/completions (OpenAI, Ollama,
+//  Talks to any /v1/chat/completions endpoint (OpenAI, Ollama,
 //  LM Studio, OpenRouter, Anthropic via proxy, Kimi, Codex, opencode, etc.).
 //
-//  La respuesta del modelo suele traer texto + un bloque de componente
-//  (JSON del DynamicWidgetEngine o QML del bridge). [parseWidget] extrae el
-//  primer bloque ```json / ```qml / ```widget y devuelve su contenido para
-//  que la UI lo inyecte en caliente.
+//  The model response usually brings text + a component block
+//  (JSON from DynamicWidgetEngine or QML from the bridge). [parseWidget] extracts the
+//  the first ```json / ```qml / ```widget block and returns its content for
+//  the UI to inject it hot.
 // ============================================================================
 
 import 'dart:convert';
@@ -96,8 +96,8 @@ class AiClient {
     }
   }
 
-  /// Dado el texto completo de la respuesta, separa la explicación del bloque
-  /// de componente (```json / ```qml / ```widget).
+  /// Given the full response text, separates the explanation from the block
+  /// of component (```json / ```qml / ```widget).
   static AiResponse parseWidget(String content) {
     final regex = RegExp(r'```(?:json|qml|widget)?\s*\n(.*?)```',
         dotAll: true, caseSensitive: false);

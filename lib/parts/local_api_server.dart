@@ -1,18 +1,18 @@
 // ============================================================================
-//  LOCAL API SERVER — servidor HTTP en localhost dentro del launcher
+//  LOCAL API SERVER — HTTP server on localhost inside the launcher
 // ============================================================================
-//  Expone un control remoto del launcher SIN abrir Termux ni la app:
+//  Exposes a remote control of the launcher WITHOUT opening Termux or the app:
 //
 //    GET  /health              -> {"ok":true,"name":"OhmLauncher"}
-//    POST /command  {command, args?}        -> resultado del shell (embebido/Termux)
-//    POST /widget   {source, format?}       -> inyecta un componente (json|qml) en caliente
-//    POST /ai       {prompt, history?}      -> chat con la IA configurada
-//    POST /install-bin {name, base64}       -> instala un binario propio en la app (herdr/opencode/claude…)
-//    GET  /bins                     -> lista los binarios instalados
-//    POST /uninstall-bin {name}     -> elimina un binario instalado
+//    POST /command  {command, args?}        -> shell result (embedded/Termux)
+//    POST /widget   {source, format?}       -> inject a component (json|qml) hot
+//    POST /ai       {prompt, history?}      -> chat with the configured AI
+//    POST /install-bin {name, base64}       -> install an own binary in the app (herdr/opencode/claude…)
+//    GET  /bins                     -> list installed binaries
+//    POST /uninstall-bin {name}     -> remove an installed binary
 //
-//  Las acciones pesadas se delegan vía callbacks para mantener el servidor
-//  desacoplado de la UI y de los settings.
+//  Heavy actions are delegated via callbacks to keep the server
+//  decoupled from the UI and the settings.
 // ============================================================================
 
 import 'dart:async';
@@ -23,6 +23,7 @@ import 'package:flutter/foundation.dart';
 
 import 'ai_client.dart';
 import 'shell_executor.dart';
+import 'omarchy_link.dart';
 
 typedef CommandHandler = Future<ShellResult> Function(String command, List<String>? args);
 typedef InjectHandler = Future<void> Function(String source, String format);
@@ -44,6 +45,8 @@ class LocalApiServer {
     this.onListBins,
     this.onUninstallBin,
     this.onQuake,
+    this.omarchyLink,
+    this.lanMode = false,
   });
 
   final int port;
@@ -55,6 +58,10 @@ class LocalApiServer {
   final ListBinsHandler? onListBins;
   final UninstallBinHandler? onUninstallBin;
   final QuakeHandler? onQuake;
+  final OmarchyLink? omarchyLink;
+  /// true => listens on all interfaces (reachable from the LAN for the
+  /// integration with Omarchy); false => loopback only (more secure).
+  final bool lanMode;
 
   HttpServer? _server;
   bool _running = false;
@@ -64,7 +71,8 @@ class LocalApiServer {
   Future<void> start() async {
     if (_running) return;
     try {
-      _server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
+      final addr = lanMode ? InternetAddress.anyIPv4 : InternetAddress.loopbackIPv4;
+      _server = await HttpServer.bind(addr, port);
       _running = true;
       unawaited(_serve());
     } on SocketException catch (e) {
@@ -86,6 +94,17 @@ class LocalApiServer {
   }
 
   Future<void> _handle(HttpRequest request) async {
+    // Omarchy integration: delegates all /omarchy/* routes to the link module.
+    if (omarchyLink != null) {
+      if (request.uri.path == '/omarchy/ws') {
+        await omarchyLink!.handleWs(request);
+        return;
+      }
+      if (request.uri.path.startsWith('/omarchy/')) {
+        await omarchyLink!.handleRest(request);
+        return;
+      }
+    }
     _cors(request);
     if (request.method == 'OPTIONS') return;
     try {
@@ -201,16 +220,16 @@ class LocalApiServer {
   }
 
   bool _validBinName(String name) {
-    // Sin rutas: solo nombre de archivo, caracteres seguros.
+    // No paths: only file name, safe characters.
     return !name.contains('/') &&
         !name.contains('\\') &&
         !name.contains('..') &&
         RegExp(r'^[A-Za-z0-9._-]+$').hasMatch(name);
   }
 
-  /// Instala un binario recibiendo los bytes en crudo (sin base64/JSON), lo que
-  /// soporta archivos grandes (p.ej. bun ~90 MB) sin cargarlos todos en memoria.
-  /// Uso: POST /install-bin-raw?name=<bin>  (body = bytes del ejecutable).
+  /// Installs a binary receiving the bytes raw (no base64/JSON), which
+  /// supports large files (e.g. bun ~90 MB) without loading them all into memory.
+  /// Usage: POST /install-bin-raw?name=<bin>  (body = executable bytes).
   Future<void> _installBinRaw(HttpRequest request) async {
     final name = request.uri.queryParameters['name']?.trim() ?? '';
     if (name.isEmpty || !_validBinName(name)) {

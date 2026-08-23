@@ -1,7 +1,7 @@
 part of 'package:ohm_launcher/main.dart';
 
 // ============================================================================
-//  7. WIDGETS DE ERROR / INFORMATIVOS (nunca crashean la app)
+//  7. ERROR / INFO WIDGETS (never crash the app)
 // ============================================================================
 
 class _ConfigErrorCard extends StatelessWidget {

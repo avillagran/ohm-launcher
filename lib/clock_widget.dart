@@ -40,7 +40,7 @@ String formatClock(DateTime now, String format) {
   };
 
   var out = format;
-  // Sustituir primero los tokens más largos y solo cuando forman un token
+  // Substitute the longest tokens first, and only when they form a whole token
   // completo (no dentro de una palabra): "a" no debe corromper "ago".
   final keys = tokens.keys.toList()..sort((a, b) => b.length.compareTo(a.length));
   for (final key in keys) {

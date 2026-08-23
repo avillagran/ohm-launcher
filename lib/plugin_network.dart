@@ -36,7 +36,7 @@ class RemoteManifest {
 
   final String body;
 
-  /// Ruta relativa dentro del repo ('' cuando el manifest está en la raíz).
+  /// Relative path within the repo ('' when the manifest is at the root).
   final String manifestDir;
 
   Map<String, dynamic> get data => jsonDecode(body) as Map<String, dynamic>;
@@ -51,15 +51,15 @@ class PluginRemoteFetcher {
 
   /// Busca el manifest del plugin cuyo id es [expectedId] en las ramas típicas.
   ///
-  /// Si [expectedId] es vacío, solo se comprueba la raíz del repo (útil para
-  /// instalar desde una URL sin conocer el id previamente).
+  /// If [expectedId] is empty, only the repo root is checked (useful for
+  /// installing from a URL without knowing the id beforehand).
   static Future<RemoteManifest?> findManifest({
     required String owner,
     required String repo,
     required String branch,
     String expectedId = '',
   }) async {
-    // 1) Manifest en la raíz del repo (caso más común).
+    // 1) Manifest at the repo root (most common case).
     final rootBody = await HttpUtil.fetch('$rawBase/$owner/$repo/$branch/manifest.json');
     if (rootBody != null) {
       if (expectedId.isEmpty) return RemoteManifest(body: rootBody, manifestDir: '');

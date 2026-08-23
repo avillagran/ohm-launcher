@@ -1,6 +1,6 @@
 part of 'package:ohm_launcher/main.dart';
 
-/// Hoja de configuración del launcher: tipografía, escala, fondo y launcher por defecto.
+/// Launcher settings sheet: typography, scale, background and default launcher.
 class _DesktopSettingsSheet extends StatefulWidget {
   const _DesktopSettingsSheet({
     required this.currentFontFamily,
@@ -349,7 +349,7 @@ class _DesktopSettingsSheetState extends State<_DesktopSettingsSheet> {
 }
 
 // ---------------------------------------------------------------------------
-//  Configuración del launcher (global): tamaño de texto, navegación, gestos.
+//  Launcher settings (global): text size, navigation, gestures.
 // ---------------------------------------------------------------------------
 class _LauncherSettingsSheet extends StatefulWidget {
   const _LauncherSettingsSheet({
@@ -382,6 +382,10 @@ class _LauncherSettingsSheet extends StatefulWidget {
     required this.onAiApiKey,
     required this.onAiModel,
     required this.onAiSystemPrompt,
+    this.currentBoxRadius = 14,
+    this.currentBarRadius = 18,
+    required this.onBoxRadius,
+    required this.onBarRadius,
   });
 
   final double currentTextScale;
@@ -413,6 +417,10 @@ class _LauncherSettingsSheet extends StatefulWidget {
   final ValueChanged<String> onAiApiKey;
   final ValueChanged<String> onAiModel;
   final ValueChanged<String> onAiSystemPrompt;
+  final double currentBoxRadius;
+  final double currentBarRadius;
+  final ValueChanged<double> onBoxRadius;
+  final ValueChanged<double> onBarRadius;
 
   @override
   State<_LauncherSettingsSheet> createState() => _LauncherSettingsSheetState();
@@ -433,6 +441,8 @@ class _LauncherSettingsSheetState extends State<_LauncherSettingsSheet> {
   late String _aiApiKey = widget.aiApiKey;
   late String _aiModel = widget.aiModel;
   late String _aiSystemPrompt = widget.aiSystemPrompt;
+  late double _boxRadius = widget.currentBoxRadius;
+  late double _barRadius = widget.currentBarRadius;
   int _tab = 0;
   bool _checkingDefault = false;
   Timer? _textScaleDebounce;
@@ -586,6 +596,51 @@ class _LauncherSettingsSheetState extends State<_LauncherSettingsSheet> {
           },
         ),
         _caption('Escala del espaciado interno de las cajas de borde.'),
+        _sectionLabel('RADIO DE BORDE (ESQUINAS)'),
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Cajas', style: TextStyle(fontSize: 11, color: Color(0xFF9AA7B4))),
+                  Slider(
+                    value: _boxRadius,
+                    min: 0,
+                    max: 28,
+                    divisions: 14,
+                    label: _boxRadius == 0 ? 'Cuadrado' : '${_boxRadius.round()}px',
+                    onChanged: (v) {
+                      setState(() => _boxRadius = v);
+                      widget.onBoxRadius(v);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Barras', style: TextStyle(fontSize: 11, color: Color(0xFF9AA7B4))),
+                  Slider(
+                    value: _barRadius,
+                    min: 0,
+                    max: 28,
+                    divisions: 14,
+                    label: _barRadius == 0 ? 'Cuadrado' : '${_barRadius.round()}px',
+                    onChanged: (v) {
+                      setState(() => _barRadius = v);
+                      widget.onBarRadius(v);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        _caption('Redondez de las esquinas de cajas y barras. 0 px = esquinas cuadradas (sin borde redondeado).'),
         _sectionLabel('BARRA DE FAVORITOS'),
         Wrap(
           spacing: 8,

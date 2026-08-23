@@ -1,14 +1,14 @@
 // ============================================================================
-//  SHELL EXECUTOR — ejecución de comandos EMBEBIDA en el proceso de la app.
+//  SHELL EXECUTOR — command execution EMBEDDED in the app process.
 // ============================================================================
-//  Motor principal: Process.run con el shell del sistema (/system/bin/sh),
-//  totalmente dentro del sandbox de Ohm Launcher. NO requiere ninguna app de
-//  terceros (ni Termux). Es la forma en que el launcher ejecuta comandos de
-//  forma autónoma.
+//  Main engine: Process.run with the system shell (/system/bin/sh),
+//  entirely within the Ohm Launcher sandbox. Does NOT require any third-party app
+//  third parties (nor Termux). It is the way the launcher runs commands of
+//  autonomous form.
 //
-//  Termux (vía Termux:API) es OPCIONAL y solo se usa si se activa explícitamente
-//  en ajustes (shellPreferTermux) y está instalado. Nunca es un requisito: si
-//  falla o no está presente, se cae al ejecutor embebido.
+//  Termux (via Termux:API) is OPTIONAL and only used if explicitly enabled
+//  in settings (shellPreferTermux) and is installed. It is never a requirement: if
+//  fails or is not present, it falls back to the embedded executor.
 // ============================================================================
 
 import 'dart:async';
@@ -46,15 +46,15 @@ class ShellExecutor {
 
   static const MethodChannel _channel = MethodChannel('com.ohm/ohm');
 
-  /// Ejecuta [command] de forma embebida en el proceso de la app.
+  /// Runs [command] embedded in the app process.
   ///
-  /// Si [useTermux] es true y Termux:API está instalado, intenta Termux primero
-  /// (comparte el entorno de paquetes de Termux) y, si falla, cae al ejecutor
-  /// embebido. Sin [useTermux], siempre corre embebido (sin dependencias).
+  /// If [useTermux] is true and Termux:API is installed, try Termux first
+  /// (shares Termux's package environment) and, if it fails, falls back to the executor
+  /// embedded. Without [useTermux], it always runs embedded (no dependencies).
   ///
-  /// [binDir] (opcional) se añade al PATH para poder invocar bins propios de la
-  /// app (herdr, opencode, claude…) instalados en su carpeta privada. [homeDir]
-  /// fija HOME para esos bins.
+  /// [binDir] (optional) is added to PATH so we can invoke own bins from the
+  /// app (herdr, opencode, claude…) installed in its private folder. [homeDir]
+  /// sets HOME for those bins.
   static Future<ShellResult> run(
     String command, {
     List<String>? args,
@@ -71,10 +71,10 @@ class ShellExecutor {
     return _runEmbedded(command, args, workingDirectory, binDir, homeDir);
   }
 
-  /// Si [command] invoca un bin propio instalado en [binDir] (nombre simple sin
-  /// '/'), lo ejecuta sin saltar la restricción noexec de Android: los scripts
-  /// via `sh <ruta>` y los ELF via el linker del sistema (`linker64 <ruta>`),
-  /// ya que ambos LEEN el archivo en vez de ejecutarlo directamente.
+  /// If [command] invokes an own bin installed in [binDir] (simple name without
+  /// '/'), it runs without bypassing Android's noexec restriction: scripts
+  /// via `sh <path>` and the ELF via the system linker (`linker64 <path>`),
+  /// since both READ the file instead of executing it directly.
   static String _resolveOwnBin(String command, String binDir) {
     final idx = command.indexOf(' ');
     final token = idx < 0 ? command : command.substring(0, idx);
@@ -107,8 +107,8 @@ class ShellExecutor {
     }
   }
 
-  /// Ejecutor embebido: corre el comando en el sandbox de la app con el shell
-  /// del sistema. No requiere nada externo.
+  /// Embedded executor: runs the command in the app sandbox with the shell
+  /// of the system. Requires nothing external.
   static Future<ShellResult> _runEmbedded(
     String command,
     List<String>? args,

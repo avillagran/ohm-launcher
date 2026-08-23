@@ -31,7 +31,7 @@ class QmlClockValue {
   QmlClockValue.now() : date = DateTime.now();
 }
 
-/// Valor de un elemento QML con id/root: permite resolver sus propiedades
+/// Value of a QML element with id/root: lets its properties be resolved
 /// (`root.icon`, `button.text`, `clock.precision`...) con guarda anti-recursión
 /// para bindings circulares típicos de QML (implicitWidth: button.implicitWidth).
 class QmlElementValue {

@@ -1,29 +1,29 @@
 part of 'package:ohm_launcher/main.dart';
 
 // ============================================================================
-//  3b. WIDGETS DE ESCRITORIO (apps_grid, batería) y multi-escritorio
+//  3b. DESKTOP WIDGETS (apps_grid, battery) and multi-desktop
 // ============================================================================
 
-/// Snapshot estático de apps instaladas: el motor dinámico (estático) lee de
-/// aquí, y la pantalla principal lo actualiza cuando carga las apps reales.
+/// Static snapshot of installed apps: the (static) dynamic engine reads from
+/// here, and the main screen updates it when it loads the real apps.
 class InstalledAppsSnapshot {
   InstalledAppsSnapshot._();
 
   static List<InstalledApp> latest = const [];
 }
 
-/// Snapshot estático de plugins descubiertos (para widgets tipo plugin).
+/// Static snapshot of discovered plugins (for plugin-type widgets).
 class PluginSnapshot {
   PluginSnapshot._();
 
   static List<OhmPlugin> latest = const [];
 }
 
-/// Tile de una app instalada para el widget `apps_grid` y el cajón.
+/// Tile of an installed app for the `apps_grid` widget and the drawer.
 ///
-/// `onTap` (opcional) reemplaza el lanzado por defecto. `onLongPress` (opcional)
-/// se dispara tras 2s de presión sostenida (no al umbral por defecto del
-/// sistema), y en ese caso el tap normal no lanza la app.
+/// `onTap` (optional) replaces the default launch. `onLongPress` (optional)
+/// fires after 2s of sustained pressure (not at the default threshold of the
+/// system), and in that case the normal tap does not launch the app.
 class _DesktopAppTile extends StatefulWidget {
   const _DesktopAppTile({
     required this.app,
@@ -91,7 +91,7 @@ class _DesktopAppTileState extends State<_DesktopAppTile> {
   }
 }
 
-/// Carga el icono de una app bajo demanda para no bloquear el arranque.
+/// Loads an app's icon on demand so as not to block startup.
 class _LazyAppIcon extends StatefulWidget {
   const _LazyAppIcon({required this.app, this.size = 40, this.padding = 7, this.radius = 12});
 
@@ -159,7 +159,7 @@ class _LazyAppIconState extends State<_LazyAppIcon> {
   }
 }
 
-/// Widget de batería en vivo (porcentaje vía canal nativo).
+/// Live battery widget (percentage via native channel).
 class BatteryWidget extends StatefulWidget {
   const BatteryWidget({super.key, required this.style, this.showIcon = true});
 
@@ -222,7 +222,7 @@ class _BatteryWidgetState extends State<BatteryWidget> {
   }
 }
 
-/// PageView de escritorios virtuales renderizados desde `desktops[]`.
+/// PageView of virtual desktops rendered from `desktops[]`.
 class _DesktopPager extends StatefulWidget {
   const _DesktopPager({
     required this.desktops,
@@ -244,7 +244,7 @@ class _DesktopPager extends StatefulWidget {
   final ValueChanged<int>? onPageChanged;
   final ValueChanged<int>? onLongPressDesktop;
 
-  /// Índice del widget seleccionado en el escritorio actual (null = sin editar).
+  /// Selected widget index on the current desktop (null = not editing).
   final int? editingWidget;
   final ValueChanged<int>? onWidgetLongPress;
   final ValueChanged<int>? onWidgetSelected;
@@ -300,9 +300,9 @@ class _DesktopPagerState extends State<_DesktopPager> {
   }
 }
 
-/// Envoltorio que detecta un long-press de 2 segundos sobre un widget del
-/// escritorio para entrar en modo edición. El tap se consume para que no
-/// dispare el menú del fondo al tocar el widget.
+/// Wrapper that detects a 2-second long-press on a desktop
+/// desktop to enter edit mode. The tap is consumed so it does not
+/// fire the background menu when touching the widget.
 class _LongPressWidget extends StatefulWidget {
   const _LongPressWidget({required this.index, required this.child, this.onLongPress});
 
@@ -337,8 +337,8 @@ class _LongPressWidgetState extends State<_LongPressWidget> {
   }
 }
 
-/// Una página de escritorio: fondo + widgets, con tap en el fondo para el menú
-/// radial y long-press de 2s sobre un widget para activar el modo edición.
+/// A desktop page: background + widgets, with tap on the background for the menu
+/// radial and 2s long-press on a widget to activate edit mode.
 class _DesktopPage extends StatelessWidget {
   const _DesktopPage({
     required this.raw,
@@ -405,7 +405,7 @@ class _DesktopPage extends StatelessWidget {
       content = const SizedBox.shrink();
     }
 
-    // Limpia las tipografías activas tras construir el contenido del desktop.
+    // Clears the active typographies after building the desktop content.
     DynamicWidgetEngine.baseFont = '';
     DynamicWidgetEngine.titleFont = '';
 
@@ -427,8 +427,8 @@ class _DesktopPage extends StatelessWidget {
     );
   }
 
-  /// Rejilla: cada widget se coloca en celdas (x, y, w, h) sobre una grilla
-  /// por desktop (columnas x filas, por defecto 12x8).
+  /// Grid: each widget is placed in cells (x, y, w, h) over a grid
+  /// per desktop (columns x rows, default 12x8).
   Widget _buildWidgetGrid(BuildContext context, List<Object?> widgets, String bg, String name,
       {String backgroundImage = '', int gridCols = 12, int gridRows = 8}) {
     final size = MediaQuery.sizeOf(context);
@@ -484,8 +484,8 @@ class _DesktopPage extends StatelessWidget {
     );
   }
 
-  /// Vista de edición sobre una grilla: se ven las celdas y cada widget se
-  /// arrastra para moverse y se redimensiona con la manija de la esquina.
+  /// Edit view over a grid: the cells are visible and each widget is
+  /// drag to move and resizes with the corner handle.
   Widget _buildEditableWidgets(BuildContext context, List<Object?> widgets,
       {int gridCols = 12, int gridRows = 8}) {
     final size = MediaQuery.sizeOf(context);
@@ -598,8 +598,8 @@ class _GridPainter extends CustomPainter {
       oldDelegate.cols != cols || oldDelegate.rows != rows;
 }
 
-/// Tile editable sobre la grilla: arrastra para mover, manija para
-/// redimensionar y botones para cambiar el ancho en celdas.
+/// Editable tile over the grid: drag to move, handle to
+/// resize and buttons to change the width in cells.
 class _EditableGridTile extends StatefulWidget {
   const _EditableGridTile({
     required this.index,
@@ -880,5 +880,5 @@ class _EditableGridTileState extends State<_EditableGridTile> {
 }
 
 
-/// El texto con hora en vivo (`ClockText`) y su formateador viven ahora en
-/// clock_widget.dart, compartidos con el bridge QML.
+/// The live time text (`ClockText`) and its formatter now live in
+/// clock_widget.dart, shared with the QML bridge.

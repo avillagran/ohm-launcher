@@ -1,21 +1,21 @@
 part of 'package:ohm_launcher/main.dart';
 
 // ---------------------------------------------------------------------------
-//  Cajas de borde: pantallas flotantes que se adhieren a los bordes de la
-//  pantalla y pueden contener apps, widgets y plugins.
+//  Edge boxes: floating panels that stick to the edges of the
+//  screen and can contain apps, widgets and plugins.
 //
-//  Interacción (drag & drop en 3 fases, sistema-wide):
-//    1s  → se destaca el item bajo el dedo; arrastrar reordena dentro de la
-//          caja o lo mueve a otra caja (suelta tras 1s dentro de la caja
-//          destino; el icono sigue al dedo).
-//    3s  → el resaltado pasa al borde de la caja; arrastrar mueve la caja por
-//          su polo o a otro polo (1s sobre el otro polo para engancharse).
-//    5s  → abre la configuración de la caja.
+//  Interaction (3-phase drag & drop, system-wide):
+//    1s  → the item under the finger is highlighted; drag reorders within the
+//          box, or moves it to another box (released after 1s inside the box
+//          target; the icon follows the finger).
+//    3s  → the highlight moves to the box edge; drag moves the box across
+//          its pole or another pole (1s over the other pole to snap to it).
+//    5s  → opens the box configuration.
 // ---------------------------------------------------------------------------
 
 enum _EdgeBoxPhase { none, item, box }
 
-/// Coordenada lineal a lo largo de un borde para reordenar cajas/polos.
+/// Linear coordinate along an edge to reorder boxes/poles.
 String _edgeForPosition(Offset p, Size s) {
   final dyTop = p.dy;
   final dyBottom = s.height - p.dy;
@@ -44,6 +44,7 @@ class _EdgeBox extends StatefulWidget {
     this.boxRects,
     this.allowBoxDrag = true,
     this.boxSpacing = 1.0,
+    this.radius = 14,
   });
   final Map<String, dynamic> box;
   final int boxIndex;
@@ -59,6 +60,7 @@ class _EdgeBox extends StatefulWidget {
   final Map<int, Rect>? boxRects;
   final bool allowBoxDrag;
   final double boxSpacing;
+  final double radius;
 
   @override
   State<_EdgeBox> createState() => _EdgeBoxState();
@@ -115,7 +117,7 @@ class _EdgeBoxState extends State<_EdgeBox> {
   void didUpdateWidget(covariant _EdgeBox oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.boxIndex != widget.boxIndex) _scheduleRectLoop();
-    // Si el contenido cambió por fuera (config recargada), abandona el drag.
+    // If the content changed from outside (config reloaded), abandon the drag.
     if (_phase != _EdgeBoxPhase.none) _resetDrag();
   }
 
@@ -127,10 +129,10 @@ class _EdgeBoxState extends State<_EdgeBox> {
     super.dispose();
   }
 
-  /// Re-reporta el rect de la caja en cada frame mientras está montada, pero
-  /// solo dispara `onReportRect` cuando el rect realmente cambia (p. ej. tras
-  /// colapsar/expandir la caja). Así el overlay de depuración sigue el tamaño
-  /// real sin reconstruir la home en reposo.
+  /// Re-reports the box rect every frame while mounted, but
+  /// only fires `onReportRect` when the rect actually changes (e.g. after
+  /// collapse/expand the box). So the debug overlay follows the size
+  /// real without rebuilding the home at rest.
   void _scheduleRectLoop() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -146,7 +148,7 @@ class _EdgeBoxState extends State<_EdgeBox> {
     });
   }
 
-  // ----------------------------------------------------------- gestos
+  // ----------------------------------------------------------- gestures
 
   void _onLongPressStart(LongPressStartDetails d) {
     log('EdgeBox #${widget.boxIndex} longPressStart at ${d.globalPosition}', name: 'OhmDrag');
@@ -182,26 +184,26 @@ class _EdgeBoxState extends State<_EdgeBox> {
     log('EdgeBox #${widget.boxIndex} longPressEnd at ${d.globalPosition}, phase=$_phase', name: 'OhmDrag');
     if (_phase == _EdgeBoxPhase.item) {
       if (_hoverTargetBox < 0) {
-        // Reordena dentro de la caja de origen.
+        // Reorders within the source box.
         final from = _originalItemIndex;
         final to = _dragItem ?? _originalItemIndex;
         if (from != to) {
           widget.onItemsReordered(widget.boxIndex, from, to);
         }
       }
-      // Si _hoverTargetBox >= 0 ya se movió a la otra caja (commit en hover).
+      // If _hoverTargetBox >= 0 it was already moved to the other box (commit on hover).
       _resetDrag();
     }
-    // En fase box el end lo maneja el LongPressGestureRecognizer (widget.onDragEnd).
+    // In box phase the end is handled by LongPressGestureRecognizer (widget.onDragEnd).
   }
 
   void _onLongPressCancel() {
     _resetDrag();
   }
 
-  // Pan manual vía Listener para no competir en la GestureArena con los
-  // InkWell de los ítems. Así los taps funcionan siempre y el pan de caja solo
-  // se activa tras superar [_kPanSlop] píxeles de movimiento.
+  // Manual pan via Listener to avoid competing in the GestureArena with the
+  // The items' InkWell. This way taps always work and the box pan only
+  // is activated after exceeding [_kPanSlop] pixels of movement.
 
   void _onPointerDown(PointerDownEvent e) {
     if (!widget.allowBoxDrag || _phase != _EdgeBoxPhase.none) return;
@@ -243,25 +245,25 @@ class _EdgeBoxState extends State<_EdgeBox> {
     _panStart = null;
   }
 
-  /// Marca que el dedo se movió: reinicia el acumulador de tiempo quieto.
+  /// Marks that the finger moved: resets the idle-time accumulator.
   void _markMoved() {
     _stillSince = DateTime.now();
     _scheduleLadder();
   }
 
-  /// Reprograma la escalera de quietud. Mantener quieto el dedo avanza de
-  /// fase: 1s activa el item (drag de items), 3s abre la configuración. Con el
-  /// pan directo la caja se mueve sin esperar; si el dedo se mueve, se reinicia
-  /// el acumulador de quietud.
+  /// Reschedules the idle staircase. Holding the finger still advances from
+  /// phase: 1s activates the item (item drag), 3s opens config. With the
+  /// with direct pan the box moves immediately; if the finger moves, it resets
+  /// the idle accumulator.
   void _scheduleLadder() {
     _stageTimer?.cancel();
     _stageTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
       if (!mounted) return;
-      // Mientras se arrastra una caja (pan) nunca abrir la configuración.
+      // While dragging a box (pan) never open the configuration.
       if (_panning || _panActive) return;
       final quiet = DateTime.now().difference(_stillSince);
-      // Hold quieto de [_kStillToConfig] en cualquier punto de la caja abre
-      // su configuración (1s activa el item para arrastrar; 2s → configuración).
+      // A [_kStillToConfig] hold anywhere on the box opens
+      // its config (1s activates the item to drag; 2s -> configuration).
       if (quiet >= _kStillToConfig) {
         _stageTimer?.cancel();
         log('EdgeBox #${widget.boxIndex} -> config after ${quiet.inMilliseconds}ms still', name: 'OhmDrag');
@@ -296,7 +298,7 @@ class _EdgeBoxState extends State<_EdgeBox> {
       final idx = _itemIndexAtLocal(local);
       if (idx != null) _reorderTo(idx);
     } else {
-      // Fuera de la caja: el icono sigue al dedo y buscamos otra caja.
+      // Out of the box: the icon follows the finger and we look for another box.
       final item = (widget.box['items'] is List ? widget.box['items'] as List : const []);
       final raw = _originalItemIndex < item.length ? item[_originalItemIndex] : null;
       _showPreview(_buildDragFeedback(_buildItem(raw)), global);
@@ -351,15 +353,15 @@ class _EdgeBoxState extends State<_EdgeBox> {
     final size = MediaQuery.sizeOf(context);
     final edge = _edgeForPosition(global, size);
     log('EdgeBox #${widget.boxIndex} boxMove global=$global edge=$edge', name: 'OhmDrag');
-    // La caja y el polo destino siguen al dedo en todo momento; el destino
-    // final se decide al soltar (onDragEnd) según el polo bajo el dedo.
+    // The target box and pole follow the finger at all times; the target
+    // final is decided on release (onDragEnd) according to the pole under the finger.
     widget.onDragUpdate(DragUpdateDetails(globalPosition: global), _accent);
     _showPreview(_buildBoxPreview(edge), global);
   }
 
   Widget _buildBoxPreview(String edge) {
-    // Muestra la caja exactamente en el mismo estado (expandida/colapsada,
-    // dirección, ítems, color) que la real, para que el arrastre sea preciso.
+    // Shows the box in exactly the same state (expanded/collapsed,
+    // direction, items, color) than the real one, so the drag is precise.
     return Material(
       color: Colors.transparent,
       child: _EdgeBoxVisual(
@@ -369,6 +371,7 @@ class _EdgeBoxState extends State<_EdgeBox> {
         opacity: 0.95,
         borderWidth: 3,
         spacing: widget.boxSpacing,
+        radius: widget.radius,
       ),
     );
   }
@@ -413,8 +416,8 @@ class _EdgeBoxState extends State<_EdgeBox> {
     final items = _items;
     if (items.isEmpty) return null;
     final count = items.length;
-    // En horizontal/vertical el handle ocupa la primera celda; restamos su
-    // espacio para indexar solo los items reales. Padding contenedor (8*s) +
+    // In horizontal/vertical the handle occupies the first cell; we subtract its
+    // space to index only the real items. Container padding (8*s) +
     // handle (18 + 24*s).
     final s = widget.boxSpacing;
     final handle = 18.0 + 32.0 * s;
@@ -441,9 +444,9 @@ class _EdgeBoxState extends State<_EdgeBox> {
   @override
   Widget build(BuildContext context) {
     final accent = _accent;
-    // Visual exacto de la caja (expandida/colapsada, dirección, color, ítems).
-    // El AnimatedSwitcher keyed anima los reordenes; el resto de la animación
-    // (opacidad/borde) vive dentro de _EdgeBoxVisual.
+    // Exact look of the box (expanded/collapsed, direction, color, items).
+    // The AnimatedSwitcher keyed animates the reorders; the rest of the animation
+    // (opacity/border) lives inside _EdgeBoxVisual.
     final visual = AnimatedSwitcher(
       duration: const Duration(milliseconds: 220),
       switchInCurve: Curves.easeOut,
@@ -467,13 +470,14 @@ class _EdgeBoxState extends State<_EdgeBox> {
         onToggle: widget.onToggle,
         onAddContent: widget.onAddContent,
         spacing: widget.boxSpacing,
+        radius: widget.radius,
       ),
     );
 
-    // La zona de contenido usa:
-    //   * Listener translúcido para pan manual (mover caja, como la barra de
-    //     favoritos). No compite con los InkWell de los ítems.
-    //   * RawGestureDetector para long-press (items/config).
+    // The content zone uses:
+    //   * Translucent listener for manual pan (move box, like the bar of
+    //     favorites). It does not compete with the items' InkWell.
+    //   * RawGestureDetector for long-press (items/config).
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: _onPointerDown,
@@ -521,7 +525,7 @@ class _EdgeBoxState extends State<_EdgeBox> {
   Widget _buildItem(Object? raw, {bool highlighted = false}) {
     final item = _buildEdgeBoxItem(raw, _showTitle, _accent, widget.boxSpacing);
     if (!highlighted) return item;
-    // Resaltado del item bajo el dedo en la fase de 1s (animado).
+    // Highlight of the item under the finger in the 1s phase (animated).
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       decoration: BoxDecoration(
@@ -533,7 +537,7 @@ class _EdgeBoxState extends State<_EdgeBox> {
     );
   }
 
-  /// Clave estable del contenido actual para animar el reorden.
+  /// Stable key of the current content to animate the reorder.
   String _itemsKey(List<dynamic> items) {
     return items.map((it) {
       if (it is! Map) return 'x';
@@ -542,11 +546,11 @@ class _EdgeBoxState extends State<_EdgeBox> {
   }
 }
 
-// Helpers estáticos para renderizar el aspecto exacto de una caja (con o sin
-// interacción). Se usan en el propio _EdgeBox, en el preview de arrastre y en
-// la caja fantasma del borde destino.
+// Static helpers to render the exact look of a box (with or without
+// interaction). Used in the _EdgeBox itself, in the drag preview and in
+// the target edge phantom box.
 
-// Ancho aproximado de una celda (icono 32 + paddings) para el modo grilla.
+// Approximate width of a cell (32px icon + paddings) for grid mode.
 const double _kGridCellExtent = 56;
 
 Color _edgeBoxAccent(Map<String, dynamic> box,
@@ -597,10 +601,10 @@ Widget _buildEdgeBoxItem(Object? raw, bool showTitle, Color accent, double spaci
   );
 }
 
-/// Visual estático de una caja de borde. Replica exactamente el aspecto de la
-/// caja real (expandida/colapsada, dirección, color, ítems) sin interacción.
-/// Se usa tanto dentro de [_EdgeBox] como en el preview de arrastre y en la
-/// caja fantasma del borde destino.
+/// Static visual of an edge box. Exactly replicates the look of the
+/// the real box (expanded/collapsed, direction, color, items) with no interaction.
+/// It is used both inside [_EdgeBox] and in the drag preview and in the
+/// the target edge phantom box.
 class _EdgeBoxVisual extends StatelessWidget {
   const _EdgeBoxVisual({
     super.key,
@@ -614,6 +618,7 @@ class _EdgeBoxVisual extends StatelessWidget {
     this.onToggle,
     this.onAddContent,
     this.spacing = 1.0,
+    this.radius = 14,
   });
 
   final Map<String, dynamic> box;
@@ -626,6 +631,7 @@ class _EdgeBoxVisual extends StatelessWidget {
   final VoidCallback? onToggle;
   final VoidCallback? onAddContent;
   final double spacing;
+  final double radius;
 
   @override
   Widget build(BuildContext context) {
@@ -637,7 +643,7 @@ class _EdgeBoxVisual extends StatelessWidget {
     final grid = direction == 'grid';
     final list = direction == 'list';
     final showTitle = box['showTitle'] as bool? ?? true;
-    // En modo lista el nombre es obligatorio (icono + nombre por fila).
+    // In list mode the name is mandatory (icon + name per row).
     final itemShowTitle = showTitle || list;
     final items = itemsOverride ??
         (box['items'] is List ? box['items'] as List : const []);
@@ -712,7 +718,7 @@ class _EdgeBoxVisual extends StatelessWidget {
         ],
       );
     } else if (list) {
-      // Lista vertical: cada ítem es una fila con icono + nombre.
+      // Vertical list: each item is a row with icon + name.
       const listWidth = 200.0;
       final maxH = math.max(120.0, MediaQuery.sizeOf(context).height * 0.6);
       barContent = Column(
@@ -761,7 +767,7 @@ class _EdgeBoxVisual extends StatelessWidget {
         padding: EdgeInsets.all(8 * s),
         decoration: BoxDecoration(
           color: const Color(0xCC10161C),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(radius),
           border: border,
         ),
         child: barContent,
@@ -778,7 +784,7 @@ class _EdgeBoxVisual extends StatelessWidget {
           padding: EdgeInsets.all(8 * s),
           decoration: BoxDecoration(
             color: const Color(0xCC10161C),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(radius),
             border: border,
           ),
           child: Padding(
@@ -847,7 +853,7 @@ class _EdgeBoxAppItem extends StatelessWidget {
     final label = app['label'] is String ? app['label'] as String : 'App';
     final package = app['package'] is String ? app['package'] as String : '';
     final activity = app['activity'] is String ? app['activity'] as String : '';
-    // Busca la app real instalada para obtener la actividad correcta y el icono.
+    // Finds the real installed app to get the correct activity and icon.
     final realApp = InstalledAppsSnapshot.latest.firstWhere(
       (a) => a.package == package,
       orElse: () => InstalledApp(label: label, package: package, activity: activity),

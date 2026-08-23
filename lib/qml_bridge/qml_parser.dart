@@ -9,7 +9,7 @@
 //      WidgetButton { text: Qt.formatTime(clock.date, "HH:mm") }
 //    }
 //
-//  Soporta: imports, elementos anidados, "id:", propiedades (incluidas las
+//  Supports: imports, nested elements, "id:", properties (including those
 //  punteadas: font.pixelSize, anchors.fill), literales, referencias a ids,
 //  llamadas (Qt.*, Math.*, Style.*) y expresiones JS básicas (+, comparaciones,
 //  ternarios, &&, ||, !). Cualquier cosa que no entienda se degrada a null o a
@@ -85,7 +85,7 @@ class QmlInlineElement extends QmlValueExpr {
   final QmlElement element;
 }
 
-/// Marca de una función JS (cuerpo no interpretable); se ignora.
+/// Tag for a non-interpretable JS function body; it is ignored.
 class QmlFunctionValue {
   const QmlFunctionValue();
 }
@@ -530,8 +530,8 @@ class QmlParser {
   }
 
   /// `property bool opened: expr` (o sin inicializador). Se ignora.
-  /// `readonly property string icon: "..."` — guarda la propiedad declarada en
-  /// el mapa del elemento para que `root.<nombre>` pueda resolverse.
+  /// `readonly property string icon: "..."` — stores the declared property in
+  /// the element map so that `root.<name>` can be resolved.
   void _skipPropertyDeclaration(Map<String, QmlValueExpr>? into) {
     if (_check(QmlTokenKind.id)) _pos++; // tipo (bool, var, string, alias...)
     if (!_check(QmlTokenKind.id)) return; // sin nombre: no almacenable

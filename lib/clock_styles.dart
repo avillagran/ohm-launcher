@@ -58,10 +58,10 @@ class ParticleClock extends StatefulWidget {
   /// granos van en línea recta a su destino). En reposo no hay movimiento.
   final double wobble;
 
-  /// Si es true, al "batir" el teléfono 3 veces seguidas (detectado con el
-  /// acelerómetro mientras el widget está visible) la arena se desparrama por
-  /// la pantalla y vuelve a formarse sola. El sensor SOLO se registra mientras
-  /// este reloj está montado y visible: no hay gasto de batería extra cuando
+  /// If true, "shaking" the phone 3 times in a row (detected via the
+  /// accelerometer while the widget is visible) scatters the sand across the
+  /// screen and it reforms on its own. The sensor is ONLY registered while
+  /// this clock is mounted and visible: no extra battery cost when the clock
   /// el reloj no se ve.
   final bool shake;
 
@@ -118,7 +118,7 @@ class _ParticleClockState extends State<ParticleClock>
   final List<DateTime> _shakes = [];
   bool _shakeArmed = true;
 
-  /// true mientras los granos están desparramados tras batir el teléfono.
+  /// true while the grains are scattered after shaking the phone.
   bool _scattered = false;
 
   Color get _color => widget.style.color ?? const Color(0xFFE8F1F8);
@@ -147,9 +147,9 @@ class _ParticleClockState extends State<ParticleClock>
     _watchShake();
   }
 
-  /// Registra el acelerómetro SOLO si [widget.shake] está activado. El sensor
-  /// se desregistra en [dispose]: no hay gasto de batería cuando el reloj no
-  /// está montado o no se quiere la función.
+  /// Registers the accelerometer ONLY if [widget.shake] is enabled. The sensor
+  /// is unregistered in [dispose]: no battery cost when the clock is not
+  /// mounted or the feature is not wanted.
   void _watchShake() {
     if (!widget.shake) return;
     _accelSub?.cancel();
@@ -184,8 +184,8 @@ class _ParticleClockState extends State<ParticleClock>
   void _scatter() {
     if (!mounted || _scattered) return;
     _scattered = true;
-    // Feedback táctil al "batir" (idea tomada de LeafyLauncher): un golpecito
-    // háptico confirma el gesto sin costo de batería (HapticFeedback nativo).
+    // Haptic feedback on "shake" (idea borrowed from LeafyLauncher): a small
+    // haptic tap confirms the gesture at no battery cost (native HapticFeedback).
     HapticFeedback.mediumImpact();
     for (final g in _allGrains) {
       g.target = Offset(
@@ -365,7 +365,7 @@ class _ParticleClockState extends State<ParticleClock>
         continue;
       }
 
-      // Crecer SOLO si este dígito pide más granos de los que el grupo
+      // Grow ONLY if this digit requests more grains than the group
       // ha tenido nunca (tras calentar con los dígitos densos ya no
       // aparecen granos nuevos).
       final needed = math.min(s.points.length, _maxGrainsPerChar);

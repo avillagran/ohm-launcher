@@ -1,7 +1,7 @@
 part of 'package:ohm_launcher/main.dart';
 
 // ---------------------------------------------------------------------------
-//  Cajón de apps: aparece al deslizar desde la parte inferior.
+//  App drawer: appears when swiping up from the bottom.
 // ---------------------------------------------------------------------------
 class _AppDrawer extends StatefulWidget {
   const _AppDrawer({
@@ -15,11 +15,11 @@ class _AppDrawer extends StatefulWidget {
   final List<InstalledApp> apps;
   final double bottomOffset;
 
-  /// Tap en una app del cajón: por defecto la lanza. El launcher lo usa para
-  /// también limpiar el buscador y cerrar el teclado.
+  /// Tap on a drawer app: by default it launches it. The launcher uses it for
+  /// also clear the search and close the keyboard.
   final void Function(InstalledApp app)? onAppTap;
 
-  /// Long-press (2s) en una app del cajón: menú contextual (favoritos/cajas).
+  /// Long-press (2s) on a drawer app: context menu (favorites/boxes).
   final void Function(InstalledApp app)? onAppLongPress;
 
   @override
@@ -65,8 +65,8 @@ class _AppDrawerState extends State<_AppDrawer>
     _controller.value = (_dragStartValue + delta).clamp(0, 1);
   }
 
-  /// Deslizar para abrir (overlay/barra) con mayor sensibilidad para que
-  /// un swipe normal desde el centro del escritorio lo abra cómodamente.
+  /// Opens with greater sensitivity (overlay/bar) so that
+  /// a normal swipe from the center of the desktop opens it comfortably.
   void trackOpenGesture(double deltaDy) {
     final h = _drawerHeight;
     if (h <= 0) return;
@@ -82,7 +82,7 @@ class _AppDrawerState extends State<_AppDrawer>
     _controller.animateTo(0);
   }
 
-  /// Limpia el buscador y baja el teclado (al abrir una app desde el cajón).
+  /// Clears the search and dismisses the keyboard (when opening an app from the drawer).
   void clearSearch() {
     _queryController.clear();
     _query = '';
