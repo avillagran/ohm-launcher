@@ -153,6 +153,7 @@ class _OmarchyControlTileState extends State<_OmarchyControlTile> {
     final grid = Container(
       margin: const EdgeInsets.only(top: 6),
       padding: const EdgeInsets.all(8),
+      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width - 16),
       decoration: BoxDecoration(
         border: Border.all(color: accent.withValues(alpha: 0.7), width: 1.5),
         borderRadius: BorderRadius.circular(12),
@@ -165,7 +166,7 @@ class _OmarchyControlTileState extends State<_OmarchyControlTile> {
             spacing: 8,
             runSpacing: 8,
             children: controls
-                .map((c) => SizedBox(width: 66, height: 54, child: c))
+                .map((c) => SizedBox(width: 56, height: 46, child: c))
                 .toList(),
           ),
         ],
@@ -210,10 +211,10 @@ class _OmarchyControlButton extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: Colors.white70, size: 20),
+              Icon(icon, color: Colors.white70, size: 17),
               const SizedBox(height: 3),
               Text(label,
-                  style: const TextStyle(color: Colors.white70, fontSize: 10),
+                  style: const TextStyle(color: Colors.white70, fontSize: 9),
                   textAlign: TextAlign.center),
             ],
           ),
