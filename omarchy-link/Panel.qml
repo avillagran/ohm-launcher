@@ -196,6 +196,7 @@ Panel {
           width: 160; height: 160
           fillMode: Image.PreserveAspectFit
           source: "file:///tmp/omarchy-link-qr.png"
+          anchors.horizontalCenter: parent.horizontalCenter
         }
 
         // Hint: the system camera scanner on some phones (e.g. Xiaomi/HyperOS)
