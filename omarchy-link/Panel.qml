@@ -146,7 +146,6 @@ Panel {
 
   // --- UI -------------------------------------------------------------------
   SystemClock { id: clock; precision: SystemClock.Seconds }
-  I18n { id: i18n }
 
   KeyboardPanel {
     id: panel
@@ -168,6 +167,7 @@ Panel {
         id: content
         width: parent.width
         spacing: Style.space(8)
+        Translation { id: i18n }
 
         Text {
           width: parent.width

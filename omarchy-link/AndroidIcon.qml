@@ -52,7 +52,18 @@ Item {
       ctx.beginPath()
       const mw = w * 0.22, mh = h * 0.07
       const mx = cx - mw / 2, my = h * 0.30
-      ctx.roundRect(mx, my, mw, mh, mh / 2)
+      const mr = mh / 2
+      // Rounded rect via arcTo (compatible with Quickshell's Canvas).
+      ctx.moveTo(mx + mr, my)
+      ctx.lineTo(mx + mw - mr, my)
+      ctx.arcTo(mx + mw, my, mx + mw, my + mh, mr)
+      ctx.lineTo(mx + mw, my + mh - mr)
+      ctx.arcTo(mx + mw, my + mh, mx + mw - mr, my + mh, mr)
+      ctx.lineTo(mx + mr, my + mh)
+      ctx.arcTo(mx, my + mh, mx, my + mh - mr, mr)
+      ctx.lineTo(mx, my + mr)
+      ctx.arcTo(mx, my, mx + mr, my, mr)
+      ctx.closePath()
       ctx.fill()
     }
   }

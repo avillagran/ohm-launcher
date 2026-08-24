@@ -44,20 +44,21 @@ QtObject {
     }
   })
 
-  // Resolve the active language code from the system locale.
+  // Resolve the active language code from the LANG env (es / en, fallback en).
   readonly property string lang: {
-    const name = Qt.locale().name.toLowerCase(); // e.g. "es_es", "en_us"
-    if (name.startsWith("es")) return "es";
-    return "en";
+    var raw = Quickshell.env("LANG") || ""
+    raw = raw.toLowerCase()
+    if (raw.indexOf("es") === 0) return "es"
+    return "en"
   }
 
   // t(key, args...) -> localized string with %1/%2... substitution.
   function t(key, a, b, c) {
-    const table = root.strings[root.lang] || root.strings.en;
-    let s = table[key] !== undefined ? table[key] : (root.strings.en[key] || key);
-    if (a !== undefined) s = s.replace("%1", a);
-    if (b !== undefined) s = s.replace("%2", b);
-    if (c !== undefined) s = s.replace("%3", c);
-    return s;
+    var table = root.strings[root.lang] || root.strings.en
+    var s = (table[key] !== undefined) ? table[key] : (root.strings.en[key] || key)
+    if (a !== undefined) s = s.replace("%1", a)
+    if (b !== undefined) s = s.replace("%2", b)
+    if (c !== undefined) s = s.replace("%3", c)
+    return s
   }
 }
