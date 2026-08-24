@@ -269,7 +269,7 @@ Panel {
           text: i18n.t("linkMore")
           bar: root.bar
           onPressed: function (b) {
-            if (b === Qt.LeftButton) { regenerateQr(); qrImage.visible = true }
+            if (b === 1) { regenerateQr(); qrImage.visible = true }
           }
         }
 
@@ -284,23 +284,23 @@ Panel {
           Row {
             spacing: Style.space(6)
             WidgetButton { text: i18n.t("files"); bar: root.bar
-              onPressed: function (b) { if (b === Qt.LeftButton) root.postOnly("/omarchy/file") } }
+              onPressed: function (b) { if (b === 1) root.postOnly("/omarchy/file") } }
             WidgetButton { text: i18n.t("copyToPhone"); bar: root.bar
-              onPressed: function (b) { if (b === Qt.LeftButton) root.pushClipboard("hello from Omarchy") } }
+              onPressed: function (b) { if (b === 1) root.pushClipboard("hello from Omarchy") } }
           }
           Row {
             spacing: Style.space(6)
             WidgetButton { text: i18n.t("copyFromPhone"); bar: root.bar; enabled: root.connected
-              onPressed: function (b) { if (b === Qt.LeftButton) root.pullClipboard() } }
+              onPressed: function (b) { if (b === 1) root.pullClipboard() } }
             WidgetButton { text: root.screenSharing ? i18n.t("stopScreen") : i18n.t("startScreen"); bar: root.bar
-              onPressed: function (b) { if (b === Qt.LeftButton) { root.screenSharing ? root.stopScreen() : root.startScreen() } } }
+              onPressed: function (b) { if (b === 1) { root.screenSharing ? root.stopScreen() : root.startScreen() } } }
           }
           Row {
             spacing: Style.space(6)
             WidgetButton { text: i18n.t("backupPhotos"); bar: root.bar
-              onPressed: function (b) { if (b === Qt.LeftButton) root.backupPhotos() } }
+              onPressed: function (b) { if (b === 1) root.backupPhotos() } }
             WidgetButton { text: i18n.t("themes"); bar: root.bar
-              onPressed: function (b) { if (b === Qt.LeftButton) root.applyTheme() } }
+              onPressed: function (b) { if (b === 1) root.applyTheme() } }
           }
         }
 
@@ -349,7 +349,7 @@ Panel {
           text: root.showLog ? i18n.t("logHide") : i18n.t("logShow")
           bar: root.bar
           enabled: root.connected
-          onPressed: function (b) { if (b === Qt.LeftButton) root.showLog = !root.showLog }
+          onPressed: function (b) { if (b === 1) root.showLog = !root.showLog }
         }
 
         // Live log (hidden unless the Log toggle is on).
