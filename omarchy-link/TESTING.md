@@ -33,7 +33,44 @@ real OhmLauncher phone, without guessing the API.
    the frame format). `stopScreen()` stops it.
 6. `backupPhotos()` → phone lists DCIM photos (peer downloads via `/omarchy/file`).
 
+## Reloading Quickshell on Omarchy (so the plugin is picked up)
+
+Omarchy 0.3.1 (Quickshell 0.3.1) has no `quickshell reload`. To make a new or
+edited plugin load, restart the shell process. **The process must inherit the
+graphical session environment**, or it crashes with
+`no Qt platform plugin could be initialized`.
+
+From a shell on the Omarchy machine (same user / same session):
+
+```bash
+# 1) Find and kill the running shell
+pkill -f "quickshell -n -p /usr/share/omarchy/shell"
+sleep 2
+
+# 2) Relaunch with the Wayland session environment (adjust ids if needed)
+setsid nohup env \
+  XDG_RUNTIME_DIR=/run/user/1001 \
+  WAYLAND_DISPLAY=wayland-1 \
+  QT_QPA_PLATFORM=wayland \
+  QT_QPA_PLATFORMTHEME=gtk3 \
+  LANG=C.UTF-8 \
+  quickshell -n -p /usr/share/omarchy/shell \
+  > /tmp/qs.log 2>&1 < /dev/null & disown
+
+# 3) Check it survived (no FATAL in the log)
+sleep 5
+pgrep -af "quickshell -n -p" | grep -v bash
+```
+
+Verify the plugin loads by **opening its panel** from the bar widget. Quickshell
+writes its log to `/run/user/<uid>/quickshell/by-id/*/log.qslog`; on a QML
+error you will see `TypeError` / `ReferenceError` there.
+
+> Note: `QT_QPA_PLATFORM` must be `wayland`, not `wayland;xcb` — the `xcb`
+> fallback fails when there is no X display and crashes the shell.
+
 ## Verifying the contract directly (curl from the PC)
+
 Replace `<phone-ip>` with the phone's LAN IP.
 
 ```bash
