@@ -35,6 +35,16 @@ Panel {
   property var anchorItem: null
   property var hostWidget: null
 
+  // Apply the link-state JSON written by link_server.py (phone -> pc notify).
+  function applyState(text) {
+    try {
+      const d = JSON.parse(text || "{}")
+      root.connected = d.connected === true
+      root.peerIp = d.peerIp || ""
+      root.peerName = d.peerName || ""
+    } catch (e) { /* ignore malformed */ }
+  }
+
   function open() { controller.show(); regenerateQr() }
   function close() { controller.hide() }
   function switchPanel(direction) {
@@ -138,6 +148,22 @@ Panel {
       if (code !== 0) log("qr gen failed: " + code)
       else { qrImage.source = ""; qrImage.source = "file:///tmp/omarchy-link-qr.png" }
     }
+  }
+
+  // Link-state server: listens on 8753 so the phone can notify this pc when it
+  // scans the omarchy:// QR. Started once at load; writes /tmp/omarchy-link-state.json.
+  Process {
+    id: linkServer
+    running: true
+    command: ["python3", Qt.resolvedUrl("link_server.py").replace("file://", "")]
+    onExited: function (code) { log("link server exited: " + code) }
+  }
+
+  // Watch the state file written by link_server.py and reflect it in the UI.
+  FileView {
+    path: "/tmp/omarchy-link-state.json"
+    onContentChanged: root.applyState(text)
+    Component.onCompleted: root.applyState(text)
   }
 
   // Local log area shown in the panel (so an LLM/user can verify behavior).

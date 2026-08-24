@@ -95,13 +95,15 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     super.initState();
     _bootstrap();
     DynamicWidgetEngine.onBoxAddContent = _showBoxContentPicker;
-    // When scanning an `omarchy://` QR with the system camera, the launcher
-    // opens and connects to the peer PC.
+    // When scanning an `omarchy://` QR with the system camera (Google Lens),
+    // the launcher opens and connects to the peer PC. Notify the PC back so
+    // its Omarchy Link plugin reflects the live connection state.
     OhmPlatform.onOmarchyPeerLink = (ip, port, id) {
       if (mounted) {
         setState(() => _omarchyPeer = (ip: ip, port: port, id: id));
         _showOmarchyPeerConnected(id, ip, port);
       }
+      _notifyOmarchyPeer(ip, port, id);
     };
     if (!_isTestEnvironment) {
       _updateSystemNavigationMode();
@@ -632,6 +634,22 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
         duration: const Duration(seconds: 4),
       ),
     );
+  }
+
+  /// Notify the peer PC that this phone scanned its `omarchy://` QR, so the
+  /// Omarchy Link plugin (link_server.py on :8753) reflects the connection.
+  Future<void> _notifyOmarchyPeer(String ip, int port, String id) async {
+    try {
+      final myIp = await _lanIp();
+      final client = HttpClient();
+      final req = await client.postUrl(Uri.parse('http://$ip:$port/omarchy/link'));
+      req.headers.contentType = ContentType.json;
+      req.write(jsonEncode({'ip': myIp, 'name': id.isNotEmpty ? id : 'OhmLauncher'}));
+      await req.close();
+      client.close();
+    } catch (_) {
+      // Best-effort: the snackbar already confirmed locally.
+    }
   }
 
   Future<void> _reloadRuntimeWidgets() async {
