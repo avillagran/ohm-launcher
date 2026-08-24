@@ -1,214 +1,216 @@
-// Omarchy Link — reference panel that consumes the OhmLauncher contract.
+// Omarchy Link — Panel (loaded internally by BarWidget.qml via Loader).
 //
-// Connection model (both directions):
-//   * Phone is the server (default): this panel scans mDNS `_ohm._tcp` on the
-//     LAN and calls the phone's endpoints. Also accepts the phone's QR
-//     `ohm://<phone-ip>:8753` pasted manually.
-//   * PC is the server (this plugin): the panel shows a QR `omarchy://<pc-ip>:8753?id=<host>`
-//     that you scan with the PHONE's camera (system camera app). Android routes
-//     the `omarchy://` intent to OhmLauncher, which then connects to this PC.
-//     To receive the phone's calls, this plugin must expose the SAME contract
-//     over HTTP+WS (see README.md: a tiny C++/Python helper is required because
-//     pure QML has no HttpServer; a WebSocket server is available via QtWebSockets).
+// Official Omarchy convention (see omarchyplugins.com/develop.html):
+//   - Root type is `Panel` with `moduleName`, `manageIpc: false`.
+//   - It receives `bar`, `anchorItem`, `hostWidget` from the BarWidget.
+//   - `open()/close()` drive `KeyboardPanel.controller.show()/hide()`.
+//   - Content lives in a `KeyboardPanel` with a `PanelKeyCatcher`.
 //
-// Contract (baseUrl = http://<ip>:<port>):
-//   GET  /omarchy/discover        -> {name,model,lan_ip,port,capabilities}
-//   GET  /omarchy/clipboard       -> {text}
-//   PUT  /omarchy/clipboard       -> {text}
-//   GET  /omarchy/theme           -> {colors:{...}}
-//   PUT  /omarchy/theme           -> applies colors
-//   POST /omarchy/file (multipart)-> receives a file
-//   GET  /omarchy/file?path=      -> downloads a file
-//   POST /omarchy/screen/start|stop
-//   POST /omarchy/photos/backup   -> lists DCIM photos (peer downloads via /file)
-//   WS   /omarchy/ws              -> events (peer_hello, clipboard_changed)
+// Connection logic: this plugin is a CLIENT of the OhmLauncher phone server
+// (HTTP+WS on port 8753). It can:
+//   * auto-discover the phone via mDNS `_ohm._tcp` (needs a helper; see README),
+//   * paste the phone's `ohm://<ip>:8753` QR manually,
+//   * OR display an `omarchy://<pc-ip>:8753?id=<host>` QR for the phone to scan
+//     and connect back (the phone becomes the client of THIS pc).
 //
-// QR rendering: Quickshell has no built-in QR painter. Register a
-// `QQuickImageProvider` named "qrcode" (C++ side) that paints the data string,
-// then use:  Image { source: "image://qrcode/omarchy://<ip>:8753?id=<host>" }
-// A minimal C++ snippet is provided in README.md.
+// All actions call the contract documented in README.md / TESTING.md.
 
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
-import QtWebSockets
+import Quickshell
+import qs.Commons
+import qs.Ui
 
-ColumnLayout {
-    id: root
-    spacing: 8
-    property string baseUrl: "http://192.168.1.141:8753"   // phone (or PC) ip:port
-    property string status: "disconnected"
+Panel {
+  id: root
+  moduleName: "cl.villagranquiroz.omarchy-link"
+  manageIpc: false
 
-    Label { text: "Omarchy Link"; font.bold: true; font.pixelSize: 16 }
+  // Exposed to BarWidget (button status) -----------------------------------
+  property bool connected: false
+  property string peerName: ""
+  property string peerIp: ""
+  property int peerPort: 8753
 
-    // --- This PC's connection QR (scan it with the phone's camera) ---
-    GroupBox {
-        title: "Show this to the phone"
-        Layout.fillWidth: true
-        ColumnLayout {
-            Label { text: "Scan with the phone camera to link:"; font.pixelSize: 12 }
-            // Requires a "qrcode" QQuickImageProvider (C++). See README.md.
-            Image {
-                id: qr
-                Layout.alignment: Qt.AlignCenter
-                width: 180; height: 180
-                source: "image://qrcode/" + ("omarchy://" + pcIp.text + ":8753?id=" + pcId.text)
-                fillMode: Image.PreserveAspectFit
-                Rectangle {
-                    anchors.fill: parent; color: "transparent"
-                    border.color: "#66E0FF"; border.width: 1
-                    visible: qr.status !== Image.Ready
-                    Label {
-                        anchors.centerIn: parent; text: "omarchy://" + pcIp.text + ":8753?id=" + pcId.text
-                        wrapMode: Text.Wrap; horizontalAlignment: Text.AlignHCenter
-                        font.pixelSize: 11
-                    }
-                }
-            }
-            RowLayout {
-                Label { text: "PC IP:" }
-                TextField { id: pcIp; text: _localIp(); Layout.preferredWidth: 120 }
-                Label { text: "id:" }
-                TextField { id: pcId; text: _hostName(); Layout.preferredWidth: 90 }
-            }
-        }
-    }
+  property var anchorItem: null
+  property var hostWidget: null
 
-    // --- Manual peer entry + connect ---
-    RowLayout {
-        TextField {
-            id: urlField
-            Layout.fillWidth: true
-            placeholderText: "http://phone-ip:8753"
-            text: root.baseUrl
-            onAccepted: root.baseUrl = text
-        }
-        Button {
-            text: "Connect"
-            onClicked: {
-                root.baseUrl = urlField.text
-                apiGet("/omarchy/discover", function (ok, data) {
-                    if (ok) root.status = "peer: " + (data.name || "OhmLauncher")
-                    else root.status = "error"
-                })
-            }
-        }
-    }
-    Label { text: "Status: " + root.status }
+  function open() { controller.show() }
+  function close() { controller.hide() }
+  function switchPanel(direction) {
+    if (root.bar && typeof root.bar.switchPanelFrom === "function")
+      return root.bar.switchPanelFrom(root.hostWidget || root, direction)
+    return false
+  }
 
-    GridLayout {
-        columns: 2
-        Layout.fillWidth: true
-        Button {
-            text: "Copy to phone"
-            Layout.fillWidth: true
-            onClicked: {
-                apiPut("/omarchy/clipboard", { text: desktopClipboard() }, function (ok, d) {
-                    root.status = ok ? "clipboard sent" : "failed"
-                })
-            }
-        }
-        Button {
-            text: "Pull from phone"
-            Layout.fillWidth: true
-            onClicked: {
-                apiGet("/omarchy/clipboard", function (ok, d) {
-                    if (ok) setDesktopClipboard(d.text || "")
-                    root.status = ok ? "clipboard pulled" : "failed"
-                })
-            }
-        }
-        Button {
-            text: "Send file"
-            Layout.fillWidth: true
-            onClicked: root.status = "use POST /omarchy/file (multipart)"
-        }
-        Button {
-            text: "Pull theme"
-            Layout.fillWidth: true
-            onClicked: {
-                apiGet("/omarchy/theme", function (ok, d) {
-                    if (ok) applyTheme(d.colors || {})
-                    root.status = ok ? "theme pulled" : "failed"
-                })
-            }
-        }
-        Button {
-            text: "Share screen"
-            Layout.fillWidth: true
-            onClicked: apiPost("/omarchy/screen/start", {}, function (ok, d) {
-                root.status = ok ? "screen: " + (d.status || "ok") : "failed"
-            })
-        }
-        Button {
-            text: "Backup photos"
-            Layout.fillWidth: true
-            onClicked: apiPost("/omarchy/photos/backup", {}, function (ok, d) {
-                root.status = ok ? "photos: " + (d.status || "ok") : "failed"
-            })
-        }
-    }
+  // --- Connection helpers ---------------------------------------------------
 
-    // --- helpers ---
-    function _localIp() {
-        // Best-effort: returns the first non-loopback IPv4 via a helper.
-        // In Quickshell, wire this to a C++/Python helper exposing the LAN IP.
-        return "192.168.1.50"
-    }
-    function _hostName() {
-        return "omarchy-pc"
-    }
-    function apiGet(path, cb) {
-        var x = new XMLHttpRequest()
-        x.open("GET", root.baseUrl + path, true)
-        x.onreadystatechange = function () {
-            if (x.readyState === XMLHttpRequest.DONE) {
-                try { cb(x.status === 200, JSON.parse(x.responseText)) }
-                catch (e) { cb(false, {}) }
-            }
-        }
-        x.send()
-    }
-    function apiPut(path, body, cb) {
-        var x = new XMLHttpRequest()
-        x.open("PUT", root.baseUrl + path, true)
-        x.setRequestHeader("Content-Type", "application/json")
-        x.onreadystatechange = function () {
-            if (x.readyState === XMLHttpRequest.DONE) cb(x.status === 200, {})
-        }
-        x.send(JSON.stringify(body))
-    }
-    function apiPost(path, body, cb) {
-        var x = new XMLHttpRequest()
-        x.open("POST", root.baseUrl + path, true)
-        x.setRequestHeader("Content-Type", "application/json")
-        x.onreadystatechange = function () {
-            if (x.readyState === XMLHttpRequest.DONE) {
-                try { cb(x.status === 200, JSON.parse(x.responseText)) }
-                catch (e) { cb(x.status === 200, {}) }
-            }
-        }
-        x.send(JSON.stringify(body))
-    }
+  // Set the base URL from an `ohm://<ip>:8753` or `omarchy://<ip>:8753` string.
+  function setPeer(uri) {
+    const m = /(?:ohm|omarchy):\/\/([0-9.]+):(\d+)/.exec(uri)
+    if (!m) { log("bad uri: " + uri); return }
+    root.peerIp = m[1]
+    root.peerPort = parseInt(m[2], 10)
+    log("peer set -> " + root.peerIp + ":" + root.peerPort)
+  }
 
-    // Stubs a native backend (C++/Process) must implement in Omarchy:
-    function desktopClipboard() { return "" }
-    function setDesktopClipboard(t) {}
-    function applyTheme(colors) {}
+  function base() { return "http://" + root.peerIp + ":" + root.peerPort }
 
-    WebSocket {
-        id: ws
-        url: root.baseUrl.replace("http", "ws") + "/omarchy/ws"
-        active: false
-        onTextMessageReceived: function (msg) {
-            try {
-                var e = JSON.parse(msg)
-                if (e.type === "clipboard_changed") root.status = "remote clipboard changed"
-            } catch (err) {}
+  // Generic JSON GET against the OhmLauncher contract.
+  function getJson(path, onOk, onErr) {
+    const x = new XMLHttpRequest()
+    x.open("GET", base() + path)
+    x.onreadystatechange = function () {
+      if (x.readyState === XMLHttpRequest.DONE) {
+        if (x.status === 200) onOk(JSON.parse(x.responseText))
+        else if (onErr) onErr(x.status, x.responseText)
+      }
+    }
+    x.send()
+  }
+
+  // Generic JSON PUT.
+  function putJson(path, body, onOk, onErr) {
+    const x = new XMLHttpRequest()
+    x.open("PUT", base() + path)
+    x.setRequestHeader("Content-Type", "application/json")
+    x.onreadystatechange = function () {
+      if (x.readyState === XMLHttpRequest.DONE) {
+        if (x.status === 200) onOk(JSON.parse(x.responseText))
+        else if (onErr) onErr(x.status, x.responseText)
+      }
+    }
+    x.send(JSON.stringify(body))
+  }
+
+  function connect() {
+    if (!root.peerIp) { log("set a peer first"); return }
+    getJson("/omarchy/discover", function (d) {
+      root.connected = true
+      root.peerName = d.name || "phone"
+      log("connected: " + root.peerName)
+    }, function (code) { log("discover failed: " + code) })
+  }
+
+  function pushClipboard(text) {
+    putJson("/omarchy/clipboard", { text: text },
+      function () { log("clipboard pushed") },
+      function (c) { log("clipboard push failed: " + c) })
+  }
+
+  function pullClipboard() {
+    getJson("/omarchy/clipboard",
+      function (d) { log("clipboard: " + d.text) },
+      function (c) { log("clipboard pull failed: " + c) })
+  }
+
+  function startScreen() {
+    postOnly("/omarchy/screen/start")
+  }
+  function stopScreen() {
+    postOnly("/omarchy/screen/stop")
+  }
+  function backupPhotos() {
+    postOnly("/omarchy/photos/backup")
+  }
+  function postOnly(path) {
+    const x = new XMLHttpRequest()
+    x.open("POST", base() + path)
+    x.onreadystatechange = function () {
+      if (x.readyState === XMLHttpRequest.DONE) log(path + " -> " + x.status)
+    }
+    x.send()
+  }
+
+  // Local log area shown in the panel (so an LLM/user can verify behavior).
+  property string logText: ""
+  function log(msg) { root.logText = root.logText + msg + "\n" }
+
+  // --- UI -------------------------------------------------------------------
+  SystemClock { id: clock; precision: SystemClock.Seconds }
+
+  KeyboardPanel {
+    id: panel
+    anchorItem: root.anchorItem
+    owner: root.hostWidget || root
+    bar: root.bar
+    open: root.opened
+    focusTarget: keyCatcher
+    contentWidth: panel.fittedContentWidth(Style.space(280))
+    contentHeight: panel.fittedContentHeight(content.implicitHeight)
+
+    PanelKeyCatcher {
+      id: keyCatcher
+      anchors.fill: parent
+      onCloseRequested: root.close()
+      onTabRequested: function (direction) { root.switchPanel(direction) }
+
+      Column {
+        id: content
+        width: parent.width
+        spacing: Style.space(8)
+
+        Text {
+          width: parent.width
+          text: "OhmLauncher Link"
+          color: root.barForeground
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.subtitle
+          font.bold: true
         }
+
+        Text {
+          width: parent.width
+          text: root.connected
+            ? "Connected: " + root.peerName + " (" + root.peerIp + ")"
+            : "Not connected"
+          color: root.barForeground
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.body
+        }
+
+        // QR for the phone to scan and connect back to THIS pc.
+        Image {
+          width: 160; height: 160
+          source: "image://qrcode/omarchy://" + Qt.application.arguments[0]
+            + ":8753?id=omarchy-pc"
+          fillMode: Image.PreserveAspectFit
+        }
+
+        // Action buttons (call the OhmLauncher contract).
+        Row {
+          spacing: Style.space(6)
+          WidgetButton {
+            text: "Connect"; bar: root.bar
+            onPressed: function (b) { if (b === Qt.LeftButton) root.connect() }
+          }
+          WidgetButton {
+            text: "Clip →"; bar: root.bar
+            onPressed: function (b) { if (b === Qt.LeftButton) root.pushClipboard("hello from Omarchy") }
+          }
+          WidgetButton {
+            text: "Clip ←"; bar: root.bar
+            onPressed: function (b) { if (b === Qt.LeftButton) root.pullClipboard() }
+          }
+          WidgetButton {
+            text: "Screen"; bar: root.bar
+            onPressed: function (b) { if (b === Qt.LeftButton) root.startScreen() }
+          }
+          WidgetButton {
+            text: "Photos"; bar: root.bar
+            onPressed: function (b) { if (b === Qt.LeftButton) root.backupPhotos() }
+          }
+        }
+
+        // Live log (verification surface for an LLM/agent).
+        Text {
+          width: parent.width
+          text: root.logText
+          color: root.barForeground
+          font.family: "monospace"
+          font.pixelSize: Style.font.caption
+          wrapMode: Text.WordWrap
+        }
+      }
     }
-    Button {
-        text: "Open events WS"
-        onClicked: ws.active = true
-    }
+  }
 }

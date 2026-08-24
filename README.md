@@ -60,9 +60,10 @@ cp -r omarchy-link/* ~/.config/quickshell/plugins/cl.villagranquiroz.omarchy-lin
 
 The panel shows a QR `omarchy://<pc-ip>:8753?id=<host>`. **Scan it with the
 phone's camera** (the normal system camera app) — Android routes the
-`omarchy://` intent to OhmLauncher, which connects to your PC. See
-`omarchy-link/README.md` for the full contract and the C++ QR image-provider
-snippet.
+`omarchy://` intent to OhmLauncher, which connects to your PC. The plugin repo
+(https://github.com/avillagran/omarchy-link) ships `README.md` (full contract
++ Omarchy API reference) and `TESTING.md` (end-to-end verification guide for
+agents/LLMs).
 
 ## Build & verify
 

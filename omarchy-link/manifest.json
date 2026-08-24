@@ -5,10 +5,9 @@
   "version": "1.0.0",
   "author": "Ohm Launcher",
   "license": "MIT",
-  "description": "Manages the connection with OhmLauncher (Android): discovers the peer on the LAN (mDNS/QR/Bluetooth), shares files, syncs clipboard and themes, backs up photos, and shares the screen.",
-  "kinds": ["bar-widget", "panel"],
+  "description": "Manages the connection with OhmLauncher (Android): discovers the peer on the LAN (mDNS/QR/Bluetooth), shares files, syncs clipboard and themes, backs up photos, and shares the screen. Bar-widget entry point; Panel.qml is loaded internally via Loader (Omarchy convention).",
+  "kinds": ["bar-widget"],
   "entryPoints": {
-    "barWidget": "BarWidget.qml",
-    "panel": "Panel.qml"
+    "barWidget": "BarWidget.qml"
   }
 }
