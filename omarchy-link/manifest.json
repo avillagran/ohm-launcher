@@ -9,5 +9,12 @@
   "kinds": ["bar-widget"],
   "entryPoints": {
     "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Omarchy Link",
+    "description": "Connects to OhmLauncher on Android (files, clipboard, themes, photos, screen).",
+    "category": "Connectivity",
+    "defaultSection": "right",
+    "allowMultiple": false
   }
 }
