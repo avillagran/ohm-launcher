@@ -35,6 +35,11 @@ typedef ScreenStarter = Future<Map<String, dynamic>> Function();
 typedef ScreenStopper = Future<void> Function();
 typedef PhotosBackup = Future<Map<String, dynamic>> Function();
 
+/// Called when a peer (the Omarchy desktop) contacts the launcher. [ip] is
+/// the remote address that reached the local API server; the desktop's own
+/// link server is assumed to listen on the same host at [defaultPort].
+typedef PeerSeen = void Function(String ip, int defaultPort);
+
 /// Provides a single screen frame (e.g. a PNG capture of the launcher UI) as bytes.
 typedef ScreenFrameProvider = Future<List<int>> Function();
 
@@ -52,6 +57,7 @@ class OmarchyLink {
     this.onScreenStop,
     this.onPhotosBackup,
     this.onScreenFrame,
+    this.onPeerSeen,
   });
 
   final DiscoverInfo? onDiscover;
@@ -65,6 +71,7 @@ class OmarchyLink {
   final ScreenStopper? onScreenStop;
   final PhotosBackup? onPhotosBackup;
   final ScreenFrameProvider? onScreenFrame;
+  final PeerSeen? onPeerSeen;
 
   final Set<WebSocket> _clients = {};
   bool _screenActive = false;
@@ -81,6 +88,13 @@ class OmarchyLink {
   Future<void> handleRest(HttpRequest request) async {
     _cors(request);
     if (request.method == 'OPTIONS') return;
+    // Any contact from the desktop peer reveals its address. Report it so the
+    // launcher can reflect the live connection state (the desktop link server
+    // is assumed to listen on the same host at the default port).
+    final remote = request.connectionInfo?.remoteAddress;
+    if (remote != null) {
+      onPeerSeen?.call(remote.address, 8753);
+    }
     try {
       final path = request.uri.path;
       if (request.method == 'GET' && path == '/omarchy/discover') {
@@ -166,6 +180,8 @@ class OmarchyLink {
     try {
       final socket = await WebSocketTransformer.upgrade(request);
       _clients.add(socket);
+      final remote = request.connectionInfo?.remoteAddress;
+      if (remote != null) onPeerSeen?.call(remote.address, 8753);
       final hello = await (onDiscover?.call() ?? Future.value(_defaultDiscover()));
       hello['type'] = 'peer_hello';
       socket.add(jsonEncode(hello));

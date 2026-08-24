@@ -552,6 +552,17 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
         }
         return {'status': 'ok', 'count': photos.length, 'photos': photos};
       },
+      onPeerSeen: (ip, port) {
+        // The Omarchy desktop contacted us (mDNS/QR from its side). Reflect the
+        // live connection even if we never scanned its `omarchy://` QR.
+        print('[OmarchyLink] peer seen: $ip:$port');
+        if (_omarchyPeer == null || _omarchyPeer!.ip != ip) {
+          if (mounted) {
+            setState(() => _omarchyPeer = (ip: ip, port: port, id: 'omarchy-pc'));
+            OhmPlatform.startClipboardMonitor(ip, port);
+          }
+        }
+      },
     );
     _omarchyLink = link;
     _announcer = OmarchyAnnouncer(port: port, lanIp: await _lanIp());
