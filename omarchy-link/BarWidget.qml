@@ -61,7 +61,7 @@ BarWidget {
     bar: root.bar
     color: panelLoader.item && panelLoader.item.connected
       ? "#4caf50" : root.bar ? root.bar.foreground : "#ffffff"
-    iconComponent: AndroidIcon { color: button.color }
+    iconComponent: Component { AndroidIcon { color: button.color } }
     tooltipText: panelLoader.item && panelLoader.item.connected
       ? "OhmLauncher connected (" + panelLoader.item.peerName + ")"
       : "Open OhmLauncher Link"
