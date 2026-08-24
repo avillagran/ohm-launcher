@@ -73,35 +73,38 @@ class _OmarchyControlTileState extends State<_OmarchyControlTile> {
     final connected = widget.peer != null;
     final accent = connected ? Colors.greenAccent : Colors.orangeAccent;
 
-    final header = GestureDetector(
-      onPanUpdate: _onPanUpdate,
-      onPanEnd: _onPanEnd,
-      onTap: () => setState(() => _expanded = !_expanded),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(color: accent.withValues(alpha: 0.7), width: 1.5),
-          borderRadius: BorderRadius.circular(12),
-          color: Colors.black.withValues(alpha: 0.55),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.drag_indicator, color: accent, size: 16),
-            const SizedBox(width: 6),
-            Icon(Icons.link, color: accent, size: 18),
-            const SizedBox(width: 8),
-            Text(
-              connected
-                  ? 'Omarchy: ${widget.peer!.ip}'
-                  : 'Omarchy: sin conexión',
-              style: TextStyle(color: accent, fontSize: 13),
-            ),
-            const SizedBox(width: 6),
-            Icon(_expanded ? Icons.expand_less : Icons.expand_more,
+    final header = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        border: Border.all(color: accent.withValues(alpha: 0.7), width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.black.withValues(alpha: 0.55),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onPanUpdate: _onPanUpdate,
+            onPanEnd: _onPanEnd,
+            child: const Icon(Icons.drag_indicator, color: Colors.white70, size: 16),
+          ),
+          const SizedBox(width: 6),
+          Icon(Icons.link, color: accent, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            connected
+                ? 'Omarchy: ${widget.peer!.ip}'
+                : 'Omarchy: sin conexión',
+            style: TextStyle(color: accent, fontSize: 12),
+          ),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Icon(_expanded ? Icons.expand_less : Icons.expand_more,
                 color: accent, size: 18),
-          ],
-        ),
+          ),
+        ],
       ),
     );
 
@@ -148,8 +151,8 @@ class _OmarchyControlTileState extends State<_OmarchyControlTile> {
     ];
 
     final grid = Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(10),
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         border: Border.all(color: accent.withValues(alpha: 0.7), width: 1.5),
         borderRadius: BorderRadius.circular(12),
@@ -159,10 +162,10 @@ class _OmarchyControlTileState extends State<_OmarchyControlTile> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Wrap(
-            spacing: 10,
-            runSpacing: 10,
+            spacing: 8,
+            runSpacing: 8,
             children: controls
-                .map((c) => SizedBox(width: 92, height: 76, child: c))
+                .map((c) => SizedBox(width: 66, height: 54, child: c))
                 .toList(),
           ),
         ],
@@ -207,10 +210,10 @@ class _OmarchyControlButton extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: Colors.white70, size: 26),
-              const SizedBox(height: 4),
+              Icon(icon, color: Colors.white70, size: 20),
+              const SizedBox(height: 3),
               Text(label,
-                  style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  style: const TextStyle(color: Colors.white70, fontSize: 10),
                   textAlign: TextAlign.center),
             ],
           ),

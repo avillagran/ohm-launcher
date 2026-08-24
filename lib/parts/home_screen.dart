@@ -2396,36 +2396,6 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                     ),
                   ),
                 ),
-              // Omarchy control widget (connect / screen share / clipboard /
-              // files / photos / themes). Draggable: the user picks where it
-              // stays; position is persisted in settings.
-              _OmarchyControlTile(
-                position: _omarchyControlPos,
-                onPositionChanged: (p) {
-                  _omarchyControlPos = p;
-                  unawaited(_saveSetting('omarchyControlPos', {'dx': p.dx, 'dy': p.dy}));
-                },
-                peer: _omarchyPeer,
-                screenSharing: _screenSharing,
-                onShowQr: _showOmarchyQr,
-                onToggleScreen: () async {
-                  if (_screenSharing) {
-                    await _screenCapture?.stop();
-                    if (mounted) setState(() => _screenSharing = false);
-                  } else {
-                    _screenCapture ??= ScreenCapture(
-                      onFrame: (jpeg) => _postScreenFrame(jpeg),
-                    );
-                    final ok = await _screenCapture!.start();
-                    if (mounted) setState(() => _screenSharing = ok);
-                  }
-                },
-                onCopyToPhone: () => _omarchyPeerAction('PUT', '/omarchy/clipboard'),
-                onCopyFromPhone: () => _omarchyPeerAction('GET', '/omarchy/clipboard'),
-                onFiles: () => _omarchyPeerAction('POST', '/omarchy/file'),
-                onPhotos: () => _omarchyPeerAction('POST', '/omarchy/photos/backup'),
-                onThemes: () => _omarchyPeerAction('GET', '/omarchy/theme'),
-              ),
               // Drawer gestures (swipe-up) and Quake terminal (swipe-down): they
               // re-insert LOWER, above the bars, so that the
               // visible bars (favorites/plugins) do not intercept those gestures.
@@ -2607,6 +2577,37 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                     ),
                   ),
                 ),
+              // Omarchy control widget (connect / screen share / clipboard /
+              // files / photos / themes). Draggable: the user picks where it
+              // stays; position is persisted in settings. Placed LAST so it
+              // sits above the gesture layers and receives drag input.
+              _OmarchyControlTile(
+                position: _omarchyControlPos,
+                onPositionChanged: (p) {
+                  _omarchyControlPos = p;
+                  unawaited(_saveSetting('omarchyControlPos', {'dx': p.dx, 'dy': p.dy}));
+                },
+                peer: _omarchyPeer,
+                screenSharing: _screenSharing,
+                onShowQr: _showOmarchyQr,
+                onToggleScreen: () async {
+                  if (_screenSharing) {
+                    await _screenCapture?.stop();
+                    if (mounted) setState(() => _screenSharing = false);
+                  } else {
+                    _screenCapture ??= ScreenCapture(
+                      onFrame: (jpeg) => _postScreenFrame(jpeg),
+                    );
+                    final ok = await _screenCapture!.start();
+                    if (mounted) setState(() => _screenSharing = ok);
+                  }
+                },
+                onCopyToPhone: () => _omarchyPeerAction('PUT', '/omarchy/clipboard'),
+                onCopyFromPhone: () => _omarchyPeerAction('GET', '/omarchy/clipboard'),
+                onFiles: () => _omarchyPeerAction('POST', '/omarchy/file'),
+                onPhotos: () => _omarchyPeerAction('POST', '/omarchy/photos/backup'),
+                onThemes: () => _omarchyPeerAction('GET', '/omarchy/theme'),
+              ),
             ],
           ),
         ),
