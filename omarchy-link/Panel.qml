@@ -225,9 +225,10 @@ Panel {
 
         // QR for the phone to scan and connect back to THIS pc.
         // Generated as a PNG by make_qr.sh (Quickshell/Omarchy has no built-in
-        // QR painter). Regenerated when the panel opens.
+        // QR painter). Regenerated when the panel opens. Hidden once connected.
         Image {
           id: qrImage
+          visible: !root.connected
           width: 160; height: 160
           fillMode: Image.PreserveAspectFit
           source: "file:///tmp/omarchy-link-qr.png"
@@ -238,6 +239,7 @@ Panel {
         // does not open custom URI schemes, so Google Lens is the reliable way
         // to trigger the omarchy:// deep link.
         Text {
+          visible: !root.connected
           width: parent.width
           text: "(" + i18n.t("useGoogleLens") + ")"
           color: root.barForeground
@@ -247,28 +249,49 @@ Panel {
           font.pixelSize: Style.font.caption
         }
 
-        // Action buttons (call the OhmLauncher contract).
+        // Once connected, the QR is no longer needed. This re-shows it to link
+        // an additional phone (the server keeps listening for more peers).
+        WidgetButton {
+          visible: root.connected
+          text: i18n.t("linkMore")
+          bar: root.bar
+          onPressed: function (b) {
+            if (b === Qt.LeftButton) { regenerateQr(); qrImage.visible = true }
+          }
+        }
+
+        // Action buttons (call the OhmLauncher contract). Disabled until linked.
         Row {
           spacing: Style.space(6)
           WidgetButton {
-            text: i18n.t("connect"); bar: root.bar
-            onPressed: function (b) { if (b === Qt.LeftButton) root.connect() }
+            text: i18n.t("files"); bar: root.bar
+            enabled: root.connected
+            onPressed: function (b) { if (b === Qt.LeftButton) root.postOnly("/omarchy/files/open") }
           }
           WidgetButton {
             text: i18n.t("copyToPhone"); bar: root.bar
+            enabled: root.connected
             onPressed: function (b) { if (b === Qt.LeftButton) root.pushClipboard("hello from Omarchy") }
           }
           WidgetButton {
             text: i18n.t("copyFromPhone"); bar: root.bar
+            enabled: root.connected
             onPressed: function (b) { if (b === Qt.LeftButton) root.pullClipboard() }
           }
           WidgetButton {
             text: i18n.t("startScreen"); bar: root.bar
+            enabled: root.connected
             onPressed: function (b) { if (b === Qt.LeftButton) root.startScreen() }
           }
           WidgetButton {
             text: i18n.t("backupPhotos"); bar: root.bar
+            enabled: root.connected
             onPressed: function (b) { if (b === Qt.LeftButton) root.backupPhotos() }
+          }
+          WidgetButton {
+            text: i18n.t("themes"); bar: root.bar
+            enabled: root.connected
+            onPressed: function (b) { if (b === Qt.LeftButton) root.postOnly("/omarchy/themes/apply") }
           }
         }
 
