@@ -2698,6 +2698,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                 onPhotos: () => _omarchyPeerAction('POST', '/omarchy/photos/backup'),
                 onThemes: () => _omarchyPeerAction('GET', '/omarchy/theme'),
                 onDisconnect: _disconnectOmarchy,
+                onDelete: _disconnectOmarchy,
               ),
             ],
           ),

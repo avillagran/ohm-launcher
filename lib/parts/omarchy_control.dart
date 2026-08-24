@@ -1,9 +1,14 @@
 // ============================================================================
 //  OMARCHY CONTROL TILE — launcher-side control widget for the OhmLauncher
-//  <-> Omarchy integration. Looks like an edge box; in expanded mode it
-//  reveals the action controls (connect, screen share, clipboard, files,
-//  photos, themes) wired to the peer PC. Draggable: the user picks where it
-//  stays, and the position is reported to the parent for persistence.
+//  <-> Omarchy integration. Flutter (NOT QML): it lives on the Android side,
+//  not on the desktop. Looks like an edge box; in expanded mode it reveals the
+//  action controls (connect, screen share, clipboard, files, photos, themes,
+//  disconnect, delete). Draggable: the user picks where it stays.
+//
+//  Animations: entry uses an elastic scale+fade so a new connection does not
+//  pop in abruptly; delete plays a "shatter" explosion (the tile bursts into
+//  radial fragments) before the widget hides. Disconnect simply collapses the
+//  menu back to the compact header.
 // ============================================================================
 
 part of 'package:ohm_launcher/main.dart';
@@ -22,6 +27,7 @@ class _OmarchyControlTile extends StatefulWidget {
     required this.onPhotos,
     required this.onThemes,
     required this.onDisconnect,
+    required this.onDelete,
   });
 
   final Offset position;
@@ -36,44 +42,95 @@ class _OmarchyControlTile extends StatefulWidget {
   final VoidCallback onPhotos;
   final VoidCallback onThemes;
   final VoidCallback onDisconnect;
+  final VoidCallback onDelete;
 
   @override
   State<_OmarchyControlTile> createState() => _OmarchyControlTileState();
 }
 
-class _OmarchyControlTileState extends State<_OmarchyControlTile> {
+class _OmarchyControlTileState extends State<_OmarchyControlTile>
+    with TickerProviderStateMixin {
   bool _expanded = false;
-  Offset _pos = Offset.zero;
-  bool _dragging = false;
+  late Offset _pos;
+  bool _deleted = false;
+  late final AnimationController _entry;
+  late final AnimationController _exit;
+  late final Animation<double> _entryScale;
+  late final Animation<double> _entryFade;
+  late final Animation<double> _exitScale;
+  late final Animation<double> _exitFade;
+
+  // Radial shatter fragments for the delete explosion.
+  static const int _fragCount = 12;
+  final List<double> _fragAngle = List.generate(_fragCount, (i) => i * (6.28318 / _fragCount));
 
   @override
   void initState() {
     super.initState();
     _pos = widget.position;
+    _entry = AnimationController(vsync: this, duration: const Duration(milliseconds: 650));
+    _exit = AnimationController(vsync: this, duration: const Duration(milliseconds: 520));
+    _entryScale = CurvedAnimation(parent: _entry, curve: Curves.elasticOut);
+    _entryFade = CurvedAnimation(parent: _entry, curve: Curves.easeOut);
+    _exitScale = CurvedAnimation(parent: _exit, curve: Curves.easeOutBack);
+    _exitFade = CurvedAnimation(parent: _exit, curve: Curves.easeIn);
+    if (widget.peer != null) _entry.forward();
+    _exit.addStatusListener((s) {
+      if (s == AnimationStatus.completed) {
+        if (mounted) setState(() => _deleted = true);
+      }
+    });
   }
 
   @override
   void didUpdateWidget(covariant _OmarchyControlTile old) {
     super.didUpdateWidget(old);
-    if (old.position != widget.position && !_dragging) _pos = widget.position;
+    // New connection while hidden -> reappear with the entry animation.
+    if (old.peer == null && widget.peer != null && _deleted) {
+      setState(() => _deleted = false);
+      _entry.reset();
+      _entry.forward();
+    }
+    // Peer lost -> collapse the menu (Disconnect), keep the tile visible.
+    if (old.peer != null && widget.peer == null) {
+      _expanded = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _entry.dispose();
+    _exit.dispose();
+    super.dispose();
   }
 
   void _onPanUpdate(DragUpdateDetails d) {
-    setState(() {
-      _dragging = true;
-      _pos += d.delta;
-    });
+    if (_dragging) {
+      setState(() => _pos = Offset(_pos.dx + d.delta.dx, _pos.dy + d.delta.dy));
+    }
   }
 
-  void _onPanEnd(DragEndDetails d) {
+  bool _dragging = false;
+  void _onPanStart(_) => _dragging = true;
+  void _onPanEnd(_) {
     _dragging = false;
     widget.onPositionChanged(_pos);
   }
 
+  void _onDelete() {
+    widget.onDelete.call();
+    setState(() {
+      _expanded = false;
+      _exit.reset();
+      _exit.forward();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final connected = widget.peer != null;
-    final accent = connected ? Colors.greenAccent : Colors.orangeAccent;
+    if (_deleted) return const SizedBox.shrink();
+
+    final accent = widget.peer != null ? Colors.greenAccent : Colors.orangeAccent;
 
     final header = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -87,6 +144,7 @@ class _OmarchyControlTileState extends State<_OmarchyControlTile> {
         children: [
           GestureDetector(
             behavior: HitTestBehavior.opaque,
+            onPanStart: _onPanStart,
             onPanUpdate: _onPanUpdate,
             onPanEnd: _onPanEnd,
             child: const Icon(Icons.drag_indicator, color: Colors.white70, size: 16),
@@ -95,7 +153,7 @@ class _OmarchyControlTileState extends State<_OmarchyControlTile> {
           Icon(Icons.link, color: accent, size: 16),
           const SizedBox(width: 6),
           Text(
-            connected
+            widget.peer != null
                 ? 'Omarchy: ${widget.peer!.ip}'
                 : 'Omarchy: sin conexión',
             style: TextStyle(color: accent, fontSize: 12),
@@ -111,7 +169,7 @@ class _OmarchyControlTileState extends State<_OmarchyControlTile> {
     );
 
     if (!_expanded) {
-      return Positioned(left: _pos.dx, top: _pos.dy, child: header);
+      return Positioned(left: _pos.dx, top: _pos.dy, child: _wrapAnimations(header));
     }
 
     final controls = <_OmarchyControlButton>[
@@ -155,6 +213,11 @@ class _OmarchyControlTileState extends State<_OmarchyControlTile> {
         label: 'Desconectar',
         onTap: widget.onDisconnect,
       ),
+      _OmarchyControlButton(
+        icon: Icons.delete_forever,
+        label: 'Eliminar',
+        onTap: _onDelete,
+      ),
     ];
 
     final grid = Container(
@@ -180,14 +243,74 @@ class _OmarchyControlTileState extends State<_OmarchyControlTile> {
       ),
     );
 
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [header, grid],
+    );
+
     return Positioned(
       left: _pos.dx,
       top: _pos.dy,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [header, grid],
+      child: _wrapAnimations(content, includeFragments: true),
+    );
+  }
+
+  /// Wraps [child] with the entry (elastic) and exit (shatter) animations.
+  /// When [includeFragments] is true, radial explosion fragments are layered
+  /// on top during the delete animation.
+  Widget _wrapAnimations(Widget child, {bool includeFragments = false}) {
+    final contentWithExit = AnimatedBuilder(
+      animation: _exit,
+      builder: (_, w) => Transform.scale(
+        scale: 1.0 + (_exitScale.value - 1.0) * 0.6,
+        child: Opacity(opacity: 1.0 - _exitFade.value, child: w),
       ),
+      child: ScaleTransition(
+        scale: _entryScale,
+        child: FadeTransition(opacity: _entryFade, child: child),
+      ),
+    );
+
+    if (!includeFragments) return contentWithExit;
+
+    return Stack(
+      children: [
+        // Radial shatter fragments.
+        ..._fragAngle.map((angle) {
+          return AnimatedBuilder(
+            animation: _exit,
+            builder: (_, __) {
+              final t = _exit.value;
+              final dist = 90.0 * t;
+              final off = Offset.fromDirection(angle, dist);
+              final dx = off.dx;
+              final dy = off.dy;
+              return Transform.translate(
+                offset: Offset(dx, dy),
+                child: Transform.scale(
+                  scale: 1.0 - t,
+                  child: Opacity(
+                    opacity: (1.0 - t).clamp(0.0, 1.0),
+                    child: Container(
+                      width: 18,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: (widget.peer != null
+                                ? Colors.greenAccent
+                                : Colors.orangeAccent)
+                            .withValues(alpha: 0.9),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        }),
+        contentWithExit,
+      ],
     );
   }
 }
@@ -206,25 +329,20 @@ class _OmarchyControlButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: Colors.white.withValues(alpha: 0.06),
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
-        onTap: onTap,
         borderRadius: BorderRadius.circular(10),
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.white24, width: 1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: Colors.white70, size: 17),
-              const SizedBox(height: 3),
-              Text(label,
-                  style: const TextStyle(color: Colors.white70, fontSize: 9),
-                  textAlign: TextAlign.center),
-            ],
-          ),
+        onTap: onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white70, size: 17),
+            const SizedBox(height: 3),
+            Text(label,
+                style: const TextStyle(color: Colors.white70, fontSize: 9),
+                textAlign: TextAlign.center),
+          ],
         ),
       ),
     );
