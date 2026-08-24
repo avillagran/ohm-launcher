@@ -33,6 +33,7 @@ Panel {
   property int peerPort: 8753
   property bool showLog: false
   property bool screenSharing: false
+  property int frameCount: 0
 
   property var anchorItem: null
   property var hostWidget: null
@@ -287,8 +288,8 @@ Panel {
             spacing: Style.space(6)
             WidgetButton { text: i18n.t("copyFromPhone"); bar: root.bar; enabled: root.connected
               onPressed: function (b) { if (b === Qt.LeftButton) root.pullClipboard() } }
-            WidgetButton { text: i18n.t("startScreen"); bar: root.bar; enabled: root.connected
-              onPressed: function (b) { if (b === Qt.LeftButton) root.startScreen() } }
+            WidgetButton { text: root.screenSharing ? i18n.t("stopScreen") : i18n.t("startScreen"); bar: root.bar; enabled: root.connected
+              onPressed: function (b) { if (b === Qt.LeftButton) { root.screenSharing ? root.stopScreen() : root.startScreen() } } }
           }
           Row {
             spacing: Style.space(6)
@@ -310,14 +311,32 @@ Panel {
           anchors.horizontalCenter: parent.horizontalCenter
         }
 
-        // Refresh the frame view while sharing (the file is overwritten live).
+        // Receiving status: polls the local link server for the frame counter.
+        Text {
+          visible: root.screenSharing
+          text: "Receiving frames: " + root.frameCount
+          color: root.barForeground
+          font.family: "monospace"
+          font.pixelSize: Style.font.caption
+          anchors.horizontalCenter: parent.horizontalCenter
+        }
+
+        // Refresh the frame view + counter while sharing.
         Timer {
           running: root.screenSharing
-          interval: 250
+          interval: 500
           repeat: true
           onTriggered: {
             screenImage.source = ""
             screenImage.source = "file:///tmp/omarchy-screen.jpg"
+            var x = new XMLHttpRequest()
+            x.open("GET", "http://127.0.0.1:" + root.peerPort + "/omarchy/screen/status")
+            x.onreadystatechange = function () {
+              if (x.readyState === XMLHttpRequest.DONE) {
+                try { var j = JSON.parse(x.responseText); root.frameCount = j.frames } catch (e) {}
+              }
+            }
+            x.send()
           }
         }
 

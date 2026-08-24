@@ -64,6 +64,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
   OmarchyLink? _omarchyLink;
   OmarchyAnnouncer? _announcer;
   ScreenCapture? _screenCapture;
+  bool _screenSharing = false;
   // Omarchy peer detected via `omarchy://` QR (system camera).
   ({String ip, int port, String id})? _omarchyPeer;
 
@@ -502,10 +503,12 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
           onFrame: (jpeg) => _postScreenFrame(jpeg),
         );
         final ok = await _screenCapture!.start();
+        if (mounted) setState(() => _screenSharing = ok);
         return {'status': ok ? 'started' : 'denied'};
       },
       onScreenStop: () async {
         await _screenCapture?.stop();
+        if (mounted) setState(() => _screenSharing = false);
       },
       onPhotosBackup: () async {
         final roots = [
@@ -2319,6 +2322,34 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                         ? _ConfigErrorCard(title: 'Fallo al iniciar', message: _bootError!)
                         : _desktop,
               ),
+              if (_screenSharing)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    color: Colors.redAccent.withValues(alpha: 0.9),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.screen_share, color: Colors.white, size: 18),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text('Compartiendo pantalla con Omarchy',
+                              style: TextStyle(color: Colors.white, fontSize: 13)),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            await _screenCapture?.stop();
+                            if (mounted) setState(() => _screenSharing = false);
+                          },
+                          child: const Text('Detener',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               // Drawer gestures (swipe-up) and Quake terminal (swipe-down): they
               // re-insert LOWER, above the bars, so that the
               // visible bars (favorites/plugins) do not intercept those gestures.

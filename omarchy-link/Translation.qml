@@ -48,7 +48,7 @@ QtObject {
       applyTheme: "Aplicar tema de Omarchy",
       backupPhotos: "Respaldar fotos",
       startScreen: "Compartir pantalla",
-      stopScreen: "Detener compartir",
+      stopScreen: "Detener",
       discoverHint: "Conecta desde el teléfono escaneando el QR, o empuja desde OhmLauncher.",
       logHeader: "Registro del enlace"
     }
