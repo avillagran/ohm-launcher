@@ -69,6 +69,8 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
   ({String ip, int port, String id})? _omarchyPeer;
   // Draggable position of the Omarchy control tile (persisted in settings).
   Offset _omarchyControlPos = const Offset(8, 80);
+  // Periodic probe that confirms the PC still lists us as connected.
+  Timer? _omarchyProbe;
 
   /// Quake-style terminal: unfolds with a swipe-down from the upper half.
   bool _quakeOpen = false;
@@ -108,6 +110,8 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
         // Start the background clipboard monitor so copied text in any app
         // is pushed to the PC without returning to the launcher.
         OhmPlatform.startClipboardMonitor(ip, port);
+        unawaited(_saveSetting('omarchyPeer', {'ip': ip, 'port': port, 'id': id}));
+        _startPeerProbe();
       }
       _notifyOmarchyPeer(ip, port, id);
     };
@@ -123,6 +127,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     _watcher.stop();
     unawaited(_apiServer?.stop());
     _apiServer = null;
+    _stopPeerProbe();
     OhmPlatform.stopClipboardMonitor();
     DynamicWidgetEngine.onBoxAddContent = null;
     super.dispose();
@@ -171,6 +176,17 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
             (pos['dx'] as num?)?.toDouble() ?? 8,
             (pos['dy'] as num?)?.toDouble() ?? 80,
           );
+        }
+        final peer = _settings['omarchyPeer'] as Map<dynamic, dynamic>?;
+        if (peer != null) {
+          final pip = (peer['ip'] as String?) ?? '';
+          final pport = (peer['port'] as num?)?.toInt() ?? 8753;
+          final pid = (peer['id'] as String?) ?? 'omarchy-pc';
+          if (pip.isNotEmpty) {
+            _omarchyPeer = (ip: pip, port: pport, id: pid);
+            OhmPlatform.startClipboardMonitor(pip, pport);
+            _startPeerProbe();
+          }
         }
         _favorites = _storage.loadFavorites();
         _configSource = config;
@@ -560,6 +576,8 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
           if (mounted) {
             setState(() => _omarchyPeer = (ip: ip, port: port, id: 'omarchy-pc'));
             OhmPlatform.startClipboardMonitor(ip, port);
+            unawaited(_saveSetting('omarchyPeer', {'ip': ip, 'port': port, 'id': 'omarchy-pc'}));
+            _startPeerProbe();
           }
         }
       },
@@ -661,6 +679,43 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
         duration: const Duration(seconds: 4),
       ),
     );
+  }
+
+  /// Periodically pings the PC's link_server to confirm we are still listed as
+  /// connected (and that the PC is reachable). If the PC stops reporting us as
+  /// connected for several probes, we drop the peer so the UI reflects reality.
+  void _startPeerProbe() {
+    _stopPeerProbe();
+    _omarchyProbe = Timer.periodic(const Duration(seconds: 15), (_) async {
+      final peer = _omarchyPeer;
+      if (peer == null) {
+        _stopPeerProbe();
+        return;
+      }
+      try {
+        final client = HttpClient();
+        final req = await client.getUrl(Uri.parse('http://${peer.ip}:${peer.port}/omarchy/link'));
+        final resp = await req.close();
+        final body = await resp.transform(utf8.decoder).join();
+        client.close();
+        final data = jsonDecode(body) as Map<String, dynamic>;
+        final connected = data['connected'] == true;
+        // If the PC no longer knows us, clear the peer on the phone too.
+        if (!connected && mounted) {
+          setState(() => _omarchyPeer = null);
+          OhmPlatform.stopClipboardMonitor();
+          unawaited(_saveSetting('omarchyPeer', null));
+          _stopPeerProbe();
+        }
+      } catch (_) {
+        // Transient unreachable: keep the peer (PC may be briefly offline).
+      }
+    });
+  }
+
+  void _stopPeerProbe() {
+    _omarchyProbe?.cancel();
+    _omarchyProbe = null;
   }
 
   /// Notify the peer PC that this phone scanned its `omarchy://` QR, so the

@@ -35,6 +35,7 @@ class MainActivity : FlutterActivity() {
     private lateinit var appWidgetHost: AppWidgetHost
     private val appWidgetIds = mutableMapOf<Int, ComponentName>()
     private var methodChannel: MethodChannel? = null
+    private var pendingOmarchyUri: String? = null
     private var pendingBindWidgetId = -1
     private var pendingBindWidgetComponent: ComponentName? = null
     private var pendingBindProvider: String = ""
@@ -134,9 +135,15 @@ class MainActivity : FlutterActivity() {
     private fun handleOmarchyLinkIntent(intent: Intent?) {
         val uri = intent?.data?.toString() ?: return
         if (uri.startsWith("omarchy://")) {
-            try {
-                methodChannel?.invokeMethod("onOmarchyPeerLink", mapOf("uri" to uri))
-            } catch (_: Exception) { /* noop */ }
+            if (methodChannel != null) {
+                try {
+                    methodChannel?.invokeMethod("onOmarchyPeerLink", mapOf("uri" to uri))
+                } catch (_: Exception) { /* noop */ }
+            } else {
+                // Engine not ready yet (fresh launch via QR): replay in
+                // configureFlutterEngine once the channel is established.
+                pendingOmarchyUri = uri
+            }
         }
     }
 
@@ -178,6 +185,13 @@ class MainActivity : FlutterActivity() {
 
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
         setupScreenChannel(flutterEngine)
+        // Replay a Omarchy link URI that arrived before the engine was ready
+        // (e.g. the app was launched by scanning the `omarchy://` QR).
+        pendingOmarchyUri?.let { uri ->
+            try { methodChannel?.invokeMethod("onOmarchyPeerLink", mapOf("uri" to uri)) }
+            catch (_: Exception) { /* noop */ }
+            pendingOmarchyUri = null
+        }
         try {
             ContextCompat.registerReceiver(
                 this,
