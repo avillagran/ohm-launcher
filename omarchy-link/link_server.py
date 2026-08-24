@@ -27,6 +27,10 @@ PORT = 8753
 _lock = threading.Lock()
 
 
+SCREEN_STATE_FILE = "/tmp/omarchy-screen-state.json"
+_frame_count = 0
+
+
 def _screen_path_for(raw: bytes) -> str:
     # JPEG starts with FFD8; otherwise assume PNG.
     if raw[:2] == b"\xff\xd8":
@@ -35,13 +39,27 @@ def _screen_path_for(raw: bytes) -> str:
 
 
 def write_screen_frame(raw: bytes) -> None:
+    global _frame_count
     try:
         path = _screen_path_for(raw)
         with _lock:
             with open(path, "wb") as f:
                 f.write(raw)
+            _frame_count += 1
+            with open(SCREEN_STATE_FILE, "w", encoding="utf-8") as s:
+                import time
+                json.dump({"frames": _frame_count, "last": time.time()}, s)
     except OSError:
         pass
+
+
+def read_screen_state() -> dict:
+    try:
+        with _lock:
+            with open(SCREEN_STATE_FILE, "r", encoding="utf-8") as s:
+                return json.load(s)
+    except (OSError, ValueError):
+        return {"frames": 0, "last": 0}
 
 
 def write_state(state: dict) -> None:
@@ -85,6 +103,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/omarchy/link":
             self._json(200, read_state())
+        elif self.path == "/omarchy/screen/status":
+            self._json(200, read_screen_state())
         else:
             self._json(404, {"error": "not found"})
 
