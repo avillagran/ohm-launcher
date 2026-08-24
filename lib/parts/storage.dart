@@ -467,7 +467,9 @@ class StorageService {
 
   /// IDs of currently disabled plugins (the .disabled folder).
   List<String> disabledPluginIds() {
-    final dir = Directory('$pluginsPath.disabled');
+    final base = _baseDir;
+    if (base == null) return const [];
+    final dir = Directory('${base.path}/$kPluginsDirName.disabled');
     if (!dir.existsSync()) return const [];
     return dir
         .listSync()

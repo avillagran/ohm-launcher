@@ -1759,8 +1759,16 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
             child: _alignBar(
               edge,
               isVertical
-                  ? Column(mainAxisSize: MainAxisSize.min, children: items)
-                  : Row(mainAxisSize: MainAxisSize.min, children: items),
+                  ? SingleChildScrollView(
+                      scrollDirection: Axis.vertical,
+                      child: Column(
+                          mainAxisSize: MainAxisSize.min, children: items),
+                    )
+                  : SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                          mainAxisSize: MainAxisSize.min, children: items),
+                    ),
             ),
           ),
         ),
