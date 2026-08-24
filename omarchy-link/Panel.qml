@@ -32,6 +32,7 @@ Panel {
   property string peerIp: ""
   property int peerPort: 8753
   property bool showLog: false
+  property bool screenSharing: false
 
   property var anchorItem: null
   property var hostWidget: null
@@ -116,9 +117,11 @@ Panel {
   }
 
   function startScreen() {
+    root.screenSharing = true
     postOnly("/omarchy/screen/start")
   }
   function stopScreen() {
+    root.screenSharing = false
     postOnly("/omarchy/screen/stop")
   }
   function backupPhotos() {
@@ -293,6 +296,28 @@ Panel {
               onPressed: function (b) { if (b === Qt.LeftButton) root.backupPhotos() } }
             WidgetButton { text: i18n.t("themes"); bar: root.bar; enabled: root.connected
               onPressed: function (b) { if (b === Qt.LeftButton) root.applyTheme() } }
+          }
+        }
+
+        // Screen-share viewer (phone -> pc). Shows the latest frame saved by
+        // link_server.py (/omarchy/screen/frame) while screenSharing is active.
+        Image {
+          id: screenImage
+          visible: root.screenSharing
+          width: 220; height: 140
+          fillMode: Image.PreserveAspectFit
+          source: "file:///tmp/omarchy-screen.jpg"
+          anchors.horizontalCenter: parent.horizontalCenter
+        }
+
+        // Refresh the frame view while sharing (the file is overwritten live).
+        Timer {
+          running: root.screenSharing
+          interval: 250
+          repeat: true
+          onTriggered: {
+            screenImage.source = ""
+            screenImage.source = "file:///tmp/omarchy-screen.jpg"
           }
         }
 

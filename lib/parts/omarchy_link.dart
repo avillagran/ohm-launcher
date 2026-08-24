@@ -35,6 +35,9 @@ typedef ScreenStarter = Future<Map<String, dynamic>> Function();
 typedef ScreenStopper = Future<void> Function();
 typedef PhotosBackup = Future<Map<String, dynamic>> Function();
 
+/// Provides a single screen frame (e.g. a PNG capture of the launcher UI) as bytes.
+typedef ScreenFrameProvider = Future<List<int>> Function();
+
 /// Handles the OhmLauncher <-> Omarchy integration contract.
 class OmarchyLink {
   OmarchyLink({
@@ -48,6 +51,7 @@ class OmarchyLink {
     this.onScreenStart,
     this.onScreenStop,
     this.onPhotosBackup,
+    this.onScreenFrame,
   });
 
   final DiscoverInfo? onDiscover;
@@ -60,8 +64,10 @@ class OmarchyLink {
   final ScreenStarter? onScreenStart;
   final ScreenStopper? onScreenStop;
   final PhotosBackup? onPhotosBackup;
+  final ScreenFrameProvider? onScreenFrame;
 
   final Set<WebSocket> _clients = {};
+  bool _screenActive = false;
 
   /// Emits an event to all connected WebSocket clients.
   void broadcast(Map<String, dynamic> event) {
@@ -164,17 +170,42 @@ class OmarchyLink {
       hello['type'] = 'peer_hello';
       socket.add(jsonEncode(hello));
       await for (final msg in socket) {
-        // The peer can send commands; for now we ignore them except echo.
         if (msg is String) {
           try {
             final data = jsonDecode(msg) as Map<String, dynamic>;
-            if (data['type'] == 'ping') socket.add(jsonEncode({'type': 'pong'}));
+            if (data['type'] == 'ping') {
+              socket.add(jsonEncode({'type': 'pong'}));
+            } else if (data['type'] == 'screen_start') {
+              _screenActive = true;
+              _screenLoop(socket);
+            } else if (data['type'] == 'screen_stop') {
+              _screenActive = false;
+            }
           } catch (_) {}
         }
       }
+      _screenActive = false;
       _clients.remove(socket);
     } catch (e) {
       if (kDebugLog) print('[OmarchyLink] ws error: $e');
+    }
+  }
+
+  /// Captures frames (via onScreenFrame) and streams them to the peer socket
+  /// while _screenActive is true.
+  Future<void> _screenLoop(WebSocket socket) async {
+    while (_screenActive) {
+      if (onScreenFrame == null) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        continue;
+      }
+      try {
+        final bytes = await onScreenFrame!();
+        if (socket.readyState == WebSocket.open) socket.add(bytes);
+      } catch (e) {
+        if (kDebugLog) print('[OmarchyLink] frame error: $e');
+      }
+      await Future.delayed(const Duration(milliseconds: 200));
     }
   }
 

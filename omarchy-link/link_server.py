@@ -21,9 +21,27 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 STATE_FILE = "/tmp/omarchy-link-state.json"
+SCREEN_FILE = "/tmp/omarchy-screen.png"
 HOST = "0.0.0.0"
 PORT = 8753
 _lock = threading.Lock()
+
+
+def _screen_path_for(raw: bytes) -> str:
+    # JPEG starts with FFD8; otherwise assume PNG.
+    if raw[:2] == b"\xff\xd8":
+        return "/tmp/omarchy-screen.jpg"
+    return "/tmp/omarchy-screen.png"
+
+
+def write_screen_frame(raw: bytes) -> None:
+    try:
+        path = _screen_path_for(raw)
+        with _lock:
+            with open(path, "wb") as f:
+                f.write(raw)
+    except OSError:
+        pass
 
 
 def write_state(state: dict) -> None:
@@ -88,6 +106,14 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == "/omarchy/link/bye":
             write_state({"connected": False, "peerIp": "", "peerName": ""})
             self._json(200, {"connected": False})
+        elif self.path == "/omarchy/screen/frame":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                raw = self.rfile.read(length) if length else b""
+                write_screen_frame(raw)
+                self._json(200, {"ok": True, "bytes": len(raw)})
+            except (ValueError, OSError):
+                self._json(500, {"error": "frame_write_failed"})
         else:
             self._json(404, {"error": "not found"})
 

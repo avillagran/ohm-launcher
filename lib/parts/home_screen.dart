@@ -499,7 +499,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
       },
       onScreenStart: () async {
         _screenCapture ??= ScreenCapture(
-          onFrame: (jpeg) => _omarchyLink?.broadcast(screenFrameMessage(jpeg)),
+          onFrame: (jpeg) => _postScreenFrame(jpeg),
         );
         final ok = await _screenCapture!.start();
         return {'status': ok ? 'started' : 'denied'};
@@ -649,6 +649,25 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
       client.close();
     } catch (_) {
       // Best-effort: the snackbar already confirmed locally.
+    }
+  }
+
+  // Streams each captured screen frame (JPEG) to the peer PC's link server,
+  // which saves it for the Omarchy Link panel to display.
+  Future<void> _postScreenFrame(List<int> jpeg) async {
+    final peer = _omarchyPeer;
+    if (peer == null) return;
+    try {
+      final client = HttpClient();
+      final req = await client.postUrl(
+        Uri.parse('http://${peer.ip}:${peer.port}/omarchy/screen/frame'),
+      );
+      req.headers.contentType = ContentType('image', 'jpeg');
+      req.add(jpeg);
+      await req.close();
+      client.close();
+    } catch (_) {
+      // Best-effort; drop frames if the PC is unreachable.
     }
   }
 
