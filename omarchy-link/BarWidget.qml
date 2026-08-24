@@ -17,6 +17,15 @@ BarWidget {
   id: root
   moduleName: "cl.villagranquiroz.omarchy-link"
 
+  // Link-state server (phone -> pc notify). Runs for the life of the widget so
+  // the PC is always listening on :8753 when the phone scans the omarchy:// QR.
+  Process {
+    id: linkServer
+    running: false
+    command: ["/usr/bin/python3", Qt.resolvedUrl("link_server.py").replace("file://", "")]
+  }
+  Component.onCompleted: linkServer.running = true
+
   // Omarchy BarWidget contract -------------------------------------------------
   readonly property bool opened: panelLoader.item
     ? panelLoader.item.opened === true
