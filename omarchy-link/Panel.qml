@@ -148,7 +148,7 @@ Panel {
   // Regenerate the QR PNG (make_qr.sh) so the phone can scan and connect back.
   function regenerateQr() {
     qrProc.command = ["bash",
-      Qt.resolvedUrl("make_qr.sh").replace("file://", ""),
+      Qt.resolvedUrl("make_qr.sh").toString().replace("file://", ""),
       "", "8753", "omarchy-pc"]
     qrProc.running = true
   }
@@ -170,7 +170,7 @@ Panel {
   Process {
     id: linkServer
     running: false
-    command: ["/usr/bin/python3", Qt.resolvedUrl("link_server.py").replace("file://", "")]
+    command: ["/usr/bin/python3", Qt.resolvedUrl("link_server.py").toString().replace("file://", "")]
     onExited: function (code) { log("link server exited: " + code) }
   }
   Timer {
