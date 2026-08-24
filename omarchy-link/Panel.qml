@@ -160,10 +160,13 @@ Panel {
   // scans the omarchy:// QR. Started once at load; writes /tmp/omarchy-link-state.json.
   Process {
     id: linkServer
-    running: true
+    running: false
     command: ["/usr/bin/python3", Qt.resolvedUrl("link_server.py").replace("file://", "")]
     onExited: function (code) { log("link server exited: " + code) }
   }
+
+  // Start the link server (called from BarWidget.onLoaded once the panel is ready).
+  function startLinkServer() { linkServer.running = true }
 
   // Watch the state file written by link_server.py and reflect it in the UI.
   FileView {

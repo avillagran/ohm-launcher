@@ -51,6 +51,8 @@ BarWidget {
     onLoaded: {
       root.injectPanel()
       Qt.callLater(root.injectPanel)
+      if (panelLoader.item && typeof panelLoader.item.startLinkServer === "function")
+        panelLoader.item.startLinkServer()
     }
   }
 
