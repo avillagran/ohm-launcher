@@ -44,10 +44,9 @@ QtObject {
     }
   })
 
-  // Resolve the active language code from the LANG env (es / en, fallback en).
+  // Resolve the active language code from the system locale (es / en, fallback en).
   readonly property string lang: {
-    var raw = Quickshell.env("LANG") || ""
-    raw = raw.toLowerCase()
+    var raw = Qt.locale().name.toLowerCase() // e.g. "es_es", "en_us"
     if (raw.indexOf("es") === 0) return "es"
     return "en"
   }
