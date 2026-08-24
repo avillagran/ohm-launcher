@@ -49,6 +49,8 @@ def write_screen_frame(raw: bytes) -> None:
             with open(SCREEN_STATE_FILE, "w", encoding="utf-8") as s:
                 import time
                 json.dump({"frames": _frame_count, "last": time.time()}, s)
+            if _frame_count % 30 == 0:
+                log("frame %d received (%d bytes)" % (_frame_count, len(raw)))
     except OSError:
         pass
 
@@ -62,11 +64,21 @@ def read_screen_state() -> dict:
         return {"frames": 0, "last": 0}
 
 
+def log(msg: str) -> None:
+    try:
+        with _lock, open("/tmp/ls.log", "a", encoding="utf-8") as f:
+            import datetime
+            f.write(datetime.datetime.now().strftime("%H:%M:%S") + " " + msg + "\n")
+    except OSError:
+        pass
+
+
 def write_state(state: dict) -> None:
     try:
         with _lock:
             with open(STATE_FILE, "w", encoding="utf-8") as f:
                 json.dump(state, f)
+        log("state -> connected=%s peer=%s" % (state.get("connected"), state.get("peerIp")))
     except OSError:
         pass
 
