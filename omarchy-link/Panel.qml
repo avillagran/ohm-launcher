@@ -51,7 +51,7 @@ Panel {
     } catch (e) { /* ignore malformed */ }
   }
 
-  function open() { controller.show(); regenerateQr() }
+  function open() { controller.show(); if (!linkServer.running) linkServer.running = true; regenerateQr() }
   function close() { controller.hide() }
   function switchPanel(direction) {
     if (root.bar && typeof root.bar.switchPanelFrom === "function")
@@ -154,6 +154,16 @@ Panel {
       if (code !== 0) log("qr gen failed: " + code)
       else { qrImage.source = ""; qrImage.source = "file:///tmp/omarchy-link-qr.png" }
     }
+  }
+
+  // Link-state server (phone -> pc notify). Started on first panel open so the
+  // PC is listening on :8753 when the phone scans the omarchy:// QR. Quickshell
+  // only launches Processes from a user-driven handler, hence open() not load.
+  Process {
+    id: linkServer
+    running: false
+    command: ["/usr/bin/python3", Qt.resolvedUrl("link_server.py").replace("file://", "")]
+    onExited: function (code) { log("link server exited: " + code) }
   }
 
   // Watch the state file written by link_server.py and reflect it in the UI.
