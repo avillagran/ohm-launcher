@@ -31,6 +31,7 @@ Panel {
   property string peerName: ""
   property string peerIp: ""
   property int peerPort: 8753
+  property bool showLog: false
 
   property var anchorItem: null
   property var hostWidget: null
@@ -130,6 +131,14 @@ Panel {
       if (x.readyState === XMLHttpRequest.DONE) log(path + " -> " + x.status)
     }
     x.send()
+  }
+
+  // Apply the Omarchy theme on the phone (PUT /omarchy/theme). The phone decides
+  // the concrete theme; we send a hint (dark by default).
+  function applyTheme() {
+    putJson("/omarchy/theme", { dark: true, source: "omarchy" },
+      function () { log("theme applied") },
+      function (c) { log("theme apply failed: " + c) })
   }
 
   // Regenerate the QR PNG (make_qr.sh) so the phone can scan and connect back.
@@ -260,43 +269,44 @@ Panel {
           }
         }
 
-        // Action buttons (call the OhmLauncher contract). Disabled until linked.
-        Row {
+        // Action grid (call the OhmLauncher contract). Disabled until linked.
+        // Laid out as a 2-column grid (rows of 2) so it fits the panel width.
+        Column {
           spacing: Style.space(6)
-          WidgetButton {
-            text: i18n.t("files"); bar: root.bar
-            enabled: root.connected
-            onPressed: function (b) { if (b === Qt.LeftButton) root.postOnly("/omarchy/files/open") }
+          Row {
+            spacing: Style.space(6)
+            WidgetButton { text: i18n.t("files"); bar: root.bar; enabled: root.connected
+              onPressed: function (b) { if (b === Qt.LeftButton) root.postOnly("/omarchy/file") } }
+            WidgetButton { text: i18n.t("copyToPhone"); bar: root.bar; enabled: root.connected
+              onPressed: function (b) { if (b === Qt.LeftButton) root.pushClipboard("hello from Omarchy") } }
           }
-          WidgetButton {
-            text: i18n.t("copyToPhone"); bar: root.bar
-            enabled: root.connected
-            onPressed: function (b) { if (b === Qt.LeftButton) root.pushClipboard("hello from Omarchy") }
+          Row {
+            spacing: Style.space(6)
+            WidgetButton { text: i18n.t("copyFromPhone"); bar: root.bar; enabled: root.connected
+              onPressed: function (b) { if (b === Qt.LeftButton) root.pullClipboard() } }
+            WidgetButton { text: i18n.t("startScreen"); bar: root.bar; enabled: root.connected
+              onPressed: function (b) { if (b === Qt.LeftButton) root.startScreen() } }
           }
-          WidgetButton {
-            text: i18n.t("copyFromPhone"); bar: root.bar
-            enabled: root.connected
-            onPressed: function (b) { if (b === Qt.LeftButton) root.pullClipboard() }
-          }
-          WidgetButton {
-            text: i18n.t("startScreen"); bar: root.bar
-            enabled: root.connected
-            onPressed: function (b) { if (b === Qt.LeftButton) root.startScreen() }
-          }
-          WidgetButton {
-            text: i18n.t("backupPhotos"); bar: root.bar
-            enabled: root.connected
-            onPressed: function (b) { if (b === Qt.LeftButton) root.backupPhotos() }
-          }
-          WidgetButton {
-            text: i18n.t("themes"); bar: root.bar
-            enabled: root.connected
-            onPressed: function (b) { if (b === Qt.LeftButton) root.postOnly("/omarchy/themes/apply") }
+          Row {
+            spacing: Style.space(6)
+            WidgetButton { text: i18n.t("backupPhotos"); bar: root.bar; enabled: root.connected
+              onPressed: function (b) { if (b === Qt.LeftButton) root.backupPhotos() } }
+            WidgetButton { text: i18n.t("themes"); bar: root.bar; enabled: root.connected
+              onPressed: function (b) { if (b === Qt.LeftButton) root.applyTheme() } }
           }
         }
 
-        // Live log (verification surface for an LLM/agent).
+        // Toggle to reveal the internal log (verification surface for an agent/user).
+        WidgetButton {
+          text: root.showLog ? i18n.t("logHide") : i18n.t("logShow")
+          bar: root.bar
+          enabled: root.connected
+          onPressed: function (b) { if (b === Qt.LeftButton) root.showLog = !root.showLog }
+        }
+
+        // Live log (hidden unless the Log toggle is on).
         Text {
+          visible: root.showLog
           width: parent.width
           text: root.logText
           color: root.barForeground
