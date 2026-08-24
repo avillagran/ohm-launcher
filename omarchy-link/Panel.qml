@@ -146,6 +146,7 @@ Panel {
 
   // --- UI -------------------------------------------------------------------
   SystemClock { id: clock; precision: SystemClock.Seconds }
+  I18n { id: i18n }
 
   KeyboardPanel {
     id: panel
@@ -170,7 +171,7 @@ Panel {
 
         Text {
           width: parent.width
-          text: "OhmLauncher Link"
+          text: i18n.t("title")
           color: root.barForeground
           font.family: root.bar ? root.bar.fontFamily : Style.font.family
           font.pixelSize: Style.font.subtitle
@@ -180,8 +181,8 @@ Panel {
         Text {
           width: parent.width
           text: root.connected
-            ? "Connected: " + root.peerName + " (" + root.peerIp + ")"
-            : "Not connected"
+            ? i18n.t("connected", root.peerName, root.peerIp)
+            : i18n.t("notConnected")
           color: root.barForeground
           font.family: root.bar ? root.bar.fontFamily : Style.font.family
           font.pixelSize: Style.font.body
@@ -197,27 +198,40 @@ Panel {
           source: "file:///tmp/omarchy-link-qr.png"
         }
 
+        // Hint: the system camera scanner on some phones (e.g. Xiaomi/HyperOS)
+        // does not open custom URI schemes, so Google Lens is the reliable way
+        // to trigger the omarchy:// deep link.
+        Text {
+          width: parent.width
+          text: "(" + i18n.t("useGoogleLens") + ")"
+          color: root.barForeground
+          opacity: 0.7
+          horizontalAlignment: Text.AlignHCenter
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.caption
+        }
+
         // Action buttons (call the OhmLauncher contract).
         Row {
           spacing: Style.space(6)
           WidgetButton {
-            text: "Connect"; bar: root.bar
+            text: i18n.t("connect"); bar: root.bar
             onPressed: function (b) { if (b === Qt.LeftButton) root.connect() }
           }
           WidgetButton {
-            text: "Clip →"; bar: root.bar
+            text: i18n.t("copyToPhone"); bar: root.bar
             onPressed: function (b) { if (b === Qt.LeftButton) root.pushClipboard("hello from Omarchy") }
           }
           WidgetButton {
-            text: "Clip ←"; bar: root.bar
+            text: i18n.t("copyFromPhone"); bar: root.bar
             onPressed: function (b) { if (b === Qt.LeftButton) root.pullClipboard() }
           }
           WidgetButton {
-            text: "Screen"; bar: root.bar
+            text: i18n.t("startScreen"); bar: root.bar
             onPressed: function (b) { if (b === Qt.LeftButton) root.startScreen() }
           }
           WidgetButton {
-            text: "Photos"; bar: root.bar
+            text: i18n.t("backupPhotos"); bar: root.bar
             onPressed: function (b) { if (b === Qt.LeftButton) root.backupPhotos() }
           }
         }
