@@ -26,12 +26,6 @@ Panel {
   moduleName: "cl.villagranquiroz.omarchy-link"
   manageIpc: false
 
-  Component.onCompleted: {
-    linkServer.running = true
-    // Reflect any pre-existing state (e.g. after a Quickshell restart).
-    applyState(linkStateFile.text)
-  }
-
   // Exposed to BarWidget (button status) -----------------------------------
   property bool connected: false
   property string peerName: ""
@@ -177,8 +171,8 @@ Panel {
   FileView {
     id: linkStateFile
     path: "/tmp/omarchy-link-state.json"
-    onContentChanged: root.applyState(text)
-    Component.onCompleted: root.applyState(text)
+    watchChanges: true
+    onLoaded: root.applyState(text())
   }
 
   // Local log area shown in the panel (so an LLM/user can verify behavior).
