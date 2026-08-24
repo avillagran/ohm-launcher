@@ -67,6 +67,8 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
   bool _screenSharing = false;
   // Omarchy peer detected via `omarchy://` QR (system camera).
   ({String ip, int port, String id})? _omarchyPeer;
+  // Draggable position of the Omarchy control tile (persisted in settings).
+  Offset _omarchyControlPos = const Offset(8, 80);
 
   /// Quake-style terminal: unfolds with a swipe-down from the upper half.
   bool _quakeOpen = false;
@@ -103,6 +105,9 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
       if (mounted) {
         setState(() => _omarchyPeer = (ip: ip, port: port, id: id));
         _showOmarchyPeerConnected(id, ip, port);
+        // Start the background clipboard monitor so copied text in any app
+        // is pushed to the PC without returning to the launcher.
+        OhmPlatform.startClipboardMonitor(ip, port);
       }
       _notifyOmarchyPeer(ip, port, id);
     };
@@ -118,6 +123,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     _watcher.stop();
     unawaited(_apiServer?.stop());
     _apiServer = null;
+    OhmPlatform.stopClipboardMonitor();
     DynamicWidgetEngine.onBoxAddContent = null;
     super.dispose();
   }
@@ -159,6 +165,13 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
 
       setState(() {
         _settings = _storage.loadSettings();
+        final pos = _settings['omarchyControlPos'] as Map<dynamic, dynamic>?;
+        if (pos != null) {
+          _omarchyControlPos = Offset(
+            (pos['dx'] as num?)?.toDouble() ?? 8,
+            (pos['dy'] as num?)?.toDouble() ?? 80,
+          );
+        }
         _favorites = _storage.loadFavorites();
         _configSource = config;
         _desktopCount = DynamicWidgetEngine.desktopCount(config);
@@ -2384,34 +2397,34 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                   ),
                 ),
               // Omarchy control widget (connect / screen share / clipboard /
-              // files / photos / themes). Lives at the top-right of the home,
-              // styled like an edge box; long-press or tap toggles expanded mode
-              // where the action controls appear.
-              Positioned(
-                top: 8,
-                right: 8,
-                child: _OmarchyControlTile(
-                  peer: _omarchyPeer,
-                  screenSharing: _screenSharing,
-                  onShowQr: _showOmarchyQr,
-                  onToggleScreen: () async {
-                    if (_screenSharing) {
-                      await _screenCapture?.stop();
-                      if (mounted) setState(() => _screenSharing = false);
-                    } else {
-                      _screenCapture ??= ScreenCapture(
-                        onFrame: (jpeg) => _postScreenFrame(jpeg),
-                      );
-                      final ok = await _screenCapture!.start();
-                      if (mounted) setState(() => _screenSharing = ok);
-                    }
-                  },
-                  onCopyToPhone: () => _omarchyPeerAction('PUT', '/omarchy/clipboard'),
-                  onCopyFromPhone: () => _omarchyPeerAction('GET', '/omarchy/clipboard'),
-                  onFiles: () => _omarchyPeerAction('POST', '/omarchy/file'),
-                  onPhotos: () => _omarchyPeerAction('POST', '/omarchy/photos/backup'),
-                  onThemes: () => _omarchyPeerAction('GET', '/omarchy/theme'),
-                ),
+              // files / photos / themes). Draggable: the user picks where it
+              // stays; position is persisted in settings.
+              _OmarchyControlTile(
+                position: _omarchyControlPos,
+                onPositionChanged: (p) {
+                  _omarchyControlPos = p;
+                  unawaited(_saveSetting('omarchyControlPos', {'dx': p.dx, 'dy': p.dy}));
+                },
+                peer: _omarchyPeer,
+                screenSharing: _screenSharing,
+                onShowQr: _showOmarchyQr,
+                onToggleScreen: () async {
+                  if (_screenSharing) {
+                    await _screenCapture?.stop();
+                    if (mounted) setState(() => _screenSharing = false);
+                  } else {
+                    _screenCapture ??= ScreenCapture(
+                      onFrame: (jpeg) => _postScreenFrame(jpeg),
+                    );
+                    final ok = await _screenCapture!.start();
+                    if (mounted) setState(() => _screenSharing = ok);
+                  }
+                },
+                onCopyToPhone: () => _omarchyPeerAction('PUT', '/omarchy/clipboard'),
+                onCopyFromPhone: () => _omarchyPeerAction('GET', '/omarchy/clipboard'),
+                onFiles: () => _omarchyPeerAction('POST', '/omarchy/file'),
+                onPhotos: () => _omarchyPeerAction('POST', '/omarchy/photos/backup'),
+                onThemes: () => _omarchyPeerAction('GET', '/omarchy/theme'),
               ),
               // Drawer gestures (swipe-up) and Quake terminal (swipe-down): they
               // re-insert LOWER, above the bars, so that the

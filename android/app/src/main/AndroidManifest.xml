@@ -24,6 +24,12 @@
     <!-- Acceso de red: registro del marketplace de plugins (omarchyplugins.com). -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Foreground service para monitorear el portapapeles en segundo plano
+         y sincronizarlo con el PC Omarchy sin volver al launcher. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- Bluetooth (autodetección de peer Omarchy por BLE). -->
     <uses-permission android:name="android.permission.BLUETOOTH"
         android:maxSdkVersion="30" />
@@ -101,6 +107,11 @@
 
         <!-- Servicio de accesibilidad que captura gestos de navegación globales
              cuando MIUI/HyperOS no los proporciona para launchers de terceros. -->
+        <service
+            android:name=".ClipboardMonitorService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <service
             android:name=".OhmGestureAccessibilityService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"

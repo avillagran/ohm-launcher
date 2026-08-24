@@ -229,6 +229,16 @@ class MainActivity : FlutterActivity() {
                         restartApp()
                         result.success(null)
                     }
+                    "startClipboardMonitor" -> {
+                        val ip = call.argument<String>("ip") ?: ""
+                        val port = call.argument<Int>("port") ?: 8753
+                        startClipboardMonitor(ip, port)
+                        result.success(null)
+                    }
+                    "stopClipboardMonitor" -> {
+                        stopClipboardMonitor()
+                        result.success(null)
+                    }
                     "setImmersiveMode" -> {
                         val enabled = call.argument<Boolean>("enabled") ?: true
                         if (enabled) applyImmersiveMode() else disableImmersiveMode()
@@ -622,6 +632,28 @@ class MainActivity : FlutterActivity() {
     /** Reinicia el launcher (recrea la Activity y, con ella, el motor Flutter). */
     private fun restartApp() {
         recreate()
+    }
+
+    /** Starts the foreground clipboard monitor that pushes copied text to the
+     *  Omarchy peer PC (ip:port). */
+    private fun startClipboardMonitor(ip: String, port: Int) {
+        val intent = Intent(this, ClipboardMonitorService::class.java).apply {
+            putExtra("peerIp", ip)
+            putExtra("peerPort", port)
+        }
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
+    }
+
+    /** Stops the foreground clipboard monitor. */
+    private fun stopClipboardMonitor() {
+        val intent = Intent(this, ClipboardMonitorService::class.java).apply {
+            putExtra("stop", true)
+        }
+        stopService(intent)
     }
 
     /** Runs [command] in Termux via the com.termux.RUN_COMMAND intent

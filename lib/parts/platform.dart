@@ -258,6 +258,25 @@ class OhmPlatform {
     } catch (_) {}
   }
 
+  /// Starts the background clipboard monitor that pushes copied text to the
+  /// connected Omarchy peer PC. [ip]/[port] identify the peer; pass null to
+  /// stop monitoring.
+  static Future<void> startClipboardMonitor(String ip, int port) async {
+    try {
+      await _channel.invokeMethod<void>('startClipboardMonitor', {
+        'ip': ip,
+        'port': port,
+      });
+    } catch (_) {}
+  }
+
+  /// Stops the background clipboard monitor.
+  static Future<void> stopClipboardMonitor() async {
+    try {
+      await _channel.invokeMethod<void>('stopClipboardMonitor');
+    } catch (_) {}
+  }
+
   /// Enables/disables immersive mode (hides the system navigation bar).
   static Future<void> setImmersiveMode(bool enabled) async {
     try {

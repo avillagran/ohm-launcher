@@ -2,13 +2,16 @@
 //  OMARCHY CONTROL TILE — launcher-side control widget for the OhmLauncher
 //  <-> Omarchy integration. Looks like an edge box; in expanded mode it
 //  reveals the action controls (connect, screen share, clipboard, files,
-//  photos, themes) wired to the peer PC.
+//  photos, themes) wired to the peer PC. Draggable: the user picks where it
+//  stays, and the position is reported to the parent for persistence.
 // ============================================================================
 
 part of 'package:ohm_launcher/main.dart';
 
 class _OmarchyControlTile extends StatefulWidget {
   const _OmarchyControlTile({
+    required this.position,
+    required this.onPositionChanged,
     required this.peer,
     required this.screenSharing,
     required this.onShowQr,
@@ -20,6 +23,8 @@ class _OmarchyControlTile extends StatefulWidget {
     required this.onThemes,
   });
 
+  final Offset position;
+  final ValueChanged<Offset> onPositionChanged;
   final ({String ip, int port, String id})? peer;
   final bool screenSharing;
   final VoidCallback onShowQr;
@@ -36,6 +41,32 @@ class _OmarchyControlTile extends StatefulWidget {
 
 class _OmarchyControlTileState extends State<_OmarchyControlTile> {
   bool _expanded = false;
+  Offset _pos = Offset.zero;
+  bool _dragging = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pos = widget.position;
+  }
+
+  @override
+  void didUpdateWidget(covariant _OmarchyControlTile old) {
+    super.didUpdateWidget(old);
+    if (old.position != widget.position && !_dragging) _pos = widget.position;
+  }
+
+  void _onPanUpdate(DragUpdateDetails d) {
+    setState(() {
+      _dragging = true;
+      _pos += d.delta;
+    });
+  }
+
+  void _onPanEnd(DragEndDetails d) {
+    _dragging = false;
+    widget.onPositionChanged(_pos);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +74,8 @@ class _OmarchyControlTileState extends State<_OmarchyControlTile> {
     final accent = connected ? Colors.greenAccent : Colors.orangeAccent;
 
     final header = GestureDetector(
-      onLongPress: () => setState(() => _expanded = !_expanded),
+      onPanUpdate: _onPanUpdate,
+      onPanEnd: _onPanEnd,
       onTap: () => setState(() => _expanded = !_expanded),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -55,6 +87,8 @@ class _OmarchyControlTileState extends State<_OmarchyControlTile> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Icon(Icons.drag_indicator, color: accent, size: 16),
+            const SizedBox(width: 6),
             Icon(Icons.link, color: accent, size: 18),
             const SizedBox(width: 8),
             Text(
@@ -71,7 +105,9 @@ class _OmarchyControlTileState extends State<_OmarchyControlTile> {
       ),
     );
 
-    if (!_expanded) return header;
+    if (!_expanded) {
+      return Positioned(left: _pos.dx, top: _pos.dy, child: header);
+    }
 
     final controls = <_OmarchyControlButton>[
       _OmarchyControlButton(
@@ -133,10 +169,14 @@ class _OmarchyControlTileState extends State<_OmarchyControlTile> {
       ),
     );
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [header, grid],
+    return Positioned(
+      left: _pos.dx,
+      top: _pos.dy,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [header, grid],
+      ),
     );
   }
 }
