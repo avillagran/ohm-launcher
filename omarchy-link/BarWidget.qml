@@ -54,12 +54,14 @@ BarWidget {
     }
   }
 
-  // Bar button: shows connection status ---------------------------------------
-  WidgetButton {
+  // Bar button: Android icon; turns accent when connected -------------------
+  BarIconButton {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: panelLoader.item && panelLoader.item.connected ? "Ohm ▲" : "Ohm"
+    color: panelLoader.item && panelLoader.item.connected
+      ? "#4caf50" : root.bar ? root.bar.foreground : "#ffffff"
+    iconComponent: AndroidIcon { color: button.color }
     tooltipText: panelLoader.item && panelLoader.item.connected
       ? "OhmLauncher connected (" + panelLoader.item.peerName + ")"
       : "Open OhmLauncher Link"
