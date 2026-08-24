@@ -21,6 +21,7 @@ class _OmarchyControlTile extends StatefulWidget {
     required this.onFiles,
     required this.onPhotos,
     required this.onThemes,
+    required this.onDisconnect,
   });
 
   final Offset position;
@@ -34,6 +35,7 @@ class _OmarchyControlTile extends StatefulWidget {
   final VoidCallback onFiles;
   final VoidCallback onPhotos;
   final VoidCallback onThemes;
+  final VoidCallback onDisconnect;
 
   @override
   State<_OmarchyControlTile> createState() => _OmarchyControlTileState();
@@ -147,6 +149,11 @@ class _OmarchyControlTileState extends State<_OmarchyControlTile> {
         icon: Icons.palette,
         label: 'Temas',
         onTap: widget.onThemes,
+      ),
+      _OmarchyControlButton(
+        icon: Icons.link_off,
+        label: 'Desconectar',
+        onTap: widget.onDisconnect,
       ),
     ];
 

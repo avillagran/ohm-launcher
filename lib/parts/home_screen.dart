@@ -758,7 +758,31 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     if (mounted) setState(() => _runtimeWidgets = list);
   }
 
-  /// Sends a request to the connected Omarchy peer PC for the given action
+  /// Disconnects from the Omarchy peer: clears local state, stops the
+  /// background clipboard monitor and probe, and notifies the PC so its plugin
+  /// reflects the disconnection too.
+  Future<void> _disconnectOmarchy() async {
+    final peer = _omarchyPeer;
+    if (mounted) {
+      setState(() => _omarchyPeer = null);
+      _stopPeerProbe();
+      OhmPlatform.stopClipboardMonitor();
+      unawaited(_saveSetting('omarchyPeer', null));
+    }
+    if (peer != null) {
+      // Best-effort: tell the PC we are leaving so its plugin shows
+      // "disconnected" symmetrically.
+      try {
+        final client = HttpClient();
+        final req = await client.postUrl(
+            Uri.parse('http://${peer.ip}:${peer.port}/omarchy/link/bye'));
+        await req.close();
+        client.close();
+      } catch (_) {}
+    }
+  }
+
+  /// Sends a request to the connected Omarchy peer PC.
   /// (used by the Omarchy control widget). Best-effort: logs on failure.
   Future<void> _omarchyPeerAction(String method, String path) async {
     final peer = _omarchyPeer;
@@ -2673,6 +2697,7 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                 onFiles: () => _omarchyPeerAction('POST', '/omarchy/file'),
                 onPhotos: () => _omarchyPeerAction('POST', '/omarchy/photos/backup'),
                 onThemes: () => _omarchyPeerAction('GET', '/omarchy/theme'),
+                onDisconnect: _disconnectOmarchy,
               ),
             ],
           ),
