@@ -160,8 +160,8 @@ Panel {
   // scans the omarchy:// QR. Started once at load; writes /tmp/omarchy-link-state.json.
   Process {
     id: linkServer
-    running: false
-    command: ["python3", Qt.resolvedUrl("link_server.py").replace("file://", "")]
+    running: true
+    command: ["/usr/bin/python3", Qt.resolvedUrl("link_server.py").replace("file://", "")]
     onExited: function (code) { log("link server exited: " + code) }
   }
 
