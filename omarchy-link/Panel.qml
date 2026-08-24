@@ -17,6 +17,7 @@
 
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import qs.Commons
 import qs.Ui
 
@@ -34,7 +35,7 @@ Panel {
   property var anchorItem: null
   property var hostWidget: null
 
-  function open() { controller.show() }
+  function open() { controller.show(); regenerateQr() }
   function close() { controller.hide() }
   function switchPanel(direction) {
     if (root.bar && typeof root.bar.switchPanelFrom === "function")
@@ -121,6 +122,24 @@ Panel {
     x.send()
   }
 
+  // Regenerate the QR PNG (make_qr.sh) so the phone can scan and connect back.
+  function regenerateQr() {
+    qrProc.command = ["bash",
+      Qt.resolvedUrl("make_qr.sh").replace("file://", ""),
+      "", "8753", "omarchy-pc"]
+    qrProc.running = true
+  }
+
+  Process {
+    id: qrProc
+    running: false
+    command: ["bash", "make_qr.sh"]
+    onExited: function (code) {
+      if (code !== 0) log("qr gen failed: " + code)
+      else { qrImage.source = ""; qrImage.source = "file:///tmp/omarchy-link-qr.png" }
+    }
+  }
+
   // Local log area shown in the panel (so an LLM/user can verify behavior).
   property string logText: ""
   function log(msg) { root.logText = root.logText + msg + "\n" }
@@ -169,11 +188,13 @@ Panel {
         }
 
         // QR for the phone to scan and connect back to THIS pc.
+        // Generated as a PNG by make_qr.sh (Quickshell/Omarchy has no built-in
+        // QR painter). Regenerated when the panel opens.
         Image {
+          id: qrImage
           width: 160; height: 160
-          source: "image://qrcode/omarchy://" + Qt.application.arguments[0]
-            + ":8753?id=omarchy-pc"
           fillMode: Image.PreserveAspectFit
+          source: "file:///tmp/omarchy-link-qr.png"
         }
 
         // Action buttons (call the OhmLauncher contract).
