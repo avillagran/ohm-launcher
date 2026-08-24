@@ -26,6 +26,12 @@ Panel {
   moduleName: "cl.villagranquiroz.omarchy-link"
   manageIpc: false
 
+  Component.onCompleted: {
+    linkServer.running = true
+    // Reflect any pre-existing state (e.g. after a Quickshell restart).
+    applyState(linkStateFile.text)
+  }
+
   // Exposed to BarWidget (button status) -----------------------------------
   property bool connected: false
   property string peerName: ""
@@ -154,13 +160,14 @@ Panel {
   // scans the omarchy:// QR. Started once at load; writes /tmp/omarchy-link-state.json.
   Process {
     id: linkServer
-    running: true
+    running: false
     command: ["python3", Qt.resolvedUrl("link_server.py").replace("file://", "")]
     onExited: function (code) { log("link server exited: " + code) }
   }
 
   // Watch the state file written by link_server.py and reflect it in the UI.
   FileView {
+    id: linkStateFile
     path: "/tmp/omarchy-link-state.json"
     onContentChanged: root.applyState(text)
     Component.onCompleted: root.applyState(text)
