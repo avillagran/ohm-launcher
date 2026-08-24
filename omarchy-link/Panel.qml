@@ -273,29 +273,33 @@ Panel {
           }
         }
 
-        // Action grid (call the OhmLauncher contract). Disabled until linked.
-        // Laid out as a 2-column grid (rows of 2) so it fits the panel width.
+        // Action grid (call the OhmLauncher contract). Hidden until linked;
+        // appears (with a fade) when the phone connects. Laid out as a 2-column
+        // grid (rows of 2) so it fits the panel width.
         Column {
+          visible: root.connected
+          opacity: root.connected ? 1 : 0
+          Behavior on opacity { NumberAnimation { duration: 200 } }
           spacing: Style.space(6)
           Row {
             spacing: Style.space(6)
-            WidgetButton { text: i18n.t("files"); bar: root.bar; enabled: root.connected
+            WidgetButton { text: i18n.t("files"); bar: root.bar
               onPressed: function (b) { if (b === Qt.LeftButton) root.postOnly("/omarchy/file") } }
-            WidgetButton { text: i18n.t("copyToPhone"); bar: root.bar; enabled: root.connected
+            WidgetButton { text: i18n.t("copyToPhone"); bar: root.bar
               onPressed: function (b) { if (b === Qt.LeftButton) root.pushClipboard("hello from Omarchy") } }
           }
           Row {
             spacing: Style.space(6)
             WidgetButton { text: i18n.t("copyFromPhone"); bar: root.bar; enabled: root.connected
               onPressed: function (b) { if (b === Qt.LeftButton) root.pullClipboard() } }
-            WidgetButton { text: root.screenSharing ? i18n.t("stopScreen") : i18n.t("startScreen"); bar: root.bar; enabled: root.connected
+            WidgetButton { text: root.screenSharing ? i18n.t("stopScreen") : i18n.t("startScreen"); bar: root.bar
               onPressed: function (b) { if (b === Qt.LeftButton) { root.screenSharing ? root.stopScreen() : root.startScreen() } } }
           }
           Row {
             spacing: Style.space(6)
-            WidgetButton { text: i18n.t("backupPhotos"); bar: root.bar; enabled: root.connected
+            WidgetButton { text: i18n.t("backupPhotos"); bar: root.bar
               onPressed: function (b) { if (b === Qt.LeftButton) root.backupPhotos() } }
-            WidgetButton { text: i18n.t("themes"); bar: root.bar; enabled: root.connected
+            WidgetButton { text: i18n.t("themes"); bar: root.bar
               onPressed: function (b) { if (b === Qt.LeftButton) root.applyTheme() } }
           }
         }
