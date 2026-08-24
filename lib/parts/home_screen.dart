@@ -679,6 +679,31 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
     if (mounted) setState(() => _runtimeWidgets = list);
   }
 
+  /// Sends a request to the connected Omarchy peer PC for the given action
+  /// (used by the Omarchy control widget). Best-effort: logs on failure.
+  Future<void> _omarchyPeerAction(String method, String path) async {
+    final peer = _omarchyPeer;
+    if (peer == null) return;
+    try {
+      final client = HttpClient();
+      final req = await client.openUrl(
+        method,
+        Uri.parse('http://${peer.ip}:${peer.port}$path'),
+      );
+      if (method == 'PUT' && path == '/omarchy/clipboard') {
+        req.headers.contentType = ContentType('application', 'json');
+        final text = await Clipboard.getData('text/plain');
+        req.write(jsonEncode({'text': text?.text ?? ''}));
+      }
+      final resp = await req.close();
+      await resp.drain();
+      client.close();
+    } catch (e) {
+      // Best-effort action; surface failure for debugging.
+      print('[OmarchyControl] action $method $path failed: $e');
+    }
+  }
+
   /// Injects a component (JSON from DynamicWidgetEngine or QML) into the layer
   /// floating hot. [source] is the node/component text.
   Future<void> _injectRuntimeWidget(String source, String format) async {
@@ -2358,6 +2383,36 @@ class _OhmHomeScreenState extends State<OhmHomeScreen> {
                     ),
                   ),
                 ),
+              // Omarchy control widget (connect / screen share / clipboard /
+              // files / photos / themes). Lives at the top-right of the home,
+              // styled like an edge box; long-press or tap toggles expanded mode
+              // where the action controls appear.
+              Positioned(
+                top: 8,
+                right: 8,
+                child: _OmarchyControlTile(
+                  peer: _omarchyPeer,
+                  screenSharing: _screenSharing,
+                  onShowQr: _showOmarchyQr,
+                  onToggleScreen: () async {
+                    if (_screenSharing) {
+                      await _screenCapture?.stop();
+                      if (mounted) setState(() => _screenSharing = false);
+                    } else {
+                      _screenCapture ??= ScreenCapture(
+                        onFrame: (jpeg) => _postScreenFrame(jpeg),
+                      );
+                      final ok = await _screenCapture!.start();
+                      if (mounted) setState(() => _screenSharing = ok);
+                    }
+                  },
+                  onCopyToPhone: () => _omarchyPeerAction('PUT', '/omarchy/clipboard'),
+                  onCopyFromPhone: () => _omarchyPeerAction('GET', '/omarchy/clipboard'),
+                  onFiles: () => _omarchyPeerAction('POST', '/omarchy/file'),
+                  onPhotos: () => _omarchyPeerAction('POST', '/omarchy/photos/backup'),
+                  onThemes: () => _omarchyPeerAction('GET', '/omarchy/theme'),
+                ),
+              ),
               // Drawer gestures (swipe-up) and Quake terminal (swipe-down): they
               // re-insert LOWER, above the bars, so that the
               // visible bars (favorites/plugins) do not intercept those gestures.

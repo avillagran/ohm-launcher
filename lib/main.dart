@@ -58,12 +58,14 @@ import 'parts/omarchy_link.dart';
 import 'parts/omarchy_discovery.dart';
 import 'parts/screen_capture.dart';
 import 'parts/shell_executor.dart';
+import 'package:xterm/src/ui/render.dart';
+import 'package:xterm/src/core/buffer/cell_offset.dart';
+
+part 'parts/omarchy_control.dart';
 
 // Access to xterm's internal geometry to place selection handles
 // natives (RenderTerminal exposes cellSize / getOffset / getCellOffset
 // public; we use them to position handles pixel-perfect without a fork).
-import 'package:xterm/src/ui/render.dart';
-import 'package:xterm/src/core/buffer/cell_offset.dart';
 
 part 'parts/storage.dart';
 part 'parts/file_watcher.dart';
