@@ -72,7 +72,7 @@ BarWidget {
 
   // Shared connection state (exposed to Panel.qml) ----------------------------
   QtObject {
-    id: LinkState
+    id: linkState
     property bool connected: false
     property string peerName: ""
     property string peerIp: ""
