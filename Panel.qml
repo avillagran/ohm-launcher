@@ -34,8 +34,9 @@ Panel {
   // Port of THIS pc's link_server (for local status polls + QR generation).
   // Reported by link_server.py in the state file so the panel never assumes 8753.
   property int linkPort: 8753
-  property bool showLog: false
+  property bool showLog: true
   property bool screenSharing: false
+  property bool screenExpanded: false
   property int frameCount: 0
   // Phone pixel size (from /omarchy/screen/status) for remote-control mapping.
   property int screenW: 0
@@ -131,10 +132,13 @@ Panel {
 
   function startScreen() {
     root.screenSharing = true
+    root.frameCount = 0
+    screenImage.source = ""
     postOnly("/omarchy/screen/start")
   }
   function stopScreen() {
     root.screenSharing = false
+    screenImage.source = ""
     postOnly("/omarchy/screen/stop")
   }
   function backupPhotos() {
@@ -255,6 +259,16 @@ Panel {
     onLoaded: root.applyState(text())
   }
 
+  FileView {
+    id: serverLogFile
+    path: "/tmp/ls.log"
+    watchChanges: true
+    onLoaded: {
+      const lines = text().trim().split("\n")
+      root.logText = lines.slice(Math.max(0, lines.length - 12)).join("\n")
+    }
+  }
+
   // Local log area shown in the panel (so an LLM/user can verify behavior).
   property string logText: ""
   function log(msg) { root.logText = root.logText + msg + "\n" }
@@ -269,7 +283,7 @@ Panel {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(280))
+    contentWidth: panel.fittedContentWidth(Style.space(root.screenExpanded ? 620 : 280))
     contentHeight: panel.fittedContentHeight(content.implicitHeight)
 
     PanelKeyCatcher {
@@ -444,9 +458,10 @@ Panel {
         Image {
           id: screenImage
           visible: root.screenSharing
-          width: 220; height: 140
+          width: root.screenExpanded ? 560 : 220
+          height: root.screenExpanded ? 700 : 140
           fillMode: Image.PreserveAspectFit
-          source: "file:///tmp/omarchy-screen.jpg"
+          source: ""
           anchors.horizontalCenter: parent.horizontalCenter
           MouseArea {
             anchors.fill: parent
@@ -477,9 +492,15 @@ Panel {
             onPressed: function (b) { if (b === 1) root.sendInput({ action: "key", key: "home" }) } }
           WidgetButton { text: "■"; bar: root.bar
             onPressed: function (b) { if (b === 1) root.sendInput({ action: "key", key: "recents" }) } }
+          WidgetButton {
+            text: i18n.t(root.screenExpanded ? "screenReduce" : "screenExpand")
+            bar: root.bar
+            onPressed: function (b) { if (b === 1) root.screenExpanded = !root.screenExpanded }
+          }
         }
 
-        // Receiving status: polls the local link server for the frame counter.
+        // Pull status and JPEGs from the phone. The reverse phone -> PC route
+        // may be blocked by the desktop firewall even though PC -> phone works.
         Text {
           visible: root.screenSharing
           text: "Receiving frames: " + root.frameCount
@@ -495,17 +516,19 @@ Panel {
           interval: 500
           repeat: true
           onTriggered: {
-            screenImage.source = ""
-            screenImage.source = "file:///tmp/omarchy-screen.jpg"
             var x = new XMLHttpRequest()
-            x.open("GET", "http://127.0.0.1:" + root.linkPort + "/omarchy/screen/status")
+            x.open("GET", base() + "/omarchy/screen/status")
             x.onreadystatechange = function () {
               if (x.readyState === XMLHttpRequest.DONE) {
                 try {
                   var j = JSON.parse(x.responseText)
-                  root.frameCount = j.frames
                   if (j.w) root.screenW = j.w
                   if (j.h) root.screenH = j.h
+                  if (j.frames && j.frames !== root.frameCount) {
+                    root.frameCount = j.frames
+                    screenImage.source = ""
+                    screenImage.source = base() + "/omarchy/screen/frame?sequence=" + j.frames
+                  }
                 } catch (e) {}
               }
             }
@@ -517,7 +540,7 @@ Panel {
         WidgetButton {
           text: root.showLog ? i18n.t("logHide") : i18n.t("logShow")
           bar: root.bar
-          enabled: root.connected
+          enabled: true
           onPressed: function (b) { if (b === 1) root.showLog = !root.showLog }
         }
 

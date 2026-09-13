@@ -28,6 +28,8 @@ QtObject {
       backupPhotos: "Back up photos",
       startScreen: "Share screen",
       stopScreen: "Stop sharing",
+      screenExpand: "Expand",
+      screenReduce: "Reduce",
       discoverHint: "Connect from the phone by scanning the QR, or push from OhmLauncher.",
       logHeader: "Link log"
     },
@@ -49,6 +51,8 @@ QtObject {
       backupPhotos: "Respaldar fotos",
       startScreen: "Compartir pantalla",
       stopScreen: "Detener",
+      screenExpand: "Expandir",
+      screenReduce: "Reducir",
       discoverHint: "Conecta desde el teléfono escaneando el QR, o empuja desde OhmLauncher.",
       logHeader: "Registro del enlace"
     }

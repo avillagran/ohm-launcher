@@ -55,6 +55,54 @@ class ThemeSyncTest(unittest.TestCase):
             link_server.parse_avahi_peer(output),
         )
 
+    def test_discovered_phone_is_persisted_and_resynced_after_launcher_reinstall(self):
+        payload = {"name": "Nord", "mode": "dark", "colors": {"accent": "#81a1c1"}}
+        encoded = json.dumps(payload, sort_keys=True)
+        persisted = []
+        pushed = []
+
+        result = link_server.sync_theme_once(
+            encoded,
+            payload_reader=lambda: payload,
+            state_reader=lambda: {"connected": False},
+            discover=lambda: {
+                "connected": True,
+                "peerIp": "192.168.1.100",
+                "peerPort": 8753,
+                "peerName": "OhmLauncher",
+            },
+            push=lambda state, value: pushed.append((state, value)) or True,
+            state_writer=persisted.append,
+        )
+
+        self.assertEqual(encoded, result)
+        self.assertEqual(1, len(pushed))
+        self.assertEqual("192.168.1.100", persisted[0]["peerIp"])
+        self.assertEqual(link_server.PORT, persisted[0]["linkPort"])
+
+    def test_panel_exposes_server_diagnostics_even_while_disconnected(self):
+        panel = Path(__file__).with_name("Panel.qml").read_text(encoding="utf-8")
+
+        self.assertIn('property bool showLog: true', panel)
+        self.assertIn('path: "/tmp/ls.log"', panel)
+        self.assertIn('id: serverLogFile', panel)
+        self.assertIn('enabled: true', panel)
+
+    def test_panel_pulls_screen_frames_from_phone_instead_of_blocked_reverse_path(self):
+        panel = Path(__file__).with_name("Panel.qml").read_text(encoding="utf-8")
+
+        self.assertIn('base() + "/omarchy/screen/status"', panel)
+        self.assertIn('base() + "/omarchy/screen/frame?sequence="', panel)
+        self.assertNotIn('source: "file:///tmp/omarchy-screen.jpg"', panel)
+
+    def test_screen_viewer_can_expand_inside_the_panel(self):
+        panel = Path(__file__).with_name("Panel.qml").read_text(encoding="utf-8")
+
+        self.assertIn("property bool screenExpanded: false", panel)
+        self.assertIn("root.screenExpanded ? 620 : 280", panel)
+        self.assertIn("root.screenExpanded ? 560 : 220", panel)
+        self.assertIn('i18n.t(root.screenExpanded ? "screenReduce" : "screenExpand")', panel)
+
 
 if __name__ == "__main__":
     unittest.main()
