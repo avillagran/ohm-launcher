@@ -114,7 +114,9 @@ Java_cl_villagranquiroz_ohm_1launcher_NativePtyBridge_spawn(
             const std::string value = variable.substr(separator + 1);
             setenv(key.c_str(), value.c_str(), 1);
         }
-        execl(shell.c_str(), shell.c_str(), "-i", static_cast<char*>(nullptr));
+        // Keep one persistent shell without its own prompt/command echo. The
+        // PTY still gives child tools a real terminal; Quake owns the prompt.
+        execl(shell.c_str(), shell.c_str(), "-s", static_cast<char*>(nullptr));
         _exit(127);
     }
 

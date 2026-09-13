@@ -70,6 +70,25 @@ class LocalApiServerTest {
     }
 
     @Test
+    fun servesLatestScreenFrameForReversePullTransport() {
+        val frames = LatestScreenFrameStore().apply {
+            update(byteArrayOf(0xff.toByte(), 0xd8.toByte(), 1, 2), 1220, 2712)
+        }
+        startServer(screenFrames = frames)
+
+        val status = request("GET", "/omarchy/screen/status")
+        val frame = request("GET", "/omarchy/screen/frame")
+
+        assertEquals(200, status.code)
+        assertEquals(1L, status.json.getLong("frames"))
+        assertEquals(1220, status.json.getInt("w"))
+        assertEquals(2712, status.json.getInt("h"))
+        assertEquals(200, frame.code)
+        assertEquals("image/jpeg", frame.contentType)
+        assertArrayEquals(byteArrayOf(0xff.toByte(), 0xd8.toByte(), 1, 2), frame.bytes)
+    }
+
+    @Test
     fun upgradesOmarchyWebSocketAndSendsDiscoverAsPeerHello() {
         startServer(
             omarchyAdapter = object : OmarchyApiAdapter {
@@ -617,6 +636,7 @@ class LocalApiServerTest {
         onUninstallBin: UninstallBinHandler? = null,
         onQuake: QuakeHandler? = null,
         omarchyAdapter: OmarchyApiAdapter? = null,
+        screenFrames: LatestScreenFrameStore? = null,
     ) {
         server = LocalApiServer(
             port = 0,
@@ -629,6 +649,7 @@ class LocalApiServerTest {
             onUninstallBin = onUninstallBin,
             onQuake = onQuake,
             omarchyAdapter = omarchyAdapter,
+            screenFrames = screenFrames,
         ).also { it.start() }
     }
 

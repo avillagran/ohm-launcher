@@ -18,6 +18,7 @@ import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -25,6 +26,8 @@ import android.widget.LinearLayout
 import android.widget.Space
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import cl.villagranquiroz.ohm_launcher.qml.QmlViewRenderer
@@ -180,6 +183,9 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         content.setPadding(dp(18), dp(52), dp(18), dp(110))
         content.setOnDragListener { _, event -> handleWidgetDrag(event) }
         content.setOnTouchListener { _, event ->
+            if (CommandBarFocusPolicy.shouldDismiss(commandInput.hasFocus(), event.actionMasked == MotionEvent.ACTION_DOWN)) {
+                dismissCommandInput()
+            }
             backgroundGestures.onTouchEvent(event)
         }
         desktopLayer.addView(content, LayoutParams(MATCH_PARENT, MATCH_PARENT))
@@ -427,11 +433,9 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         }
         ttfx.submit(desktop.ttfx)
         ttfxMini.submit(desktop.ttfx)
-        title.text = if (config.desktops.size > 1) {
-            "${desktop.name}  ${desktopIndex + 1}/${config.desktops.size}"
-        } else {
-            desktop.name
-        }
+        val desktopTitle = DesktopTitlePolicy.text(desktop.name, desktopIndex, config.desktops.size)
+        title.text = desktopTitle.orEmpty()
+        title.visibility = if (desktopTitle == null) GONE else VISIBLE
         content.configureGrid(desktop.gridColumns, desktop.gridRows)
         content.removeAllViews()
         desktop.widgets.forEachIndexed { index, node -> content.addWidget(renderEditableWidget(node, index), node) }
@@ -1197,6 +1201,18 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         commandResults.visibility = VISIBLE
     }
 
+    private fun dismissCommandInput() {
+        commandInput.clearFocus()
+        isFocusableInTouchMode = true
+        requestFocus()
+        commandResults.visibility = GONE
+        val keyboard = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        keyboard.hideSoftInputFromWindow(windowToken, 0)
+        (context as? MainActivity)?.window?.let { window ->
+            WindowInsetsControllerCompat(window, this).hide(WindowInsetsCompat.Type.ime())
+        }
+    }
+
     private fun positionCommandResults() {
         val edge = settings.bottomBarPosition
         val vertical = edge == LauncherEdge.LEFT || edge == LauncherEdge.RIGHT
@@ -1353,8 +1369,9 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             OrbitalAction("Omarchy") {
                 showOrbital(
                     listOf(
-                        OrbitalAction("Bluetooth") { activity.scanOmarchyBluetooth() },
-                        OrbitalAction("Conectar QR") { activity.showOmarchyQr() },
+                        OrbitalAction(OmarchyMenuAction.BLUETOOTH.label) { activity.scanOmarchyBluetooth() },
+                        OrbitalAction(OmarchyMenuAction.SHOW_QR.label) { activity.showOmarchyQr() },
+                        OrbitalAction(OmarchyMenuAction.READ_QR.label) { activity.readOmarchyQr() },
                     ),
                 )
             },

@@ -6,6 +6,11 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
+internal object ScreenSharePermissionPolicy {
+    fun shouldPrompt(started: Boolean, accessibilityEnabled: Boolean): Boolean =
+        started && !accessibilityEnabled
+}
+
 enum class LauncherVerticalAction {
     NONE,
     OPEN_DRAWER,
@@ -39,6 +44,11 @@ object LauncherGesturePolicy {
 object DrawerTapPolicy {
     fun mayLaunchApp(verticalDragDistance: Float, touchSlop: Float): Boolean =
         abs(verticalDragDistance) <= touchSlop
+}
+
+object CommandBarFocusPolicy {
+    fun shouldDismiss(hasFocus: Boolean, backgroundPressed: Boolean): Boolean =
+        hasFocus && backgroundPressed
 }
 
 data class SearchableApp(
@@ -81,10 +91,12 @@ private fun normalizeSearchText(value: String): String = Normalizer.normalize(va
     .trim()
 
 object QuakePanelGeometry {
+    @Suppress("UNUSED_PARAMETER")
     fun height(screenHeight: Int, statusBar: Int, imeHeight: Int, desiredFraction: Double = 0.68): Int {
         if (screenHeight <= 0) return 0
         val desired = (screenHeight * desiredFraction).toInt()
-        val available = (screenHeight - statusBar.coerceAtLeast(0) - imeHeight.coerceAtLeast(0)).coerceAtLeast(0)
+        // The status bar is already represented by the panel's top padding.
+        val available = (screenHeight - imeHeight.coerceAtLeast(0)).coerceAtLeast(0)
         return min(desired, available)
     }
 }
@@ -95,6 +107,17 @@ object DesktopTransitionPolicy {
         next < previous -> -1f
         else -> 0f
     }
+}
+
+object DesktopTitlePolicy {
+    fun text(name: String, index: Int, desktopCount: Int): String? =
+        if (desktopCount > 1) "$name  ${index + 1}/$desktopCount" else null
+}
+
+enum class OmarchyMenuAction(val label: String) {
+    BLUETOOTH("Bluetooth"),
+    SHOW_QR("Mostrar QR"),
+    READ_QR("Leer QR"),
 }
 
 data class OrbitalMenuPoint(val x: Float, val y: Float, val ring: Int)

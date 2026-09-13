@@ -17,7 +17,11 @@ class ConfigStorage(
         root.mkdirs()
         activeRoot = root
         val config = root.resolve(CONFIG_NAME)
-        if (!config.exists()) config.writeText(DEFAULT_CONFIG)
+        val freshInstall = !config.exists()
+        if (freshInstall) {
+            config.writeText(DEFAULT_CONFIG)
+            root.resolve(FAVORITES_NAME).writeText(DEFAULT_FAVORITES)
+        }
         return root
     }
 
@@ -78,24 +82,88 @@ class ConfigStorage(
 
         val DEFAULT_CONFIG = """
             {
-              "wallpaper":"#0B0F14",
+              "wallpaper":"#0A1A12",
               "desktops":[{
                 "name":"Inicio",
-                "background":"#0B0F14",
+                "background":"#0A1A12",
+                "fontFamily":"Raleway",
+                "titleFont":"Oswald",
+                "gridColumns":10,
+                "gridRows":17,
                 "ttfxBackground":true,
-                "ttfxEffect":"matrix",
-                "ttfxText":"OHM",
-                "ttfxTextSize":3,
+                "ttfxEffect":"decrypt",
+                "ttfxText":"Omarchy",
+                "ttfxTextSize":7,
                 "ttfxTextX":0.5,
-                "ttfxTextY":0.5,
+                "ttfxTextY":0.4,
                 "ttfxAudio":true,
-                "ttfxIntensity":5,
-                "ttfxSpeed":1.0,
-                "ttfxResolution":2,
+                "ttfxIntensity":2,
+                "ttfxSpeed":4.7,
+                "ttfxResolution":3,
                 "ttfxReactivity":2,
-                "widgets":[]
+                "widgets":[
+                  {
+                    "type":"clock",
+                    "style":"particles",
+                    "format":"HH:mm:ss",
+                    "fontSize":64,
+                    "color":"#66E0FF",
+                    "fontWeight":"w300",
+                    "density":3,
+                    "particleSize":1.6,
+                    "x":0,
+                    "y":2,
+                    "w":9,
+                    "h":4
+                  },
+                  {
+                    "type":"plugin_widget",
+                    "pluginId":"io.github.ohm.demo.weather",
+                    "kind":"bar-widget",
+                    "x":0,
+                    "y":14,
+                    "w":5,
+                    "h":3
+                  }
+                ]
+              }],
+              "edgeBoxes":[{
+                "id":"default-right",
+                "name":"Basecamp + X",
+                "edge":"right",
+                "direction":"vertical",
+                "visible":true,
+                "showTitle":false,
+                "compact":false,
+                "showExpandButton":true,
+                "color":"#7EE787",
+                "items":[
+                  {
+                    "type":"app",
+                    "package":"com.basecamp.bc3",
+                    "activity":"com.basecamp.bc4.app.main.MainActivity",
+                    "label":"Basecamp"
+                  },
+                  {
+                    "type":"app",
+                    "package":"com.twitter.android",
+                    "activity":"com.x.android.main.MainActivity",
+                    "label":"X"
+                  }
+                ]
               }]
             }
+        """.trimIndent()
+
+        val DEFAULT_FAVORITES = """
+            [
+              "com.truecaller/com.truecaller.ui.TruecallerInit",
+              "com.android.chrome/com.google.android.apps.chrome.Main",
+              "com.termux/com.termux.app.TermuxActivity",
+              "com.waze/com.waze.FreeMapAppActivity",
+              "com.android.camera/com.android.camera.Camera",
+              "com.whatsapp/com.whatsapp.Main"
+            ]
         """.trimIndent()
     }
 }

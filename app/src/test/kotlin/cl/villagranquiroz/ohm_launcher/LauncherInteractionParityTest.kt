@@ -8,6 +8,13 @@ import org.junit.Test
 
 class LauncherInteractionParityTest {
     @Test
+    fun screenSharePromptsForRemoteControlWhenAccessibilityIsDisabled() {
+        assertTrue(ScreenSharePermissionPolicy.shouldPrompt(started = true, accessibilityEnabled = false))
+        assertFalse(ScreenSharePermissionPolicy.shouldPrompt(started = false, accessibilityEnabled = false))
+        assertFalse(ScreenSharePermissionPolicy.shouldPrompt(started = true, accessibilityEnabled = true))
+    }
+
+    @Test
     fun routesVerticalGesturesToExactlyOneSurface() {
         assertEquals(
             LauncherVerticalAction.CLOSE_QUAKE,
@@ -45,6 +52,13 @@ class LauncherInteractionParityTest {
     }
 
     @Test
+    fun backgroundPressDismissesFocusedCommandBar() {
+        assertTrue(CommandBarFocusPolicy.shouldDismiss(hasFocus = true, backgroundPressed = true))
+        assertFalse(CommandBarFocusPolicy.shouldDismiss(hasFocus = false, backgroundPressed = true))
+        assertFalse(CommandBarFocusPolicy.shouldDismiss(hasFocus = true, backgroundPressed = false))
+    }
+
+    @Test
     fun ranksPreNormalizedAppSearchWithoutRebuildingCatalog() {
         val index = AppSearchIndex(
             listOf(
@@ -62,7 +76,7 @@ class LauncherInteractionParityTest {
     @Test
     fun quakeHeightNeverOverlapsVisibleIme() {
         assertEquals(1844, QuakePanelGeometry.height(screenHeight = 2712, statusBar = 80, imeHeight = 0))
-        assertEquals(1432, QuakePanelGeometry.height(screenHeight = 2712, statusBar = 80, imeHeight = 1200))
+        assertEquals(1512, QuakePanelGeometry.height(screenHeight = 2712, statusBar = 80, imeHeight = 1200))
     }
 
     @Test
@@ -81,6 +95,20 @@ class LauncherInteractionParityTest {
     fun desktopTransitionDirectionMatchesSwipeDirection() {
         assertEquals(1f, DesktopTransitionPolicy.entryDirection(previous = 0, next = 1), 0f)
         assertEquals(-1f, DesktopTransitionPolicy.entryDirection(previous = 2, next = 1), 0f)
+    }
+
+    @Test
+    fun desktopTitleIsHiddenWhenThereIsNothingToNavigate() {
+        assertEquals(null, DesktopTitlePolicy.text("Inicio", index = 0, desktopCount = 1))
+        assertEquals("Trabajo  2/3", DesktopTitlePolicy.text("Trabajo", index = 1, desktopCount = 3))
+    }
+
+    @Test
+    fun omarchyMenuOffersBothQrDirections() {
+        assertEquals(
+            listOf("Bluetooth", "Mostrar QR", "Leer QR"),
+            OmarchyMenuAction.entries.map(OmarchyMenuAction::label),
+        )
     }
 
     @Test

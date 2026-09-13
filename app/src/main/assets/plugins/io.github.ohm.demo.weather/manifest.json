@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.ohm.demo.weather",
+  "name": "Ohm Weather",
+  "version": "1.0.0",
+  "author": "Ohm Launcher",
+  "license": "MIT",
+  "description": "Built-in weather widget used by the curated default desktop.",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  }
+}

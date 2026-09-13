@@ -93,6 +93,7 @@ class ShellExecutor(
                 put("PATH", listOfNotNull(binDir?.takeIf(String::isNotEmpty), systemPath).joinToString(":"))
                 put("SHELL", shellPath)
                 binDir?.takeIf(String::isNotEmpty)?.let { put("LD_LIBRARY_PATH", it) }
+                binDir?.takeIf(String::isNotEmpty)?.let { put("HERDR_EXECUTABLE", File(it, "herdr").absolutePath) }
                 homeDir?.takeIf(String::isNotEmpty)?.let { put("HOME", it) }
                 put("TMPDIR", homeDir ?: workingDirectory?.absolutePath ?: "/data/local/tmp")
             }

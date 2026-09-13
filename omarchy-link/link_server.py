@@ -222,6 +222,34 @@ def discover_phone() -> dict:
         return {}
 
 
+def sync_theme_once(
+    last_payload: str,
+    payload_reader=read_omarchy_theme,
+    state_reader=read_state,
+    discover=discover_phone,
+    push=push_theme_to_phone,
+    state_writer=write_state,
+) -> str:
+    """Synchronize once and persist reverse mDNS discovery for the panel."""
+    payload = payload_reader()
+    encoded = json.dumps(payload, sort_keys=True)
+    state = state_reader()
+    discovered = False
+    if not state.get("connected"):
+        state = discover()
+        discovered = bool(state.get("connected"))
+    if not state.get("connected"):
+        return last_payload
+    if encoded == last_payload and not discovered:
+        return last_payload
+    if not push(state, payload):
+        return last_payload
+    persisted = dict(state)
+    persisted["linkPort"] = PORT
+    state_writer(persisted)
+    return encoded
+
+
 def theme_sync_loop(stop_event=None) -> None:
     """Push every actual Omarchy palette change to the connected launcher."""
     stopped = stop_event or threading.Event()
@@ -229,15 +257,12 @@ def theme_sync_loop(stop_event=None) -> None:
     while not stopped.wait(1.0):
         payload = read_omarchy_theme()
         encoded = json.dumps(payload, sort_keys=True)
-        if encoded == last_payload:
-            continue
-        state = read_state()
-        if not state.get("connected"):
-            state = discover_phone()
-        ok = push_theme_to_phone(state, payload)
-        if ok:
-            last_payload = encoded
-        log("theme sync -> %s (%s)" % (payload.get("name"), "ok" if ok else "not connected"))
+        updated = sync_theme_once(last_payload, payload_reader=lambda: payload)
+        if updated != last_payload:
+            log("theme sync -> %s (ok)" % payload.get("name"))
+        elif encoded != last_payload:
+            log("theme sync -> %s (not connected)" % payload.get("name"))
+        last_payload = updated
 
 
 class Handler(BaseHTTPRequestHandler):

@@ -40,6 +40,34 @@ class ConfigStorageTest {
     }
 
     @Test
+    fun freshInstallCreatesCuratedSingleDesktopAndBottomFavorites() {
+        val root = temporary.newFolder("curated-public").apply { delete() }
+        val storage = ConfigStorage(root, temporary.newFolder("curated-legacy"), temporary.newFolder("curated-private"))
+
+        val initialized = storage.initialize(canUsePublicRoot = true)
+        val config = storage.read(initialized)
+
+        assertEquals(1, config.desktops.size)
+        assertEquals(listOf("clock", "plugin_widget"), config.desktops.single().widgets.map(WidgetNode::type))
+        assertTrue(config.desktops.single().ttfx.enabled)
+        assertEquals("decrypt", config.desktops.single().ttfx.effect)
+        val right = config.edgeBoxes.single()
+        assertEquals(EdgePosition.RIGHT, right.edge)
+        assertEquals(listOf("Basecamp", "X"), right.items.map(EdgeItemConfig::label))
+        assertEquals(
+            listOf(
+                "com.truecaller/com.truecaller.ui.TruecallerInit",
+                "com.android.chrome/com.google.android.apps.chrome.Main",
+                "com.termux/com.termux.app.TermuxActivity",
+                "com.waze/com.waze.FreeMapAppActivity",
+                "com.android.camera/com.android.camera.Camera",
+                "com.whatsapp/com.whatsapp.Main",
+            ),
+            config.favorites,
+        )
+    }
+
+    @Test
     fun readsFlutterFavoritesWithoutChangingUnknownWidgetConfigData() {
         val root = temporary.newFolder("root-with-favorites")
         val legacyRoot = temporary.newFolder("legacy-with-favorites")
@@ -67,6 +95,7 @@ class ConfigStorageTest {
         storage.initialize(true)
         val widgetsBefore = """{"unknown":"keep","desktops":[{"widgets":[]}]}"""
         root.resolve(ConfigStorage.CONFIG_NAME).writeText(widgetsBefore)
+        root.resolve(ConfigStorage.FAVORITES_NAME).writeText("[]")
 
         assertEquals(listOf("pkg/.Main"), ConfigStorage.toggleActiveFavorite("pkg/.Main"))
         assertEquals(listOf("pkg/.Main"), storage.readFavorites(root))

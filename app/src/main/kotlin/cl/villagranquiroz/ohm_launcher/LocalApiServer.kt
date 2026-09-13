@@ -67,6 +67,7 @@ class LocalApiServer(
     private val onUninstallBin: UninstallBinHandler? = null,
     private val onQuake: QuakeHandler? = null,
     private val omarchyAdapter: OmarchyApiAdapter? = null,
+    private val screenFrames: LatestScreenFrameStore? = null,
     private val lanMode: Boolean = false,
 ) : Closeable {
     @Volatile
@@ -389,6 +390,36 @@ class LocalApiServer(
         bodyStream: InputStream,
         output: java.io.OutputStream,
     ) {
+        val directPath = target.substringBefore('?')
+        if (method == "GET" && directPath == "/omarchy/screen/status") {
+            val status = screenFrames?.status() ?: ScreenFrameStatus(0, 0, 0, 0)
+            writeJson(
+                output,
+                200,
+                mapOf("frames" to status.frames, "last" to status.last, "w" to status.width, "h" to status.height),
+            )
+            return
+        }
+        if (method == "GET" && directPath == "/omarchy/screen/frame") {
+            val frame = screenFrames?.snapshot()
+            if (frame == null) {
+                writeJson(output, 404, mapOf("error" to "screen_frame_unavailable"))
+            } else {
+                writeResponse(
+                    output,
+                    200,
+                    frame.jpeg,
+                    "image/jpeg",
+                    mapOf(
+                        "Cache-Control" to "no-store",
+                        "X-Screen-Width" to frame.width.toString(),
+                        "X-Screen-Height" to frame.height.toString(),
+                        "X-Screen-Sequence" to frame.sequence.toString(),
+                    ),
+                )
+            }
+            return
+        }
         val preliminary = OmarchyRestRequest.fromUri(method, target)
         if (preliminary == null) {
             writeJson(output, 400, mapOf("error" to "invalid_request"))

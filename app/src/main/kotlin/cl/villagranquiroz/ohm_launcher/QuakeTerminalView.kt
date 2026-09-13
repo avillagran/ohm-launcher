@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.text.InputType
+import android.text.method.PasswordTransformationMethod
 import android.util.AttributeSet
 import android.view.GestureDetector
 import android.view.Gravity
@@ -12,6 +13,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
@@ -50,13 +52,13 @@ internal object TerminalCommandProtocol {
     const val UNIT_SEPARATOR: Char = '\u001f'
 
     fun frame(command: String, id: Long): String = buildString {
-        append(command)
-        append('\n')
-        append("__ohm_status=${'$'}?\n")
+        append("eval ").append(quote(command)).append("; __ohm_status=${'$'}?; ")
         append("printf '\\036OHM_DONE:")
         append(id)
         append(":%s\\037\\n' \"${'$'}__ohm_status\"\n")
     }
+
+    private fun quote(value: String): String = "'${value.replace("'", "'\\''")}'"
 }
 
 internal data class TerminalCommandCompletion(val id: Long, val exitCode: Int)
@@ -106,6 +108,8 @@ internal object NoExecShellBootstrap {
     private val functionName = Regex("^[A-Za-z_][A-Za-z0-9_]*$")
 
     fun render(binDir: File?, homeDir: File, shellPath: String, linkerPath: String): String = buildString {
+        append("stty -echo 2>/dev/null || true\n")
+        append("export PS1='' PS2='' PS4=''\n")
         append("export HOME=").append(quote(homeDir.absolutePath)).append('\n')
         append("export TMPDIR=").append(quote(homeDir.absolutePath)).append('\n')
         append("export TERMINFO=").append(quote(File(homeDir, ".terminfo").absolutePath)).append('\n')
@@ -115,6 +119,7 @@ internal object NoExecShellBootstrap {
             append("export PATH=").append(quote(binDir.absolutePath))
                 .append(":/system/bin:/system/xbin:/sbin:/vendor/bin:/odm/bin:/product/bin\n")
             append("export LD_LIBRARY_PATH=").append(quote(binDir.absolutePath)).append('\n')
+            append("export HERDR_EXECUTABLE=").append(quote(File(binDir, "herdr").absolutePath)).append('\n')
             binDir.listFiles()
                 .orEmpty()
                 .asSequence()
@@ -124,7 +129,9 @@ internal object NoExecShellBootstrap {
                     val interpreter = if (binary.isElf()) linkerPath else shellPath
                     append(binary.name).append("() { ")
                         .append(quote(interpreter)).append(' ')
-                        .append(quote(binary.absolutePath)).append(" \"${'$'}@\"; }\n")
+                        .append(quote(binary.absolutePath))
+                    if (binary.name == "ssh") append(" -y")
+                    append(" \"${'$'}@\"; }\n")
                 }
         } else {
             append("export PATH=/system/bin:/system/xbin:/sbin:/vendor/bin:/odm/bin:/product/bin\n")
@@ -184,6 +191,123 @@ internal object QuakeSwipePolicy {
         deltaY < -120f && velocityY < -500f && kotlin.math.abs(deltaY) > kotlin.math.abs(deltaX)
 }
 
+internal enum class QuakeInputEvent { OPENED, SUBMITTED, CLOSED }
+
+internal enum class QuakeKeyboardAction { SHOW_AND_FOCUS, HIDE }
+
+internal object QuakeKeyboardPolicy {
+    fun action(event: QuakeInputEvent): QuakeKeyboardAction = when (event) {
+        QuakeInputEvent.OPENED, QuakeInputEvent.SUBMITTED -> QuakeKeyboardAction.SHOW_AND_FOCUS
+        QuakeInputEvent.CLOSED -> QuakeKeyboardAction.HIDE
+    }
+}
+
+internal object TerminalOutputScrollPolicy {
+    fun targetY(contentHeight: Int, viewportHeight: Int): Int =
+        (contentHeight - viewportHeight).coerceAtLeast(0)
+}
+
+internal object EmbeddedTerminalPrompt {
+    fun afterExit(exitCode: Int): String =
+        if (exitCode == 0) "~ $ " else "[exit $exitCode]\n~ $ "
+}
+
+internal object TerminalCommandPolicy {
+    fun shouldExecute(command: String): Boolean = command.isNotBlank()
+}
+
+internal object TerminalEnterPolicy {
+    fun shouldSubmit(imeActionSend: Boolean, hasKeyEvent: Boolean, keyDown: Boolean): Boolean =
+        if (hasKeyEvent) keyDown else imeActionSend
+}
+
+internal class TerminalProtocolNoiseFilter {
+    private val expectedCommandLines = java.util.ArrayDeque<String>()
+    private var pending = ""
+
+    @Synchronized
+    fun expectCommand(command: String) {
+        command.lines().forEach { expectedCommandLines.addLast(it) }
+    }
+
+    @Synchronized
+    fun accept(chunk: String): String {
+        pending += chunk.replace("\r\n", "\n").replace('\r', '\n')
+        val visible = StringBuilder()
+        while (true) {
+            val end = pending.indexOf('\n')
+            if (end < 0) break
+            val line = pending.substring(0, end)
+            pending = pending.substring(end + 1)
+            val expected = expectedCommandLines.peekFirst()
+            when {
+                expected != null && line == expected -> expectedCommandLines.removeFirst()
+                line.contains("__ohm_status=") || line.contains("OHM_DONE:") -> Unit
+                line.isNotEmpty() -> visible.append(line).append('\n')
+            }
+        }
+        if (pending.isNotEmpty() && !shouldHoldPartial(pending)) {
+            visible.append(pending)
+            pending = ""
+        }
+        return visible.toString()
+    }
+
+    private fun shouldHoldPartial(line: String): Boolean {
+        val expected = expectedCommandLines.peekFirst()
+        return (expected != null && expected.startsWith(line)) ||
+            "__ohm_status=".startsWith(line) || line.startsWith("__ohm_status=") ||
+            "eval ".startsWith(line) || line.startsWith("eval ")
+    }
+}
+
+internal class TerminalAnsiSanitizer {
+    private enum class State { TEXT, ESCAPE, CSI, OSC, OSC_ESCAPE }
+
+    private var state = State.TEXT
+
+    @Synchronized
+    fun accept(chunk: String): String = buildString {
+        chunk.forEach { character ->
+            when (state) {
+                State.TEXT -> when (character) {
+                    '\u001b' -> state = State.ESCAPE
+                    '\b' -> if (isNotEmpty() && last() != '\n') deleteCharAt(lastIndex)
+                    '\n', '\t' -> append(character)
+                    else -> if (character.code >= 0x20) append(character)
+                }
+                State.ESCAPE -> state = when (character) {
+                    '[' -> State.CSI
+                    ']' -> State.OSC
+                    else -> State.TEXT
+                }
+                State.CSI -> if (character.code in 0x40..0x7e) state = State.TEXT
+                State.OSC -> state = when (character) {
+                    '\u0007' -> State.TEXT
+                    '\u001b' -> State.OSC_ESCAPE
+                    else -> State.OSC
+                }
+                State.OSC_ESCAPE -> state = if (character == '\\') State.TEXT else State.OSC
+            }
+        }
+    }
+}
+
+internal class TerminalSecretPromptDetector {
+    private var tail = ""
+
+    @Synchronized
+    fun accept(chunk: String): Boolean {
+        tail = (tail + chunk).takeLast(192).lowercase()
+        return listOf("password:", "passphrase", "contraseña:", "pin:").any(tail::contains)
+    }
+
+    @Synchronized
+    fun reset() {
+        tail = ""
+    }
+}
+
 internal class PersistentShellSession(
     private val shellPath: String,
     private val linkerPath: String,
@@ -196,13 +320,18 @@ internal class PersistentShellSession(
 ) : AutoCloseable {
     private val nextCommandId = AtomicLong()
     private val decoder = TerminalStreamDecoder()
+    private val pendingCommandIds = java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
     private val lock = Any()
     @Volatile private var process: Process? = null
     @Volatile private var pty: NativePtySession? = null
+    @Volatile private var nativeOutputFilter: TerminalProtocolNoiseFilter? = null
     private var writer: BufferedWriter? = null
 
     val isAlive: Boolean
         get() = pty != null || process?.isAlive == true
+
+    val hasRunningCommand: Boolean
+        get() = pendingCommandIds.isNotEmpty()
 
     fun start() {
         synchronized(lock) {
@@ -251,9 +380,17 @@ internal class PersistentShellSession(
 
     fun execute(command: String): Long {
         val id = nextCommandId.incrementAndGet()
-        write(TerminalCommandProtocol.frame(command, id))
+        pendingCommandIds += id
+        try {
+            write(TerminalCommandProtocol.frame(command, id))
+        } catch (error: Throwable) {
+            pendingCommandIds -= id
+            throw error
+        }
         return id
     }
+
+    fun submitInteractiveLine(value: String) = write("$value\n")
 
     fun write(sequence: String) {
         synchronized(lock) {
@@ -273,8 +410,10 @@ internal class PersistentShellSession(
         synchronized(lock) {
             runCatching { writer?.close() }
             writer = null
+            pendingCommandIds.clear()
             val native = pty
             pty = null
+            nativeOutputFilter = null
             runCatching { native?.close() }
             process?.destroy()
             process = null
@@ -283,6 +422,9 @@ internal class PersistentShellSession(
 
     private fun startNativePty() {
         val bootstrapFilter = TerminalBootstrapFilter()
+        val outputFilter = TerminalProtocolNoiseFilter()
+        val ansiSanitizer = TerminalAnsiSanitizer()
+        nativeOutputFilter = outputFilter
         val native = NativePtySession.open(
             shellPath = shellPath,
             workingDirectory = workingDirectory,
@@ -310,8 +452,9 @@ internal class PersistentShellSession(
                 val visible = bootstrapFilter.accept(chunk)
                 if (visible.isEmpty()) return@startReading
                 val decoded = decoder.accept(visible)
-                if (decoded.text.isNotEmpty()) onOutput(decoded.text)
-                decoded.completions.forEach { onCommandFinished(it.id, it.exitCode) }
+                val cleaned = ansiSanitizer.accept(outputFilter.accept(decoded.text))
+                if (cleaned.isNotEmpty()) onOutput(cleaned)
+                decoded.completions.forEach(::completeCommand)
             },
             onClosed = {
                 synchronized(lock) {
@@ -331,7 +474,7 @@ internal class PersistentShellSession(
                 TerminalStreamReader.consume(reader) { chunk ->
                     val decoded = decoder.accept(chunk)
                     if (decoded.text.isNotEmpty()) onOutput(decoded.text)
-                    decoded.completions.forEach { onCommandFinished(it.id, it.exitCode) }
+                    decoded.completions.forEach(::completeCommand)
                 }
             }
         }, "ohm-terminal-stdout").apply { isDaemon = true; start() }
@@ -343,6 +486,11 @@ internal class PersistentShellSession(
                 TerminalStreamReader.consume(reader, onOutput)
             }
         }, "ohm-terminal-stderr").apply { isDaemon = true; start() }
+    }
+
+    private fun completeCommand(completion: TerminalCommandCompletion) {
+        pendingCommandIds -= completion.id
+        onCommandFinished(completion.id, completion.exitCode)
     }
 }
 
@@ -401,19 +549,34 @@ internal class TerminalCommandHistory(private val capacity: Int = 100) {
     }
 }
 
+internal data class TerminalInputUpdate(val text: String, val selection: Int)
+
+internal class TerminalInputNavigator(private val history: TerminalCommandHistory) {
+    fun apply(key: TerminalControl, text: String, selection: Int): TerminalInputUpdate? = when (key) {
+        TerminalControl.UP -> history.previous(text).atEnd()
+        TerminalControl.DOWN -> history.next().atEnd()
+        TerminalControl.LEFT -> TerminalInputUpdate(text, (selection - 1).coerceAtLeast(0))
+        TerminalControl.RIGHT -> TerminalInputUpdate(text, (selection + 1).coerceAtMost(text.length))
+        TerminalControl.ESCAPE, TerminalControl.TAB -> null
+    }
+
+    private fun String.atEnd() = TerminalInputUpdate(this, length)
+}
+
 /**
  * Reusable, dependency-free terminal panel backed by one long-lived system shell.
  *
- * The shell is pipe-backed rather than PTY-backed, so full-screen TUI programs cannot negotiate
- * terminal size. Ordinary commands, `cd`, exports, aliases, and shell functions persist until the
- * view is detached or [release] is called.
+ * Android uses a native PTY so full-screen tools can negotiate terminal behavior. Commands, `cd`,
+ * exports, aliases, and shell functions persist until the view is detached or [release] is called.
  */
 class QuakeTerminalView @JvmOverloads constructor(
     context: Context,
     attributes: AttributeSet? = null,
 ) : LinearLayout(context, attributes) {
     private val history = TerminalCommandHistory()
+    private val inputNavigator = TerminalInputNavigator(history)
     private val modifiers = TerminalModifierState()
+    private val secretPromptDetector = TerminalSecretPromptDetector()
     private val output = TextView(context)
     private val outputScroll = ScrollView(context)
     private val input = EditText(context)
@@ -501,7 +664,8 @@ class QuakeTerminalView @JvmOverloads constructor(
             binDir = binDirectory?.takeIf { it.isDirectory },
             onOutput = ::appendOutput,
             onCommandFinished = { _, exitCode ->
-                appendOutput(if (exitCode == 0) "\n$ " else "\n[exit $exitCode]\n$ ")
+                resetSecretInput()
+                appendOutput("\n${EmbeddedTerminalPrompt.afterExit(exitCode)}")
             },
             onExit = { exitCode ->
                 appendOutput("\n[shell exited: $exitCode]\n")
@@ -510,7 +674,7 @@ class QuakeTerminalView @JvmOverloads constructor(
         session = created
         runCatching { created.start() }
             .onSuccess {
-                if (output.text.isEmpty()) appendOutput("OhmLauncher :: terminal\n$ ")
+                if (output.text.isEmpty()) appendOutput("OhmLauncher :: terminal\n~ $ ")
             }
             .onFailure { error ->
                 session = null
@@ -522,11 +686,25 @@ class QuakeTerminalView @JvmOverloads constructor(
     fun submitCommand(command: String): Long? {
         startSession()
         val active = session ?: return null
+        if (active.hasRunningCommand) {
+            input.text.clear()
+            applyInputEvent(QuakeInputEvent.SUBMITTED)
+            return runCatching {
+                active.submitInteractiveLine(command)
+                resetSecretInput()
+                0L
+            }.onFailure { appendOutput("${it.message.orEmpty()}\n") }.getOrNull()
+        }
+        if (!TerminalCommandPolicy.shouldExecute(command)) {
+            applyInputEvent(QuakeInputEvent.SUBMITTED)
+            return null
+        }
         history.record(command)
         appendOutput("$command\n")
         input.text.clear()
+        applyInputEvent(QuakeInputEvent.SUBMITTED)
         return runCatching { active.execute(command) }
-            .onFailure { appendOutput("${it.message.orEmpty()}\n$ ") }
+            .onFailure { appendOutput("${it.message.orEmpty()}\n~ $ ") }
             .getOrNull()
     }
 
@@ -534,6 +712,10 @@ class QuakeTerminalView @JvmOverloads constructor(
     fun clearOutput() {
         output.text = ""
     }
+
+    fun focusInputAndShowKeyboard() = applyInputEvent(QuakeInputEvent.OPENED)
+
+    fun hideKeyboard() = applyInputEvent(QuakeInputEvent.CLOSED)
 
     /** Stops the process and releases its streams. */
     fun release() {
@@ -549,6 +731,41 @@ class QuakeTerminalView @JvmOverloads constructor(
     override fun onDetachedFromWindow() {
         release()
         super.onDetachedFromWindow()
+    }
+
+    private fun applyInputEvent(event: QuakeInputEvent) {
+        val keyboard = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        when (QuakeKeyboardPolicy.action(event)) {
+            QuakeKeyboardAction.SHOW_AND_FOCUS -> input.post {
+                input.requestFocus()
+                input.setSelection(input.text.length)
+                keyboard.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
+            }
+            QuakeKeyboardAction.HIDE -> {
+                input.clearFocus()
+                isFocusableInTouchMode = true
+                requestFocus()
+                keyboard.hideSoftInputFromWindow(windowToken, 0)
+            }
+        }
+    }
+
+    private fun setSecretInput(secret: Boolean) {
+        input.post {
+            val selection = input.selectionStart.coerceIn(0, input.text.length)
+            input.inputType = InputType.TYPE_CLASS_TEXT or
+                InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or
+                if (secret) InputType.TYPE_TEXT_VARIATION_PASSWORD else InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+            input.transformationMethod = if (secret) PasswordTransformationMethod.getInstance() else null
+            input.hint = if (secret) "Password" else "Enter command"
+            input.contentDescription = if (secret) "Password input" else "Command input"
+            input.setSelection(selection.coerceAtMost(input.text.length))
+        }
+    }
+
+    private fun resetSecretInput() {
+        secretPromptDetector.reset()
+        setSecretInput(false)
     }
 
     private fun buildHeader() {
@@ -576,16 +793,31 @@ class QuakeTerminalView @JvmOverloads constructor(
             textSize = 13f
             typeface = Typeface.MONOSPACE
             setTextIsSelectable(true)
-            setHorizontallyScrolling(true)
+            setHorizontallyScrolling(false)
             gravity = Gravity.BOTTOM or Gravity.START
-            setPadding(dp(12), dp(10), dp(12), dp(10))
+            setPadding(dp(12), dp(10), dp(12), dp(20))
         }
         outputScroll.apply {
             isFillViewport = true
             setBackgroundColor(BACKGROUND)
             addView(output, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
+        output.addOnLayoutChangeListener { _, _, top, _, bottom, _, _, oldTop, oldBottom ->
+            if (bottom - top != oldBottom - oldTop) keepOutputAtBottom()
+        }
+        outputScroll.addOnLayoutChangeListener { _, _, top, _, bottom, _, _, oldTop, oldBottom ->
+            if (bottom - top != oldBottom - oldTop) keepOutputAtBottom()
+        }
         addView(outputScroll, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+    }
+
+    private fun keepOutputAtBottom() {
+        outputScroll.post {
+            outputScroll.scrollTo(
+                0,
+                TerminalOutputScrollPolicy.targetY(output.height, outputScroll.height),
+            )
+        }
     }
 
     private fun buildControls() {
@@ -647,9 +879,14 @@ class QuakeTerminalView @JvmOverloads constructor(
             background = rounded(0xFF101820.toInt(), dp(8).toFloat(), 0x334FDDF8)
             setPadding(dp(10), dp(8), dp(10), dp(8))
             setOnEditorActionListener { _, actionId, event ->
-                val enter = actionId == EditorInfo.IME_ACTION_SEND ||
-                    (event?.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
-                if (enter) submitCommand(text.toString()) != null else false
+                val isEnterKey = event?.keyCode == KeyEvent.KEYCODE_ENTER
+                val submit = TerminalEnterPolicy.shouldSubmit(
+                    imeActionSend = actionId == EditorInfo.IME_ACTION_SEND,
+                    hasKeyEvent = event != null,
+                    keyDown = isEnterKey && event?.action == KeyEvent.ACTION_DOWN,
+                )
+                if (submit) submitCommand(text.toString())
+                submit || isEnterKey
             }
             setOnKeyListener { _, keyCode, event -> handleInputKey(keyCode, event) }
         }
@@ -683,7 +920,26 @@ class QuakeTerminalView @JvmOverloads constructor(
     }
 
     private fun controlButton(label: String, key: TerminalControl): TextView =
-        keyButton(label) { sendControl(TerminalControlSequences.forKey(key)) }
+        keyButton(label) { handleControlButton(key) }
+
+    private fun handleControlButton(key: TerminalControl) {
+        if (session?.hasRunningCommand == true) {
+            sendControl(TerminalControlSequences.forKey(key))
+            return
+        }
+        val update = inputNavigator.apply(
+            key,
+            input.text.toString(),
+            input.selectionStart.coerceAtLeast(0),
+        )
+        if (update == null) {
+            sendControl(TerminalControlSequences.forKey(key))
+            return
+        }
+        input.setText(update.text)
+        input.setSelection(update.selection)
+        applyInputEvent(QuakeInputEvent.SUBMITTED)
+    }
 
     private fun sendControl(sequence: String) {
         startSession()
@@ -708,7 +964,7 @@ class QuakeTerminalView @JvmOverloads constructor(
         setPadding(dp(11), dp(8), dp(11), dp(8))
         background = keyBackground(false)
         isClickable = true
-        isFocusable = true
+        isFocusable = false
         setOnClickListener { action() }
         layoutParams = LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             marginEnd = dp(5)
@@ -717,6 +973,7 @@ class QuakeTerminalView @JvmOverloads constructor(
 
     private fun appendOutput(value: String) {
         if (value.isEmpty()) return
+        if (secretPromptDetector.accept(value)) setSecretInput(true)
         post {
             val combined = output.text.toString() + value.replace("\r\n", "\n").replace('\r', '\n')
             output.text = if (combined.length > MAX_OUTPUT_CHARS) {
@@ -724,7 +981,6 @@ class QuakeTerminalView @JvmOverloads constructor(
             } else {
                 combined
             }
-            outputScroll.post { outputScroll.fullScroll(ScrollView.FOCUS_DOWN) }
         }
     }
 

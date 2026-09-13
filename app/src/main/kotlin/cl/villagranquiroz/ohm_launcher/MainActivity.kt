@@ -44,7 +44,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var pluginRepository: PluginRepository
     private lateinit var runtimeWidgetStore: RuntimeWidgetStore
     private lateinit var screenCapture: ScreenCaptureController
-    private lateinit var quakeTerminal: QuakeTerminalView
+    private lateinit var quakeTerminal: TermuxQuakeTerminalView
     private lateinit var appWidgetHost: AndroidAppWidgetHostController
     private lateinit var bleScanner: OmarchyBleScanner
     private var pendingAppWidget: PendingAppWidget? = null
@@ -55,6 +55,7 @@ class MainActivity : AppCompatActivity() {
     private var lanAdvertiser: OmarchyLanAdvertiser? = null
     private val connectionState = OmarchyConnectionState()
     private val peerClient = OmarchyPeerClient()
+    private val screenFrames = LatestScreenFrameStore()
     private val peerProbe = object : Runnable {
         override fun run() {
             val peer = connectionState.peer ?: return
@@ -73,8 +74,12 @@ class MainActivity : AppCompatActivity() {
     @Volatile private var currentSettings = LauncherSettings.parse("{}")
     private val screenConsent = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val data = result.data ?: return@registerForActivityResult
-        if (::screenCapture.isInitialized && screenCapture.start(result.resultCode, data)) {
+        val started = ::screenCapture.isInitialized && screenCapture.start(result.resultCode, data)
+        if (started) {
             connectionState.setScreenSharing(true)
+        }
+        if (ScreenSharePermissionPolicy.shouldPrompt(started, OhmGestureAccessibilityService.instance != null)) {
+            showRemoteControlPermissionDialog()
         }
     }
     private val appWidgetBinding = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -100,11 +105,16 @@ class MainActivity : AppCompatActivity() {
         window.navigationBarColor = Color.TRANSPARENT
         root = NativeLauncherView(this)
         setContentView(root)
+        runCatching {
+            EmbeddedToolsInstaller(filesDir, assets::open).install(Build.SUPPORTED_ABIS.toList())
+        }.onFailure { error ->
+            android.util.Log.e("OhmLauncher", "Unable to install embedded tools", error)
+        }
         bleScanner = OmarchyBleScanner(this)
         appWidgetHost = AndroidAppWidgetHostController(this)
         lifecycle.addObserver(appWidgetHost)
         root.appWidgetHostController = appWidgetHost
-        quakeTerminal = QuakeTerminalView(this).apply {
+        quakeTerminal = TermuxQuakeTerminalView(this).apply {
             visibility = View.GONE
             onClose = { showQuake(false) }
         }
@@ -133,7 +143,7 @@ class MainActivity : AppCompatActivity() {
             ),
         )
         screenCapture = ScreenCaptureController(this) { jpeg, width, height ->
-            connectionState.peer?.let { peerClient.postScreenFrame(it, jpeg, width, height) }
+            screenFrames.update(jpeg, width, height)
         }
         WindowInsetsControllerCompat(window, root).apply {
             isAppearanceLightStatusBars = false
@@ -155,7 +165,7 @@ class MainActivity : AppCompatActivity() {
         applySystemTheme(currentSettings)
         pluginRepository = PluginRepository(configRoot)
         runtimeWidgetStore = RuntimeWidgetStore(configRoot.resolve("runtime_widgets.json"))
-        seedBuiltInPlugin()
+        seedBuiltInPlugins()
         startApiServer()
         restorePeer()
         reloadConfig()
@@ -223,6 +233,18 @@ class MainActivity : AppCompatActivity() {
         startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
     }
 
+    private fun showRemoteControlPermissionDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Permiso de control remoto")
+            .setMessage(
+                "La pantalla ya se está compartiendo. Para usar clics, gestos y botones desde Omarchy, " +
+                    "activa el servicio de accesibilidad de Ohm Launcher.",
+            )
+            .setPositiveButton("Activar") { _, _ -> openAccessibilitySettings() }
+            .setNegativeButton("Solo visualizar", null)
+            .show()
+    }
+
     fun showOmarchyQr() {
         val uri = OhmDiscoveryConfig(apiServer?.boundPort ?: currentSettings.apiServerPort)
             .fallbackUri(preferredLanIp())
@@ -263,6 +285,16 @@ class MainActivity : AppCompatActivity() {
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
+    }
+
+    fun readOmarchyQr() {
+        val camera = Intent(android.provider.MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA)
+        if (camera.resolveActivity(packageManager) == null) {
+            Toast.makeText(this, "No hay una cámara disponible", Toast.LENGTH_LONG).show()
+            return
+        }
+        Toast.makeText(this, "Apunta al QR de Omarchy", Toast.LENGTH_SHORT).show()
+        startActivity(camera)
     }
 
     fun scanOmarchyBluetooth() {
@@ -632,12 +664,14 @@ class MainActivity : AppCompatActivity() {
 
     fun startScreenShare(): Boolean {
         if (!connectionState.isConnected || screenCapture.isRunning()) return false
+        screenFrames.clear()
         runOnUiThread { screenConsent.launch(screenCapture.createConsentIntent()) }
         return true
     }
 
     fun stopScreenShare() {
         screenCapture.stop()
+        screenFrames.clear()
         connectionState.setScreenSharing(false)
     }
 
@@ -690,6 +724,7 @@ class MainActivity : AppCompatActivity() {
             onUninstallBin = UninstallBinHandler(binStore::remove),
             onQuake = QuakeHandler(::showQuake),
             omarchyAdapter = omarchy,
+            screenFrames = screenFrames,
         ).also(LocalApiServer::start)
         apiServer?.takeIf(LocalApiServer::isRunning)?.let { server ->
             val registrar = AndroidNsdRegistrar(getSystemService(NsdManager::class.java))
@@ -744,6 +779,7 @@ class MainActivity : AppCompatActivity() {
                 quakeTerminal.alpha = 0f
                 quakeTerminal.visibility = View.VISIBLE
                 quakeTerminal.startSession()
+                quakeTerminal.focusInputAndShowKeyboard()
                 quakeTerminal.bringToFront()
                 quakeTerminal.post {
                     quakeTerminal.animate()
@@ -754,6 +790,8 @@ class MainActivity : AppCompatActivity() {
                 }
             } else if (quakeTerminal.visibility == View.VISIBLE) {
                 quakeTerminal.animate().cancel()
+                quakeTerminal.hideKeyboard()
+                WindowInsetsControllerCompat(window, root).hide(WindowInsetsCompat.Type.ime())
                 quakeTerminal.animate()
                     .translationY(-quakeTerminal.height.toFloat())
                     .alpha(0f)
@@ -821,24 +859,26 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun seedBuiltInPlugin() {
-        val destination = pluginRepository.pluginsDirectory.resolve(BUILT_IN_PLUGIN_ID)
-        if (destination.exists()) return
-        val temporary = pluginRepository.pluginsDirectory.resolve(".$BUILT_IN_PLUGIN_ID.tmp")
-        runCatching {
-            temporary.deleteRecursively()
-            temporary.mkdirs()
-            listOf("manifest.json", "BarWidget.json", "Panel.json").forEach { name ->
-                assets.open("plugins/$BUILT_IN_PLUGIN_ID/$name").use { input ->
-                    temporary.resolve(name).outputStream().use(input::copyTo)
+    private fun seedBuiltInPlugins() {
+        BUILT_IN_PLUGINS.forEach { (id, files) ->
+            val destination = pluginRepository.pluginsDirectory.resolve(id)
+            if (destination.exists()) return@forEach
+            val temporary = pluginRepository.pluginsDirectory.resolve(".$id.tmp")
+            runCatching {
+                temporary.deleteRecursively()
+                temporary.mkdirs()
+                files.forEach { name ->
+                    assets.open("plugins/$id/$name").use { input ->
+                        temporary.resolve(name).outputStream().use(input::copyTo)
+                    }
                 }
-            }
-            pluginRepository.pluginsDirectory.mkdirs()
-            check(
-                temporary.renameTo(destination) ||
-                    temporary.copyRecursively(destination).also { temporary.deleteRecursively() },
-            )
-        }.onFailure { temporary.deleteRecursively() }
+                pluginRepository.pluginsDirectory.mkdirs()
+                check(
+                    temporary.renameTo(destination) ||
+                        temporary.copyRecursively(destination).also { temporary.deleteRecursively() },
+                )
+            }.onFailure { temporary.deleteRecursively() }
+        }
     }
 
     private fun reloadRuntimeWidgets() {
@@ -971,6 +1011,9 @@ class MainActivity : AppCompatActivity() {
         private const val API_PORT = 8753
         private const val PEER_PROBE_INTERVAL_MS = 15_000L
         private const val PLUGIN_RELOAD_DEBOUNCE_MS = 400L
-        private const val BUILT_IN_PLUGIN_ID = "io.github.ohm.demo.clock"
+        private val BUILT_IN_PLUGINS = mapOf(
+            "io.github.ohm.demo.clock" to listOf("manifest.json", "BarWidget.json", "Panel.json"),
+            "io.github.ohm.demo.weather" to listOf("manifest.json", "BarWidget.qml"),
+        )
     }
 }
