@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.ohm.demo.clock",
+  "name": "Ohm Clock",
+  "version": "1.0.0",
+  "author": "Ohm Launcher",
+  "license": "MIT",
+  "description": "Built-in clock example for the Omarchy-compatible plugin bridge.",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "BarWidget.json"
+  },
+  "barWidget": {
+    "displayName": "Ohm Clock",
+    "description": "Clock rendered by the native dynamic widget engine wrap.",
+    "category": "Utilities",
+    "defaultSection": "right",
+    "allowMultiple": false
+  }
+}

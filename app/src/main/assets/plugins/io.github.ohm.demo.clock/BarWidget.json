@@ -1,0 +1,19 @@
+{
+  "type": "container",
+  "color": "#12202B",
+  "borderRadius": 12,
+  "padding": { "left": 14, "top": 8, "right": 14, "bottom": 8 },
+  "children": [
+    {
+      "type": "tiling_layout",
+      "orientation": "row",
+      "mainAxisAlignment": "center",
+      "crossAxisAlignment": "center",
+      "spacing": 10,
+      "children": [
+        { "type": "clock", "format": "HH:mm", "fontSize": 18, "color": "#BDEFFF" },
+        { "type": "text", "value": "OHM", "fontSize": 11, "color": "#66E0FF" }
+      ]
+    }
+  ]
+}

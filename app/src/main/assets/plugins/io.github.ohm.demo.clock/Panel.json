@@ -1,0 +1,17 @@
+{
+  "type": "container",
+  "color": "#12202B",
+  "borderRadius": 16,
+  "padding": 16,
+  "children": [
+    {
+      "type": "tiling_layout",
+      "orientation": "column",
+      "spacing": 8,
+      "children": [
+        { "type": "clock", "format": "HH:mm:ss", "fontSize": 42, "color": "#BDEFFF" },
+        { "type": "clock", "format": "EEEE, d MMMM", "fontSize": 14, "color": "#9FB3C8" }
+      ]
+    }
+  ]
+}
