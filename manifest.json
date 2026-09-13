@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "cl.villagranquiroz.omarchy-link",
+  "name": "Omarchy Link",
+  "version": "1.0.0",
+  "author": "Ohm Launcher",
+  "license": "MIT",
+  "description": "Manages the connection with OhmLauncher (Android): discovers the peer on the LAN (mDNS/QR/Bluetooth), shares files, syncs clipboard and themes, backs up photos, and shares the screen. Bar-widget entry point; Panel.qml is loaded internally via Loader (Omarchy convention).",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Omarchy Link",
+    "description": "Connects to OhmLauncher on Android (files, clipboard, themes, photos, screen).",
+    "category": "Connectivity",
+    "defaultSection": "right",
+    "allowMultiple": false
+  }
+}
