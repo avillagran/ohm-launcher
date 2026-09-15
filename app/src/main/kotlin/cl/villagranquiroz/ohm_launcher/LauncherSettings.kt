@@ -24,6 +24,16 @@ enum class LauncherEdge(val wireValue: String) {
     }
 }
 
+enum class LauncherBarKind { FAVORITES, SEARCH }
+
+object LauncherBarPlacement {
+    fun move(settings: LauncherSettings, bar: LauncherBarKind, edge: LauncherEdge): LauncherSettings =
+        when (bar) {
+            LauncherBarKind.FAVORITES -> settings.copy(favoritesBarPosition = edge)
+            LauncherBarKind.SEARCH -> settings.copy(bottomBarPosition = edge)
+        }
+}
+
 /** Explicit favorites layouts. A null value means edge-dependent automatic layout. */
 enum class FavoritesBarMode(val wireValue: String) {
     HORIZONTAL("horizontal"),
@@ -44,7 +54,11 @@ data class LauncherSettings(
     val textScale: Double,
     val boxSpacing: Double,
     val boxRadius: Double,
+    val boxBorderVisible: Boolean,
+    val boxBorderWidth: Double,
+    val boxItemSize: Double,
     val barRadius: Double,
+    val settingsPanelOpacity: Double,
     val language: LauncherLanguage,
     val favoritesBarVisible: Boolean,
     val favoritesBarPosition: LauncherEdge,
@@ -77,7 +91,11 @@ data class LauncherSettings(
         result.put("textScale", textScale)
         result.put("boxSpacing", boxSpacing)
         result.put("boxRadius", boxRadius)
+        result.put("boxBorderVisible", boxBorderVisible)
+        result.put("boxBorderWidth", boxBorderWidth)
+        result.put("boxItemSize", boxItemSize)
         result.put("barRadius", barRadius)
+        result.put("settingsPanelOpacity", settingsPanelOpacity)
         result.put("language", language.wireValue)
         result.put("favoritesBarVisible", favoritesBarVisible)
         result.put("favoritesBarPosition", favoritesBarPosition.wireValue)
@@ -123,7 +141,11 @@ data class LauncherSettings(
                 textScale = (root.finiteNumber("textScale") ?: 1.0).coerceIn(0.8, 1.4),
                 boxSpacing = (root.finiteNumber("boxSpacing") ?: 1.0).coerceIn(0.0, 2.0),
                 boxRadius = (root.finiteNumber("boxRadius") ?: 14.0).coerceIn(0.0, 28.0),
+                boxBorderVisible = root.boolean("boxBorderVisible") ?: true,
+                boxBorderWidth = (root.finiteNumber("boxBorderWidth") ?: 1.0).coerceIn(0.0, 8.0),
+                boxItemSize = (root.finiteNumber("boxItemSize") ?: 48.0).coerceIn(36.0, 72.0),
                 barRadius = (root.finiteNumber("barRadius") ?: 18.0).coerceIn(0.0, 28.0),
+                settingsPanelOpacity = (root.finiteNumber("settingsPanelOpacity") ?: 0.86).coerceIn(0.5, 1.0),
                 language = LauncherLanguage.fromWireValue(root.opt("language")) ?: LauncherLanguage.AUTO,
                 favoritesBarVisible = root.boolean("favoritesBarVisible") ?: true,
                 favoritesBarPosition = LauncherEdge.fromWireValue(root.opt("favoritesBarPosition")) ?: LauncherEdge.BOTTOM,

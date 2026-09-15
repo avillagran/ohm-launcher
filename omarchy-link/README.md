@@ -32,6 +32,8 @@ widget appears in the Omarchy bar and the panel opens from the widget button.
 manifest.json      # id, kinds: ["bar-widget"], entryPoints.barWidget
 BarWidget.qml      # manifest entry point (root type `BarWidget`)
 Panel.qml          # loaded internally via Loader (root type `Panel`)
+link_server.py     # local link state, theme sync, and message forwarding
+omarchy_notify.py  # CLI sender for Hermes and desktop automation
 README.md          # this file
 TESTING.md         # end-to-end verification guide
 examples/minimal/  # minimal BarWidget+Panel starter
@@ -140,10 +142,38 @@ over HTTP+WS. Pure QML has no `HttpServer`; use a small helper:
 | GET  | `/omarchy/file?path=`  | downloads a file |
 | POST | `/omarchy/screen/start` \| `/stop` | starts/stops screen share |
 | POST | `/omarchy/photos/backup` | lists DCIM photos (peer downloads via `/file`) |
+| POST | `/omarchy/notify` | sends a message to the phone's `OmarchyNotify` widget |
 | WS   | `/omarchy/ws` | events: `peer_hello`, `clipboard_changed` |
 
 Screen frames (after `/omarchy/screen/start`) arrive over WS as
 `{ "type": "screen_frame", "data": "<base64 JPEG>" }`.
+
+### Notification channel for Omarchy Hermes
+
+The local `link_server.py` exposes `POST http://127.0.0.1:8753/omarchy/notify`.
+It discovers or reuses the connected OhmLauncher phone and forwards the bounded
+JSON payload to the phone. The `OmarchyNotify` launcher widget updates as soon
+as the message arrives.
+
+```bash
+python3 omarchy_notify.py \
+  --title "Hermes" \
+  --source omarchy-hermes \
+  --level success \
+  --channel agent \
+  "Build and tests completed"
+```
+
+The message may also be piped on stdin, which avoids shell quoting issues:
+
+```bash
+printf '%s\n' "Deployment finished" | python3 omarchy_notify.py --title Hermes
+```
+
+Accepted fields are `id`, `title`, `message`, `source`, `level`, `channel`, and
+`timestamp`. Levels are `info`, `success`, `warning`, and `error`. The helper
+defaults `source` to `omarchy-hermes`; it exits nonzero if no phone receives the
+message. Message bodies are never written to the Omarchy Link log.
 
 ---
 

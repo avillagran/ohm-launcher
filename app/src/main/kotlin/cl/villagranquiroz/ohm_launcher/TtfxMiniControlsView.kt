@@ -114,7 +114,7 @@ class TtfxMiniControlsView(context: Context) : LinearLayout(context) {
             }
             addView(valueLabel, LayoutParams(dp(42), dp(34)))
             bar.max = 20
-            contentDescription = "Posición $axis TTFX"
+            contentDescription = context.getString(R.string.ttfx_position_accessibility, axis)
             addView(bar, LayoutParams(0, dp(34), 1f))
         }
 

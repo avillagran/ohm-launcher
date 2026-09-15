@@ -68,6 +68,7 @@ class LocalApiServer(
     private val onQuake: QuakeHandler? = null,
     private val omarchyAdapter: OmarchyApiAdapter? = null,
     private val screenFrames: LatestScreenFrameStore? = null,
+    private val notificationChannel: OmarchyNotificationChannel? = null,
     private val lanMode: Boolean = false,
 ) : Closeable {
     @Volatile
@@ -153,6 +154,7 @@ class LocalApiServer(
         when (target.substringBefore('?')) {
             OmarchyRestRoute.FILE_UPLOAD.path -> MAX_FILE_UPLOAD_BYTES.toLong()
             OmarchyRestRoute.CLIPBOARD_PUT.path -> MAX_CLIPBOARD_REQUEST_BYTES.toLong()
+            "/omarchy/notify" -> MAX_NOTIFICATION_BODY_BYTES.toLong()
             else -> MAX_JSON_BODY_BYTES.toLong()
         }
 
@@ -282,6 +284,10 @@ class LocalApiServer(
             else writeJson(output, 200, mapOf("bins" to handler.handle()))
             return
         }
+        if (path == "/omarchy/notify") {
+            routeNotificationChannel(method, bodyStream, output)
+            return
+        }
         if (path.startsWith("/omarchy/")) {
             routeOmarchy(method, target, headers, bodyStream, output)
             return
@@ -380,6 +386,38 @@ class LocalApiServer(
                 writeJson(output, 200, mapOf("ok" to true, "open" to open))
             }
             else -> writeJson(output, 404, mapOf("error" to "not_found"))
+        }
+    }
+
+    private fun routeNotificationChannel(
+        method: String,
+        bodyStream: InputStream,
+        output: java.io.OutputStream,
+    ) {
+        val channel = notificationChannel
+        if (channel == null) {
+            writeJson(output, 501, mapOf("error" to "notifications_not_supported"))
+            return
+        }
+        when (method) {
+            "GET" -> writeJson(
+                output,
+                200,
+                mapOf("messages" to channel.load().map(OmarchyNotification::toJson)),
+            )
+            "POST" -> {
+                val body = parseBoundedObject(bodyStream, MAX_NOTIFICATION_BODY_BYTES)
+                if (body == null) {
+                    writeJson(output, 400, mapOf("error" to "invalid_notification"))
+                    return
+                }
+                val notification = runCatching { channel.receive(body) }.getOrElse {
+                    writeJson(output, 400, mapOf("error" to (it.message ?: "invalid_notification")))
+                    return
+                }
+                writeJson(output, 200, mapOf("ok" to true, "id" to notification.id))
+            }
+            else -> writeJson(output, 405, mapOf("error" to "method_not_allowed"))
         }
     }
 
@@ -655,6 +693,7 @@ class LocalApiServer(
 
     companion object {
         private const val MAX_JSON_BODY_BYTES = 1_048_576
+        private const val MAX_NOTIFICATION_BODY_BYTES = 16 * 1024
 
         private const val REJECT_DRAIN_TIMEOUT_MS = 1_000
         private const val MAX_REJECT_DRAIN_BYTES = 2L * 1024 * 1024

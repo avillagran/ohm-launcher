@@ -2,58 +2,119 @@ package cl.villagranquiroz.ohm_launcher
 
 import android.content.Context
 import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.TextView
 
-internal data class OrbitalAction(val label: String, val action: () -> Unit)
+internal object NerdGlyph {
+    const val LEFT = "\uF060"
+    const val RIGHT = "\uF061"
+    const val UP = "\uF062"
+    const val DOWN = "\uF063"
+    const val ADD = "\uF067"
+    const val BOX = "\uF1B2"
+    const val EDIT = "\uF044"
+    const val SETTINGS = "\uF013"
+    const val TUNE = "\uF1DE"
+    const val LINK = "\uF0C1"
+    const val RESTART = "\uF2F9"
+    const val TRASH = "\uF1F8"
+    const val DESKTOP = "\uF108"
+    const val WIDGETS = "\uF009"
+    const val PUZZLE = "\uF12E"
+    const val BLUETOOTH = "\uF293"
+    const val QR = "\uF029"
+    const val CAMERA = "\uF030"
+    const val HOME = "\uF015"
+    const val HAND = "\uF256"
+    const val STORAGE = "\uF0A0"
+    const val CHECK = "\uF00C"
+    const val SQUARE = "\uF0C8"
+    const val CHECK_SQUARE = "\uF14A"
+    const val EXPAND = "\uF065"
+    const val COMPRESS = "\uF066"
+    const val EYE = "\uF06E"
+    const val EYE_SLASH = "\uF070"
+    const val BELL = "\uF0F3"
+    const val CLOSE = "\uF00D"
+}
+
+internal object NerdFont {
+    fun load(context: Context): Typeface =
+        Typeface.createFromAsset(context.assets, "fonts/SymbolsNerdFontMono-Regular.ttf")
+}
+
+internal data class OrbitalAction(
+    val icon: String,
+    val label: String,
+    val closeOnInvoke: Boolean = true,
+    val action: () -> Unit,
+)
 
 /** A two-ring action surface that avoids long modal lists. */
 internal class OrbitalActionMenu(
     context: Context,
     private val actions: List<OrbitalAction>,
     private val accent: Int,
+    backgroundAlpha: Int = 0xD9,
+    dismissOnBackgroundTap: Boolean = true,
     private val onDismissed: () -> Unit,
 ) : FrameLayout(context) {
-    private val actionViews = mutableListOf<TextView>()
+    private val actionViews = mutableListOf<View>()
+    private val nerdFont = NerdFont.load(context)
 
     init {
         isClickable = true
         isFocusable = true
-        setBackgroundColor(0xD90B0F14.toInt())
-        setOnClickListener { dismiss() }
+        setBackgroundColor((backgroundAlpha.coerceIn(0, 255) shl 24) or 0x000B0F14)
+        setOnClickListener { if (dismissOnBackgroundTap) dismiss() }
 
         actions.forEachIndexed { index, item ->
-            val button = TextView(context).apply {
-                text = item.label
-                contentDescription = item.label
+            val button = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setTextColor(Color.WHITE)
-                textSize = if (index < 8) 11f else 10f
-                maxLines = 2
-                setPadding(dp(10), dp(7), dp(10), dp(7))
-                background = capsule(if (index < 8) 0xF21A2330.toInt() else 0xE6121820.toInt())
+                contentDescription = item.label
                 elevation = dp(if (index < 8) 12 else 7).toFloat()
                 alpha = 0f
                 scaleX = .55f
                 scaleY = .55f
+                isClickable = true
                 setOnClickListener {
-                    dismiss(item.action)
+                    if (item.closeOnInvoke) dismiss(item.action) else item.action()
                 }
+                addView(TextView(context).apply {
+                    text = item.icon
+                    gravity = Gravity.CENTER
+                    setTextColor(accent)
+                    textSize = 22f
+                    typeface = nerdFont
+                    background = circle(if (index < 8) 0xF21A2330.toInt() else 0xE6121820.toInt())
+                }, LinearLayout.LayoutParams(dp(48), dp(48)))
+                addView(TextView(context).apply {
+                    text = item.label
+                    gravity = Gravity.CENTER
+                    setTextColor(0xFF9AA7B4.toInt())
+                    textSize = 10f
+                    maxLines = 2
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(32)))
             }
             actionViews += button
-            addView(button, LayoutParams(dp(if (index < 8) 116 else 104), dp(58)))
+            addView(button, LayoutParams(dp(if (index < 8) 104 else 94), dp(84)))
         }
 
         addView(TextView(context).apply {
-            text = "OHM"
+            text = NerdGlyph.CLOSE
+            contentDescription = context.getString(R.string.action_close)
             gravity = Gravity.CENTER
             setTextColor(accent)
-            textSize = 15f
-            background = capsule(0xFF101820.toInt())
+            textSize = 24f
+            typeface = nerdFont
+            background = circle(0xFF101820.toInt())
             elevation = dp(18).toFloat()
             setOnClickListener { dismiss() }
         }, LayoutParams(dp(74), dp(74), Gravity.CENTER))
@@ -83,10 +144,12 @@ internal class OrbitalActionMenu(
         }.start()
     }
 
-    private fun capsule(fill: Int) = GradientDrawable().apply {
+    fun close() = dismiss()
+
+    private fun circle(fill: Int) = GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
         setColor(fill)
-        cornerRadius = dp(20).toFloat()
+        cornerRadius = dp(100).toFloat()
         setStroke(dp(1), (accent and 0x00FFFFFF) or 0x77000000)
     }
 

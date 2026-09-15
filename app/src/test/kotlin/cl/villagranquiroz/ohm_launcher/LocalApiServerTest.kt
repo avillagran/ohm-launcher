@@ -626,6 +626,31 @@ class LocalApiServerTest {
         assertTrue(response.json.getString("detail").contains("boom"))
     }
 
+    @Test
+    fun receivesAndListsOmarchyNotifyChannelMessages() {
+        val messages = mutableListOf<OmarchyNotification>()
+        startServer(notificationChannel = object : OmarchyNotificationChannel {
+            override fun receive(payload: JSONObject): OmarchyNotification =
+                OmarchyNotification.fromJson(payload, now = 77L).also(messages::add)
+
+            override fun load(): List<OmarchyNotification> = messages.toList()
+        })
+
+        val accepted = request(
+            "POST",
+            "/omarchy/notify",
+            """{"id":"hermes-1","title":"Hermes","message":"Build finished","source":"omarchy-hermes"}""",
+        )
+        val listed = request("GET", "/omarchy/notify")
+        val rejected = request("POST", "/omarchy/notify", "{}")
+
+        assertEquals(200, accepted.code)
+        assertEquals("hermes-1", accepted.json.getString("id"))
+        assertEquals(1, listed.json.getJSONArray("messages").length())
+        assertEquals("Build finished", listed.json.getJSONArray("messages").getJSONObject(0).getString("message"))
+        assertEquals(400, rejected.code)
+    }
+
     private fun startServer(
         onCommand: CommandHandler = CommandHandler { _, _ -> ShellResult(0, "", "", "embedded") },
         onInjectWidget: WidgetHandler = WidgetHandler { _, _ -> },
@@ -637,6 +662,7 @@ class LocalApiServerTest {
         onQuake: QuakeHandler? = null,
         omarchyAdapter: OmarchyApiAdapter? = null,
         screenFrames: LatestScreenFrameStore? = null,
+        notificationChannel: OmarchyNotificationChannel? = null,
     ) {
         server = LocalApiServer(
             port = 0,
@@ -650,6 +676,7 @@ class LocalApiServerTest {
             onQuake = onQuake,
             omarchyAdapter = omarchyAdapter,
             screenFrames = screenFrames,
+            notificationChannel = notificationChannel,
         ).also { it.start() }
     }
 

@@ -52,6 +52,19 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".HomeChooserStubActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.OhmLauncher">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".ClipboardMonitorService"
             android:exported="false"
@@ -70,6 +83,15 @@
             <meta-data
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_service_config" />
+        </service>
+        <service
+            android:name=".OhmNotificationListenerService"
+            android:exported="false"
+            android:label="@string/notification_listener_service"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
         </service>
     </application>
 

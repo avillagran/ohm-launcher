@@ -3,6 +3,7 @@ package cl.villagranquiroz.ohm_launcher
 import android.content.Context
 import android.text.InputType
 import android.view.ViewGroup
+import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.CheckBox
 import android.widget.EditText
@@ -12,75 +13,130 @@ import android.widget.SeekBar
 import android.widget.Spinner
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
+import androidx.core.widget.doAfterTextChanged
 
 /** Programmatic settings UI backed by the lossless settings.json model. */
 object LauncherSettingsDialog {
-    fun show(context: Context, current: LauncherSettings, onSave: (LauncherSettings) -> Unit) {
+    fun show(
+        context: Context,
+        current: LauncherSettings,
+        onPreview: (LauncherSettings) -> Unit = {},
+        onSave: (LauncherSettings) -> Unit,
+    ) {
+        val session = LauncherSettingsEditorSession(current, onPreview)
         val column = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(context, 20), dp(context, 8), dp(context, 20), dp(context, 8))
         }
-        val textScale = slider(context, column, "Escala de texto", 80, 140, (current.textScale * 100).toInt())
-        val boxSpacing = slider(context, column, "Espacio entre cajas", 0, 20, (current.boxSpacing * 10).toInt())
-        val boxRadius = slider(context, column, "Radio de cajas", 0, 28, current.boxRadius.toInt())
-        val barRadius = slider(context, column, "Radio de barras", 0, 28, current.barRadius.toInt())
-        val favoritesVisible = check(context, column, "Mostrar favoritos", current.favoritesBarVisible)
-        val favoritePosition = spinner(context, column, "Posición de favoritos", LauncherEdge.entries.map { it.wireValue }, current.favoritesBarPosition.wireValue)
+        val textScale = slider(context, column, context.getString(R.string.setting_text_scale), 80, 140, (current.textScale * 100).toInt())
+        val boxSpacing = slider(context, column, context.getString(R.string.setting_box_spacing), 0, 20, (current.boxSpacing * 10).toInt())
+        val boxRadius = slider(context, column, context.getString(R.string.setting_box_radius), 0, 28, current.boxRadius.toInt())
+        val boxBorderVisible = check(context, column, context.getString(R.string.setting_box_border_visible), current.boxBorderVisible)
+        val boxBorderWidth = slider(context, column, context.getString(R.string.setting_box_border_width), 0, 8, current.boxBorderWidth.toInt())
+        val boxIconSize = slider(context, column, context.getString(R.string.setting_box_icon_size), 36, 72, current.boxItemSize.toInt())
+        val barRadius = slider(context, column, context.getString(R.string.setting_bar_radius), 0, 28, current.barRadius.toInt())
+        val panelOpacity = slider(
+            context,
+            column,
+            context.getString(R.string.setting_panel_transparency),
+            50,
+            100,
+            (current.settingsPanelOpacity * 100).toInt(),
+        )
+        val favoritesVisible = check(context, column, context.getString(R.string.setting_show_favorites), current.favoritesBarVisible)
+        val favoritePosition = spinner(context, column, context.getString(R.string.setting_favorites_position), LauncherEdge.entries.map { it.wireValue }, current.favoritesBarPosition.wireValue)
         val modeValues = listOf("auto") + FavoritesBarMode.entries.map { it.wireValue }
-        val favoriteMode = spinner(context, column, "Diseño de favoritos", modeValues, current.favoritesBarMode?.wireValue ?: "auto")
-        val bottomVisible = check(context, column, "Mostrar barra de comandos", current.bottomBarVisible)
-        val bottomPosition = spinner(context, column, "Posición de comandos", LauncherEdge.entries.map { it.wireValue }, current.bottomBarPosition.wireValue)
-        val gestureNavigation = check(context, column, "Navegación por gestos", current.gestureNavigationEnabled)
-        val tapBoxes = check(context, column, "Mostrar áreas táctiles", current.showTapBoxes)
-        val apiEnabled = check(context, column, "API local habilitada", current.apiServerEnabled)
-        val apiPort = input(context, column, "Puerto API", current.apiServerPort.toString(), InputType.TYPE_CLASS_NUMBER)
-        val preferTermux = check(context, column, "Preferir Termux", current.shellPreferTermux)
-        val quake = check(context, column, "Terminal Quake", current.quakeTerminal)
-        val language = spinner(context, column, "Idioma", LauncherLanguage.entries.map { it.wireValue }, current.language.wireValue)
-        val aiBase = input(context, column, "URL de IA", current.aiBaseUrl)
-        val aiModel = input(context, column, "Modelo de IA", current.aiModel)
+        val favoriteMode = spinner(context, column, context.getString(R.string.setting_favorites_layout), modeValues, current.favoritesBarMode?.wireValue ?: "auto")
+        val bottomVisible = check(context, column, context.getString(R.string.setting_show_commands), current.bottomBarVisible)
+        val bottomPosition = spinner(context, column, context.getString(R.string.setting_commands_position), LauncherEdge.entries.map { it.wireValue }, current.bottomBarPosition.wireValue)
+        val gestureNavigation = check(context, column, context.getString(R.string.setting_gesture_navigation), current.gestureNavigationEnabled)
+        val tapBoxes = check(context, column, context.getString(R.string.setting_show_touch_areas), current.showTapBoxes)
+        val apiEnabled = check(context, column, context.getString(R.string.setting_local_api), current.apiServerEnabled)
+        val apiPort = input(context, column, context.getString(R.string.setting_api_port), current.apiServerPort.toString(), InputType.TYPE_CLASS_NUMBER)
+        val preferTermux = check(context, column, context.getString(R.string.setting_prefer_termux), current.shellPreferTermux)
+        val quake = check(context, column, context.getString(R.string.setting_quake_terminal), current.quakeTerminal)
+        val language = spinner(context, column, context.getString(R.string.setting_language), LauncherLanguage.entries.map { it.wireValue }, current.language.wireValue)
+        val aiBase = input(context, column, context.getString(R.string.setting_ai_url), current.aiBaseUrl)
+        val aiModel = input(context, column, context.getString(R.string.setting_ai_model), current.aiModel)
         val aiKey = input(
             context,
             column,
-            "Clave API de IA",
+            context.getString(R.string.setting_ai_key),
             current.aiApiKey,
             InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD,
         )
-        val aiPrompt = input(context, column, "Prompt del sistema", current.aiSystemPrompt)
+        val aiPrompt = input(context, column, context.getString(R.string.setting_ai_prompt), current.aiSystemPrompt)
         val scroll = ScrollView(context).apply { addView(column) }
 
-        AlertDialog.Builder(context)
-            .setTitle("Configuración de Ohm Launcher")
+        fun settingsFromControls() = current.copy(
+            textScale = textScale.progress / 100.0,
+            boxSpacing = boxSpacing.progress / 10.0,
+            boxRadius = boxRadius.progress.toDouble(),
+            boxBorderVisible = boxBorderVisible.isChecked,
+            boxBorderWidth = boxBorderWidth.progress.toDouble(),
+            boxItemSize = boxIconSize.progress.toDouble(),
+            barRadius = barRadius.progress.toDouble(),
+            settingsPanelOpacity = panelOpacity.progress / 100.0,
+            favoritesBarVisible = favoritesVisible.isChecked,
+            favoritesBarPosition = LauncherEdge.entries[favoritePosition.selectedItemPosition],
+            favoritesBarMode = favoriteMode.selectedItemPosition.takeIf { it > 0 }
+                ?.let { FavoritesBarMode.entries[it - 1] },
+            bottomBarVisible = bottomVisible.isChecked,
+            bottomBarPosition = LauncherEdge.entries[bottomPosition.selectedItemPosition],
+            gestureNavigationEnabled = gestureNavigation.isChecked,
+            showTapBoxes = tapBoxes.isChecked,
+            apiServerEnabled = apiEnabled.isChecked,
+            apiServerPort = apiPort.text.toString().toIntOrNull()?.coerceIn(1, 65535) ?: current.apiServerPort,
+            shellPreferTermux = preferTermux.isChecked,
+            quakeTerminal = quake.isChecked,
+            language = LauncherLanguage.entries[language.selectedItemPosition],
+            aiBaseUrl = aiBase.text.toString(),
+            aiApiKey = aiKey.text.toString(),
+            aiModel = aiModel.text.toString(),
+            aiSystemPrompt = aiPrompt.text.toString(),
+        )
+        var dialog: AlertDialog? = null
+        var ready = false
+        fun updateLive() {
+            if (!ready) return
+            val value = settingsFromControls()
+            session.update(value)
+            dialog?.let { SettingsDialogSurface.apply(it, value.settingsPanelOpacity) }
+        }
+        listOf(textScale, boxSpacing, boxRadius, boxBorderWidth, boxIconSize, barRadius, panelOpacity).forEach { seek ->
+            seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    if (fromUser) updateLive()
+                }
+                override fun onStartTrackingTouch(bar: SeekBar?) = Unit
+                override fun onStopTrackingTouch(bar: SeekBar?) = Unit
+            })
+        }
+        listOf(favoritesVisible, bottomVisible, gestureNavigation, tapBoxes, apiEnabled, preferTermux, quake, boxBorderVisible)
+            .forEach { it.setOnCheckedChangeListener { _, _ -> updateLive() } }
+        listOf(favoritePosition, favoriteMode, bottomPosition, language).forEach { spinner ->
+            spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, position: Int, id: Long) = updateLive()
+                override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            }
+        }
+        listOf(apiPort, aiBase, aiModel, aiKey, aiPrompt).forEach { it.doAfterTextChanged { updateLive() } }
+
+        SettingsDialogSurface.constrainContent(context, scroll, current.settingsPanelOpacity)
+        val createdDialog = AlertDialog.Builder(context)
+            .setTitle(R.string.settings_title)
             .setView(scroll)
             .setPositiveButton(android.R.string.ok) { _, _ ->
-                onSave(
-                    current.copy(
-                        textScale = textScale.progress / 100.0,
-                        boxSpacing = boxSpacing.progress / 10.0,
-                        boxRadius = boxRadius.progress.toDouble(),
-                        barRadius = barRadius.progress.toDouble(),
-                        favoritesBarVisible = favoritesVisible.isChecked,
-                        favoritesBarPosition = LauncherEdge.entries[favoritePosition.selectedItemPosition],
-                        favoritesBarMode = favoriteMode.selectedItemPosition.takeIf { it > 0 }
-                            ?.let { FavoritesBarMode.entries[it - 1] },
-                        bottomBarVisible = bottomVisible.isChecked,
-                        bottomBarPosition = LauncherEdge.entries[bottomPosition.selectedItemPosition],
-                        gestureNavigationEnabled = gestureNavigation.isChecked,
-                        showTapBoxes = tapBoxes.isChecked,
-                        apiServerEnabled = apiEnabled.isChecked,
-                        apiServerPort = apiPort.text.toString().toIntOrNull()?.coerceIn(1, 65535) ?: current.apiServerPort,
-                        shellPreferTermux = preferTermux.isChecked,
-                        quakeTerminal = quake.isChecked,
-                        language = LauncherLanguage.entries[language.selectedItemPosition],
-                        aiBaseUrl = aiBase.text.toString(),
-                        aiApiKey = aiKey.text.toString(),
-                        aiModel = aiModel.text.toString(),
-                        aiSystemPrompt = aiPrompt.text.toString(),
-                    ),
-                )
+                session.update(settingsFromControls())
+                session.commit(onSave)
             }
             .setNegativeButton(android.R.string.cancel, null)
-            .show()
+            .create()
+        dialog = createdDialog
+        createdDialog.setOnShowListener { SettingsDialogSurface.apply(createdDialog, settingsFromControls().settingsPanelOpacity) }
+        createdDialog.setOnDismissListener { session.cancel() }
+        ready = true
+        createdDialog.show()
     }
 
     private fun check(context: Context, parent: LinearLayout, title: String, value: Boolean): CheckBox =

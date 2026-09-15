@@ -9,6 +9,17 @@ import org.junit.Test
 
 class LauncherSettingsTest {
     @Test
+    fun movingLauncherBarsChangesOnlyTheSelectedBarEdge() {
+        val initial = LauncherSettings.parse("{}")
+
+        val favorites = LauncherBarPlacement.move(initial, LauncherBarKind.FAVORITES, LauncherEdge.LEFT)
+        val search = LauncherBarPlacement.move(favorites, LauncherBarKind.SEARCH, LauncherEdge.RIGHT)
+
+        assertEquals(LauncherEdge.LEFT, search.favoritesBarPosition)
+        assertEquals(LauncherEdge.RIGHT, search.bottomBarPosition)
+    }
+
+    @Test
     fun missingFileShapeUsesEveryContractDefault() {
         val settings = LauncherSettings.parse("{}")
 
@@ -17,6 +28,7 @@ class LauncherSettingsTest {
         assertEquals(1.0, settings.boxSpacing, 0.0)
         assertEquals(14.0, settings.boxRadius, 0.0)
         assertEquals(18.0, settings.barRadius, 0.0)
+        assertEquals(0.86, settings.settingsPanelOpacity, 0.0)
         assertEquals(LauncherLanguage.AUTO, settings.language)
         assertTrue(settings.favoritesBarVisible)
         assertEquals(LauncherEdge.BOTTOM, settings.favoritesBarPosition)
@@ -43,7 +55,7 @@ class LauncherSettingsTest {
         val settings = LauncherSettings.parse(
             """{
               "fontFamily":"Inter","textScale":1.2,"boxSpacing":0.5,
-              "boxRadius":4,"barRadius":7,"language":"default",
+              "boxRadius":4,"barRadius":7,"settingsPanelOpacity":0.72,"language":"default",
               "favoritesBarVisible":false,"favoritesBarPosition":"right",
               "favoritesBarMode":"grid","bottomBarVisible":false,
               "bottomBarPosition":"left","gestureNavigationEnabled":true,
@@ -61,6 +73,7 @@ class LauncherSettingsTest {
         assertEquals(0.5, settings.boxSpacing, 0.0)
         assertEquals(4.0, settings.boxRadius, 0.0)
         assertEquals(7.0, settings.barRadius, 0.0)
+        assertEquals(0.72, settings.settingsPanelOpacity, 0.0)
         assertEquals(LauncherLanguage.DEFAULT, settings.language)
         assertFalse(settings.favoritesBarVisible)
         assertEquals(LauncherEdge.RIGHT, settings.favoritesBarPosition)
@@ -86,7 +99,7 @@ class LauncherSettingsTest {
         val settings = LauncherSettings.parse(
             """{
               "fontFamily":null,"textScale":99,"boxSpacing":-2,
-              "boxRadius":29,"barRadius":-1,"language":"es",
+              "boxRadius":29,"barRadius":-1,"settingsPanelOpacity":0.1,"language":"es",
               "favoritesBarVisible":"yes","favoritesBarPosition":"center",
               "favoritesBarMode":"auto","bottomBarVisible":null,
               "bottomBarPosition":7,"gestureNavigationEnabled":null,
@@ -102,6 +115,7 @@ class LauncherSettingsTest {
         assertEquals(0.0, settings.boxSpacing, 0.0)
         assertEquals(28.0, settings.boxRadius, 0.0)
         assertEquals(0.0, settings.barRadius, 0.0)
+        assertEquals(0.5, settings.settingsPanelOpacity, 0.0)
         assertEquals(LauncherLanguage.AUTO, settings.language)
         assertTrue(settings.favoritesBarVisible)
         assertEquals(LauncherEdge.BOTTOM, settings.favoritesBarPosition)
@@ -174,6 +188,7 @@ class LauncherSettingsTest {
         assertEquals(8753, json.getJSONObject("omarchyPeer").getInt("port"))
         assertTrue(json.has("favoritesBarMode"))
         assertTrue(json.isNull("favoritesBarMode"))
+        assertEquals(0.86, json.getDouble("settingsPanelOpacity"), 0.0)
         assertTrue(JSONObject(LauncherSettings.parse("{}").toJson().toString()).isNull("omarchyPeer"))
     }
 }

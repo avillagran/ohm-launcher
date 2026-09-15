@@ -15,23 +15,25 @@ class EdgeBoxInteractionState(
     private var itemAccepted = false
     private var settingsOpened = false
     private var boxDragStarted = false
+    private var itemDragged = false
     private var wasMoving = false
 
     fun sample(nowMillis: Long, displacementPixels: Float): EdgeInteractionDecision {
         require(nowMillis >= downAtMillis)
         val moving = displacementPixels > STILLNESS_SLOP_PX
         if (moving && !wasMoving) stillSinceMillis = nowMillis
+        if (moving && itemAccepted) itemDragged = true
         wasMoving = moving
 
         if (!isItem && !boxDragStarted && displacementPixels >= BOX_DRAG_SLOP_PX) {
             boxDragStarted = true
             return EdgeInteractionDecision.START_BOX_DRAG
         }
-        if (isItem && !itemAccepted && nowMillis - downAtMillis >= ITEM_ACCEPT_MILLIS) {
+        if (isItem && !itemAccepted && nowMillis - stillSinceMillis >= ITEM_ACCEPT_MILLIS) {
             itemAccepted = true
             return EdgeInteractionDecision.ACCEPT_ITEM
         }
-        if (!settingsOpened && !boxDragStarted && nowMillis - stillSinceMillis >= SETTINGS_MILLIS) {
+        if (!settingsOpened && !boxDragStarted && !itemDragged && nowMillis - stillSinceMillis >= SETTINGS_MILLIS) {
             settingsOpened = true
             return EdgeInteractionDecision.OPEN_SETTINGS
         }
@@ -41,8 +43,8 @@ class EdgeBoxInteractionState(
     companion object {
         const val STILLNESS_SLOP_PX = 8f
         const val BOX_DRAG_SLOP_PX = 16f
-        const val ITEM_ACCEPT_MILLIS = 900L
-        const val SETTINGS_MILLIS = 2_000L
+        const val ITEM_ACCEPT_MILLIS = 2_000L
+        const val SETTINGS_MILLIS = 3_500L
     }
 }
 

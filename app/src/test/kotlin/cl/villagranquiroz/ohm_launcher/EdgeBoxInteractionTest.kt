@@ -13,12 +13,13 @@ class EdgeBoxInteractionTest {
     }
 
     @Test
-    fun itemAcceptsAtNineHundredMillisecondsAndSettingsAtTwoSecondsStill() {
+    fun itemAcceptsAtTwoSecondsAndSettingsAtThreePointFiveSecondsStill() {
         val state = EdgeBoxInteractionState(isItem = true, downAtMillis = 0)
 
-        assertEquals(EdgeInteractionDecision.NONE, state.sample(899, 0f))
-        assertEquals(EdgeInteractionDecision.ACCEPT_ITEM, state.sample(900, 0f))
-        assertEquals(EdgeInteractionDecision.OPEN_SETTINGS, state.sample(2_000, 0f))
+        assertEquals(EdgeInteractionDecision.NONE, state.sample(1_999, 0f))
+        assertEquals(EdgeInteractionDecision.ACCEPT_ITEM, state.sample(2_000, 0f))
+        assertEquals(EdgeInteractionDecision.NONE, state.sample(3_499, 0f))
+        assertEquals(EdgeInteractionDecision.OPEN_SETTINGS, state.sample(3_500, 0f))
     }
 
     @Test
@@ -26,9 +27,19 @@ class EdgeBoxInteractionTest {
         val state = EdgeBoxInteractionState(isItem = true, downAtMillis = 0)
 
         assertEquals(EdgeInteractionDecision.NONE, state.sample(500, 9f))
-        assertEquals(EdgeInteractionDecision.ACCEPT_ITEM, state.sample(900, 0f))
         assertEquals(EdgeInteractionDecision.NONE, state.sample(2_499, 0f))
-        assertEquals(EdgeInteractionDecision.OPEN_SETTINGS, state.sample(2_500, 0f))
+        assertEquals(EdgeInteractionDecision.ACCEPT_ITEM, state.sample(2_500, 0f))
+        assertEquals(EdgeInteractionDecision.NONE, state.sample(3_999, 0f))
+        assertEquals(EdgeInteractionDecision.OPEN_SETTINGS, state.sample(4_000, 0f))
+    }
+
+    @Test
+    fun movingAnAcceptedItemPreventsTheSettingsPhase() {
+        val state = EdgeBoxInteractionState(isItem = true, downAtMillis = 0)
+
+        assertEquals(EdgeInteractionDecision.ACCEPT_ITEM, state.sample(2_000, 0f))
+        assertEquals(EdgeInteractionDecision.NONE, state.sample(2_050, 20f))
+        assertEquals(EdgeInteractionDecision.NONE, state.sample(8_000, 0f))
     }
 
     @Test

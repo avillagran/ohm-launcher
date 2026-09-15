@@ -24,6 +24,22 @@ class LauncherSettingsStoreTest {
     }
 
     @Test
+    fun boxAppearanceDefaultsAndRoundTripSurviveSerialization() {
+        val defaults = LauncherSettings.parse("{}")
+
+        assertTrue(defaults.boxBorderVisible)
+        assertEquals(1.0, defaults.boxBorderWidth, 0.0)
+        assertEquals(48.0, defaults.boxItemSize, 0.0)
+
+        val custom = defaults.copy(boxBorderVisible = false, boxBorderWidth = 4.0, boxItemSize = 64.0)
+        val restored = LauncherSettings.parse(custom.toJson().toString())
+
+        assertFalse(restored.boxBorderVisible)
+        assertEquals(4.0, restored.boxBorderWidth, 0.0)
+        assertEquals(64.0, restored.boxItemSize, 0.0)
+    }
+
+    @Test
     fun writesACompleteModelAtomicallyAndPreservesExtensionFields() {
         val file = temporary.root.resolve("nested/settings.json")
         val store = LauncherSettingsStore(file)

@@ -119,7 +119,7 @@ class AndroidOmarchyApiAdapter(
                 version = 1,
                 lanIp = lanIp(),
                 port = apiPort,
-                capabilities = listOf("clipboard", "file", "files", "theme", "screen", "photos", "input"),
+                capabilities = listOf("clipboard", "file", "files", "theme", "screen", "photos", "input", "notifications"),
             ).toJson(),
         )
         OmarchyRestRoute.CLIPBOARD_GET -> OmarchyApiResponse.ok(

@@ -8,6 +8,35 @@ import org.junit.Test
 
 class LauncherInteractionParityTest {
     @Test
+    fun orbitalButtonsUseNerdFontPrivateUseGlyphs() {
+        val icons = listOf(NerdGlyph.ADD, NerdGlyph.BOX, NerdGlyph.SETTINGS, NerdGlyph.TRASH)
+
+        assertTrue(icons.all { it.codePointAt(0) in 0xE000..0xF8FF })
+        assertEquals(icons.size, icons.distinct().size)
+    }
+
+    @Test
+    fun edgeBoxRadialActionsCanStayOpenForLiveChanges() {
+        val action = OrbitalAction(NerdGlyph.TUNE, "toggle", closeOnInvoke = false) {}
+
+        assertFalse(action.closeOnInvoke)
+    }
+
+    @Test
+    fun sharedEdgeItemsReceiveAdjacentNonOverlappingOffsets() {
+        assertEquals(listOf(-30f, 55f), SharedEdgeLayout.centerOffsets(listOf(100, 50), spacing = 10))
+    }
+
+    @Test
+    fun launcherBarDragStartsOnlyAfterCrossingTouchSlop() {
+        val drag = LauncherBarDragState()
+
+        assertFalse(drag.update(15f))
+        assertTrue(drag.update(16f))
+        assertTrue(drag.update(4f))
+    }
+
+    @Test
     fun screenSharePromptsForRemoteControlWhenAccessibilityIsDisabled() {
         assertTrue(ScreenSharePermissionPolicy.shouldPrompt(started = true, accessibilityEnabled = false))
         assertFalse(ScreenSharePermissionPolicy.shouldPrompt(started = false, accessibilityEnabled = false))
@@ -119,6 +148,14 @@ class LauncherInteractionParityTest {
         assertTrue(points.take(8).all { it.ring == 0 })
         assertTrue(points.drop(8).all { it.ring == 1 })
         assertEquals(12, points.map { it.x to it.y }.distinct().size)
+    }
+
+    @Test
+    fun nineActionBoxMenuUsesOneWideRingWithoutAStackedOuterButton() {
+        val points = OrbitalMenuGeometry.positions(count = 9, width = 1080, height = 2400)
+
+        assertTrue(points.all { it.ring == 0 })
+        assertEquals(9, points.map { it.x to it.y }.distinct().size)
     }
 
     @Test

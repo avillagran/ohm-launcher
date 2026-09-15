@@ -38,7 +38,7 @@ class ParticleClockView(
     private var forceAll = true
 
     init {
-        contentDescription = "Reloj de arena"
+        contentDescription = context.getString(R.string.sand_clock)
     }
 
     override fun onSizeChanged(width: Int, height: Int, oldWidth: Int, oldHeight: Int) {
@@ -91,7 +91,7 @@ class ParticleClockView(
         displayedText = text
         assignment.assign(rasterGlyphs(text), forceAll = forceAll)
         forceAll = false
-        contentDescription = "Reloj de arena $text"
+        contentDescription = context.getString(R.string.sand_clock_value, text)
     }
 
     private fun rasterGlyphs(text: String): List<ParticleGlyphSample> {

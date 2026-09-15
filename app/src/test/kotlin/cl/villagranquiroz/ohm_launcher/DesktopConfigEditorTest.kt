@@ -1,11 +1,91 @@
 package cl.villagranquiroz.ohm_launcher
 
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DesktopConfigEditorTest {
+    @Test
+    fun createsAnEmptyEdgeBoxWithoutDroppingExistingConfiguration() {
+        val source = """{"future":{"keep":true},"edgeBoxes":[{"id":"box-1","items":[]}],"desktops":[{"widgets":[]}]}"""
+
+        val updated = DesktopConfigEditor.appendEdgeBox(source, "Trabajo", EdgePosition.LEFT)
+        val root = JSONObject(updated)
+        val box = root.getJSONArray("edgeBoxes").getJSONObject(1)
+
+        assertEquals("box-2", box.getString("id"))
+        assertEquals("Trabajo", box.getString("name"))
+        assertEquals("left", box.getString("edge"))
+        assertEquals("vertical", box.getString("direction"))
+        assertEquals(0, box.getJSONArray("items").length())
+        assertTrue(root.getJSONObject("future").getBoolean("keep"))
+    }
+
+    @Test
+    fun appendsAnInstalledApplicationToAnEdgeBoxWithoutDroppingExistingItems() {
+        val source = """{"edgeBoxes":[{"id":"social","items":[{"type":"app","package":"old.pkg","activity":"Old"}],"future":true}],"desktops":[{"widgets":[]}]}"""
+        val app = InstalledApp("Nueva", "new.pkg", "new.pkg.Main")
+
+        val updated = DesktopConfigEditor.appendEdgeBoxApp(source, "social", app)
+        val box = JSONObject(updated).getJSONArray("edgeBoxes").getJSONObject(0)
+        val items = box.getJSONArray("items")
+
+        assertEquals(2, items.length())
+        assertEquals("old.pkg", items.getJSONObject(0).getString("package"))
+        assertEquals("new.pkg", items.getJSONObject(1).getString("package"))
+        assertEquals("new.pkg.Main", items.getJSONObject(1).getString("activity"))
+        assertEquals("Nueva", items.getJSONObject(1).getString("label"))
+        assertTrue(box.getBoolean("future"))
+    }
+
+    @Test
+    fun appendsEveryCheckedApplicationInOneLosslessUpdate() {
+        val source = """{"edgeBoxes":[{"id":"social","items":[{"type":"app","package":"old.pkg","activity":"Old"}],"future":true}],"desktops":[{"widgets":[]}]}"""
+        val selected = listOf(
+            InstalledApp("Alpha", "alpha.pkg", "alpha.pkg.Main"),
+            InstalledApp("Beta", "beta.pkg", "beta.pkg.Main"),
+        )
+
+        val updated = DesktopConfigEditor.appendEdgeBoxApps(source, "social", selected)
+        val box = JSONObject(updated).getJSONArray("edgeBoxes").getJSONObject(0)
+
+        assertEquals(listOf("old.pkg", "alpha.pkg", "beta.pkg"), packages(box.getJSONArray("items")))
+        assertTrue(box.getBoolean("future"))
+    }
+
+    @Test
+    fun movesAnEdgeItemBetweenBoxesAtTheRequestedIndex() {
+        val source = """{"edgeBoxes":[{"id":"a","items":[{"label":"one"},{"label":"two"}]},{"id":"b","items":[{"label":"three"}]}],"desktops":[{"widgets":[]}]}"""
+
+        val updated = DesktopConfigEditor.moveEdgeBoxItem(source, "a", 1, "b", 0)
+        val boxes = JSONObject(updated).getJSONArray("edgeBoxes")
+
+        assertEquals(listOf("one"), labels(boxes.getJSONObject(0).getJSONArray("items")))
+        assertEquals(listOf("two", "three"), labels(boxes.getJSONObject(1).getJSONArray("items")))
+    }
+
+    @Test
+    fun reordersAnEdgeItemInsideItsBox() {
+        val source = """{"edgeBoxes":[{"id":"a","items":[{"label":"one"},{"label":"two"},{"label":"three"}]}],"desktops":[{"widgets":[]}]}"""
+
+        val updated = DesktopConfigEditor.moveEdgeBoxItem(source, "a", 0, "a", 3)
+        val items = JSONObject(updated).getJSONArray("edgeBoxes").getJSONObject(0).getJSONArray("items")
+
+        assertEquals(listOf("two", "three", "one"), labels(items))
+    }
+
+    @Test
+    fun removesOnlyTheSelectedEdgeItem() {
+        val source = """{"edgeBoxes":[{"id":"a","items":[{"label":"one"},{"label":"two"}]}],"desktops":[{"widgets":[]}]}"""
+
+        val updated = DesktopConfigEditor.removeEdgeBoxItem(source, "a", 0)
+        val items = JSONObject(updated).getJSONArray("edgeBoxes").getJSONObject(0).getJSONArray("items")
+
+        assertEquals(listOf("two"), labels(items))
+    }
+
     @Test
     fun insertsDesktopWithCopiedWidgetListAndPreservesRootData() {
         val source = """{"future":7,"desktops":[{"name":"One","widgets":[{"type":"clock","x":2}]}]}"""
@@ -18,6 +98,20 @@ class DesktopConfigEditorTest {
         assertEquals(2, desktops.length())
         assertEquals("Escritorio 2", desktops.getJSONObject(1).getString("name"))
         assertEquals(2, desktops.getJSONObject(1).getJSONArray("widgets").getJSONObject(0).getInt("x"))
+    }
+
+    @Test
+    fun addsOnlyOneOmarchyNotifyWidgetPerDesktop() {
+        val source = """{"desktops":[{"name":"One","widgets":[]}]}"""
+
+        val once = DesktopConfigEditor.appendOmarchyNotifyWidget(source, 0)
+        val twice = DesktopConfigEditor.appendOmarchyNotifyWidget(once, 0)
+        val widgets = JSONObject(twice).getJSONArray("desktops").getJSONObject(0).getJSONArray("widgets")
+
+        assertEquals(1, widgets.length())
+        assertEquals("omarchy_notify", widgets.getJSONObject(0).getString("type"))
+        assertEquals(6, widgets.getJSONObject(0).getInt("w"))
+        assertEquals(3, widgets.getJSONObject(0).getInt("h"))
     }
 
     @Test
@@ -154,4 +248,10 @@ class DesktopConfigEditorTest {
         assertEquals(5, widget.getInt("w"))
         assertEquals(3, widget.getInt("h"))
     }
+
+    private fun labels(items: JSONArray): List<String> =
+        (0 until items.length()).map { items.getJSONObject(it).optString("label") }
+
+    private fun packages(items: JSONArray): List<String> =
+        (0 until items.length()).map { items.getJSONObject(it).optString("package") }
 }

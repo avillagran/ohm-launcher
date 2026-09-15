@@ -869,7 +869,7 @@ class QuakeTerminalView @JvmOverloads constructor(
             setSingleLine(true)
             setTextColor(FOREGROUND)
             setHintTextColor(MUTED)
-            hint = "Enter command"
+            hint = context.getString(R.string.enter_command)
             textSize = 14f
             typeface = Typeface.MONOSPACE
             inputType = InputType.TYPE_CLASS_TEXT or

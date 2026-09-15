@@ -17,6 +17,7 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -43,6 +44,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var settingsStore: LauncherSettingsStore
     private lateinit var pluginRepository: PluginRepository
     private lateinit var runtimeWidgetStore: RuntimeWidgetStore
+    private lateinit var notificationStore: OmarchyNotificationStore
     private lateinit var screenCapture: ScreenCaptureController
     private lateinit var quakeTerminal: TermuxQuakeTerminalView
     private lateinit var appWidgetHost: AndroidAppWidgetHostController
@@ -165,6 +167,7 @@ class MainActivity : AppCompatActivity() {
         applySystemTheme(currentSettings)
         pluginRepository = PluginRepository(configRoot)
         runtimeWidgetStore = RuntimeWidgetStore(configRoot.resolve("runtime_widgets.json"))
+        notificationStore = OmarchyNotificationStore(configRoot.resolve("omarchy_notifications.json"))
         seedBuiltInPlugins()
         startApiServer()
         restorePeer()
@@ -172,6 +175,7 @@ class MainActivity : AppCompatActivity() {
         startWatcher()
         reloadPlugins()
         reloadRuntimeWidgets()
+        root.submitNotifications(notificationStore.load())
         loadApps()
         handleDeepLink(intent)
     }
@@ -184,7 +188,25 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        disableHomeChooserStub()
         loadApps()
+    }
+
+    /** The stub only exists to make the resolver forget the previous default
+     *  launcher; once the user is back it must be invisible again. */
+    private fun disableHomeChooserStub() {
+        runCatching {
+            val stub = android.content.ComponentName(this, HomeChooserStubActivity::class.java)
+            if (packageManager.getComponentEnabledSetting(stub) !=
+                android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+            ) {
+                packageManager.setComponentEnabledSetting(
+                    stub,
+                    android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    android.content.pm.PackageManager.DONT_KILL_APP,
+                )
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -218,6 +240,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun requestDefaultLauncher() {
+        // MIUI ignores both the RoleManager request and the component-reset
+        // resolver trick, so on Xiaomi devices open the Default apps page
+        // directly: one tap on "Home" and the user picks OhmLauncher.
+        val manufacturer = Build.MANUFACTURER.lowercase()
+        if (manufacturer == "xiaomi" || manufacturer == "redmi" || manufacturer == "poco") {
+            runCatching {
+                startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
+                return
+            }
+        }
+        // Elsewhere, briefly enabling a second HOME component forces the
+        // system to forget the current default and show the resolver with an
+        // "Always" option.
+        runCatching {
+            val stub = android.content.ComponentName(this, HomeChooserStubActivity::class.java)
+            packageManager.setComponentEnabledSetting(
+                stub,
+                android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                android.content.pm.PackageManager.DONT_KILL_APP,
+            )
+            startActivity(
+                Intent(Intent.ACTION_MAIN)
+                    .addCategory(Intent.CATEGORY_HOME)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            return
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val roles = getSystemService(RoleManager::class.java)
             if (roles.isRoleAvailable(RoleManager.ROLE_HOME) && !roles.isRoleHeld(RoleManager.ROLE_HOME)) {
@@ -229,19 +278,31 @@ class MainActivity : AppCompatActivity() {
             .onFailure { startActivity(Intent(Settings.ACTION_SETTINGS)) }
     }
 
+    fun isDefaultLauncher(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roles = getSystemService(RoleManager::class.java)
+            return roles.isRoleHeld(RoleManager.ROLE_HOME)
+        }
+        val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        val resolved = packageManager.resolveActivity(home, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+        return resolved?.activityInfo?.packageName == packageName
+    }
+
+    fun openNotificationAccessSettings() {
+        runCatching { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+            .onFailure { startActivity(Intent(Settings.ACTION_SETTINGS)) }
+    }
+
     fun openAccessibilitySettings() {
         startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
     }
 
     private fun showRemoteControlPermissionDialog() {
         AlertDialog.Builder(this)
-            .setTitle("Permiso de control remoto")
-            .setMessage(
-                "La pantalla ya se está compartiendo. Para usar clics, gestos y botones desde Omarchy, " +
-                    "activa el servicio de accesibilidad de Ohm Launcher.",
-            )
-            .setPositiveButton("Activar") { _, _ -> openAccessibilitySettings() }
-            .setNegativeButton("Solo visualizar", null)
+            .setTitle(R.string.remote_control_permission)
+            .setMessage(R.string.remote_control_permission_message)
+            .setPositiveButton(R.string.enable) { _, _ -> openAccessibilitySettings() }
+            .setNegativeButton(R.string.view_only, null)
             .show()
     }
 
@@ -277,9 +338,9 @@ class MainActivity : AppCompatActivity() {
             })
         }
         AlertDialog.Builder(this)
-            .setTitle("Conectar Omarchy")
+            .setTitle(R.string.connect_omarchy)
             .setView(view)
-            .setPositiveButton("Copiar") { _, _ ->
+            .setPositiveButton(R.string.copy) { _, _ ->
                 val clipboard = getSystemService(android.content.ClipboardManager::class.java)
                 clipboard.setPrimaryClip(android.content.ClipData.newPlainText("OhmLauncher", uri))
             }
@@ -290,10 +351,10 @@ class MainActivity : AppCompatActivity() {
     fun readOmarchyQr() {
         val camera = Intent(android.provider.MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA)
         if (camera.resolveActivity(packageManager) == null) {
-            Toast.makeText(this, "No hay una cámara disponible", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, R.string.camera_unavailable, Toast.LENGTH_LONG).show()
             return
         }
-        Toast.makeText(this, "Apunta al QR de Omarchy", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, R.string.point_at_qr, Toast.LENGTH_SHORT).show()
         startActivity(camera)
     }
 
@@ -301,10 +362,10 @@ class MainActivity : AppCompatActivity() {
         when (bleScanner.startScan { peers ->
             runOnUiThread {
                 if (peers.isEmpty()) {
-                    Toast.makeText(this, "No se detectaron equipos Omarchy", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, R.string.no_nearby_omarchy, Toast.LENGTH_LONG).show()
                 } else {
                     AlertDialog.Builder(this)
-                        .setTitle("Equipos Omarchy cercanos")
+                        .setTitle(R.string.nearby_omarchy)
                         .setItems(peers.map { "${it.name} · ${it.rssi} dBm" }.toTypedArray(), null)
                         .setPositiveButton(android.R.string.ok, null)
                         .show()
@@ -312,7 +373,7 @@ class MainActivity : AppCompatActivity() {
             }
         }) {
             OhmBleScanStartResult.STARTED ->
-                Toast.makeText(this, "Buscando equipos Omarchy…", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, R.string.searching_omarchy, Toast.LENGTH_SHORT).show()
             OhmBleScanStartResult.PERMISSION_REQUIRED -> {
                 val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
@@ -322,7 +383,7 @@ class MainActivity : AppCompatActivity() {
                 bluetoothPermissions.launch(permissions)
             }
             OhmBleScanStartResult.BLUETOOTH_UNAVAILABLE ->
-                Toast.makeText(this, "Bluetooth no disponible", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, R.string.bluetooth_unavailable, Toast.LENGTH_LONG).show()
             OhmBleScanStartResult.ALREADY_SCANNING -> Unit
         }
     }
@@ -332,7 +393,13 @@ class MainActivity : AppCompatActivity() {
         val widget = widgets.getOrNull(widgetIndex) ?: return
         AlertDialog.Builder(this)
             .setTitle(widget.type)
-            .setItems(arrayOf("Mover arriba", "Mover abajo", "Más ancho", "Más estrecho", "Eliminar")) { _, action ->
+            .setItems(arrayOf(
+                getString(R.string.move_up),
+                getString(R.string.move_down),
+                getString(R.string.wider),
+                getString(R.string.narrower),
+                getString(R.string.delete),
+            )) { _, action ->
                 when (action) {
                     0 -> reorderDesktopWidget(desktopIndex, widgetIndex, (widgetIndex - 1).coerceAtLeast(0))
                     1 -> reorderDesktopWidget(desktopIndex, widgetIndex, (widgetIndex + 1).coerceAtMost(widgets.lastIndex))
@@ -376,12 +443,80 @@ class MainActivity : AppCompatActivity() {
         editDesktopConfig { DesktopConfigEditor.insertDesktop(it, insertIndex, templateIndex) }
     }
 
+    fun addOmarchyNotifyWidget(desktopIndex: Int) {
+        editDesktopConfig { DesktopConfigEditor.appendOmarchyNotifyWidget(it, desktopIndex) }
+    }
+
+    fun showAddEdgeBoxDialog() {
+        val name = EditText(this).apply {
+            hint = getString(R.string.box_name_hint)
+            setText(getString(R.string.default_box_name, currentConfig.edgeBoxes.size + 1))
+            setSingleLine(true)
+            setPadding(32, 18, 32, 18)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.add_box_title)
+            .setView(name)
+            .setPositiveButton(R.string.choose_edge) { _, _ ->
+                val value = name.text.toString()
+                val edges = EdgePosition.entries
+                AlertDialog.Builder(this)
+                    .setTitle(R.string.box_position)
+                    .setItems(edges.map(::edgeLabel).toTypedArray()) { _, index ->
+                        editDesktopConfig { DesktopConfigEditor.appendEdgeBox(it, value, edges[index]) }
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
     fun deleteDesktop(desktopIndex: Int) {
         editDesktopConfig { DesktopConfigEditor.deleteDesktop(it, desktopIndex) }
     }
 
     fun moveEdgeBox(id: String, edge: EdgePosition) {
         editDesktopConfig { DesktopConfigEditor.moveEdgeBox(it, id, edge) }
+    }
+
+    fun moveEdgeBoxItem(sourceBoxId: String, sourceIndex: Int, targetBoxId: String, targetIndex: Int) {
+        editDesktopConfig {
+            DesktopConfigEditor.moveEdgeBoxItem(it, sourceBoxId, sourceIndex, targetBoxId, targetIndex)
+        }
+    }
+
+    fun confirmRemoveEdgeBoxItem(boxId: String, itemIndex: Int, label: String) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.remove_application)
+            .setMessage(getString(R.string.remove_application_confirm, label.ifBlank { getString(R.string.menu_app_generic) }))
+            .setPositiveButton(R.string.remove) { _, _ ->
+                editDesktopConfig { DesktopConfigEditor.removeEdgeBoxItem(it, boxId, itemIndex) }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    fun confirmRemoveEdgeBox(id: String, name: String) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.remove_box)
+            .setMessage(getString(R.string.remove_box_confirm, name))
+            .setPositiveButton(R.string.delete) { _, _ -> mutateEdgeBox(id, remove = true) { it } }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    fun moveLauncherBar(bar: LauncherBarKind, edge: EdgePosition) {
+        val launcherEdge = LauncherEdge.fromWireValue(edge.jsonName) ?: return
+        val updated = LauncherBarPlacement.move(currentSettings, bar, launcherEdge)
+        io.execute {
+            runCatching { settingsStore.write(updated) }
+                .onSuccess {
+                    currentSettings = updated
+                    runOnUiThread { root.submitSettings(updated) }
+                }
+                .onFailure { runOnUiThread { root.showConfigError(it.message.orEmpty()) } }
+        }
     }
 
     private fun editDesktopConfig(transform: (String) -> String) {
@@ -394,26 +529,45 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun showEdgeBoxMenu(id: String) {
+        root.showEdgeBoxSettingsMenu(id)
+    }
+
+    fun showEdgeBoxAppPicker(id: String) {
         val box = currentConfig.edgeBoxes.firstOrNull { it.id == id } ?: return
-        val edges = EdgePosition.entries
-        val actions = edges.map { "Mover a ${it.jsonName}" } + listOf(
-            if (box.compact) "Expandir" else "Compactar",
-            if (box.showTitle) "Ocultar título" else "Mostrar título",
-            if (box.showExpandButton) "Ocultar botón de expansión" else "Mostrar botón de expansión",
-            "Eliminar caja",
-        )
-        AlertDialog.Builder(this)
-            .setTitle(box.name)
-            .setItems(actions.toTypedArray()) { _, action ->
-                when {
-                    action < edges.size -> moveEdgeBox(id, edges[action])
-                    action == edges.size -> mutateEdgeBox(id) { it.put("compact", !box.compact) }
-                    action == edges.size + 1 -> mutateEdgeBox(id) { it.put("showTitle", !box.showTitle) }
-                    action == edges.size + 2 -> mutateEdgeBox(id) { it.put("showExpandButton", !box.showExpandButton) }
-                    else -> mutateEdgeBox(id, remove = true) { it }
+        io.execute {
+            val installed = runCatching { AppCatalog.query(this) }.getOrDefault(emptyList())
+            val current = box.items
+                .filter { it.type == EdgeItemType.APP }
+                .map { "${it.packageName}/${it.activity}" }
+                .toSet()
+            val available = installed.filterNot { "${it.packageName}/${it.activityName}" in current }
+            runOnUiThread {
+                if (available.isEmpty()) {
+                    Toast.makeText(this, R.string.no_more_apps, Toast.LENGTH_SHORT).show()
+                    return@runOnUiThread
+                }
+                root.showEdgeBoxAppPicker(available) { selected ->
+                    editDesktopConfig { DesktopConfigEditor.appendEdgeBoxApps(it, box.id, selected) }
                 }
             }
-            .show()
+        }
+    }
+
+    fun toggleEdgeBoxCompact(id: String) = mutateEdgeBox(id) { box ->
+        box.put("compact", !box.optBoolean("compact", false))
+    }
+
+    fun toggleEdgeBoxTitle(id: String) = mutateEdgeBox(id) { box ->
+        box.put("showTitle", !box.optBoolean("showTitle", true))
+    }
+
+    fun toggleEdgeBoxExpandButton(id: String) = mutateEdgeBox(id) { box ->
+        val visible = when {
+            box.has("showExpandButton") -> box.optBoolean("showExpandButton", true)
+            box.has("showToggle") -> box.optBoolean("showToggle", true)
+            else -> true
+        }
+        box.put("showExpandButton", !visible)
     }
 
     private fun mutateEdgeBox(id: String, remove: Boolean = false, transform: (JSONObject) -> JSONObject) {
@@ -434,7 +588,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun showLauncherSettings() {
-        LauncherSettingsDialog.show(this, currentSettings) { updated ->
+        LauncherSettingsDialog.show(
+            context = this,
+            current = currentSettings,
+            onPreview = { preview ->
+                root.submitSettings(preview)
+                applySystemTheme(preview)
+            },
+        ) { updated ->
             io.execute {
                 runCatching { settingsStore.write(updated) }
                     .onSuccess {
@@ -456,6 +617,7 @@ class MainActivity : AppCompatActivity() {
         TtfxSettingsDialog.show(
             context = this,
             current = desktop.ttfx,
+            panelOpacity = currentSettings.settingsPanelOpacity,
             onPreview = { root.previewTtfx(index, it) },
         ) { settings ->
             io.execute {
@@ -477,11 +639,11 @@ class MainActivity : AppCompatActivity() {
     fun showPluginPicker(desktopIndex: Int) {
         val plugins = pluginRepository.discover().filter { it.isValid && "bar-widget" in it.kinds }
         if (plugins.isEmpty()) {
-            root.showConfigError("No hay plugins instalados")
+            root.showConfigError(getString(R.string.no_plugins))
             return
         }
         AlertDialog.Builder(this)
-            .setTitle("Agregar plugin")
+            .setTitle(R.string.add_plugin)
             .setItems(plugins.map { it.manifest?.name ?: it.id }.toTypedArray()) { _, position ->
                 appendPluginWidget(plugins[position], desktopIndex)
             }
@@ -494,7 +656,7 @@ class MainActivity : AppCompatActivity() {
         val disabled = pluginRepository.discoverDisabled()
         val entries = active.map { it to true } + disabled.map { it to false }
         AlertDialog.Builder(this)
-            .setTitle("Plugins")
+            .setTitle(R.string.plugins)
             .setItems(entries.map { (plugin, enabled) ->
                 val state = when {
                     !plugin.isValid -> "⚠"
@@ -506,7 +668,7 @@ class MainActivity : AppCompatActivity() {
                 val (plugin, enabled) = entries[position]
                 showPluginActions(plugin, enabled)
             }
-            .setPositiveButton("Marketplace") { _, _ -> showMarketplace() }
+            .setPositiveButton(R.string.marketplace) { _, _ -> showMarketplace() }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
@@ -514,13 +676,13 @@ class MainActivity : AppCompatActivity() {
     private fun showPluginActions(plugin: Plugin, enabled: Boolean) {
         if (!plugin.isValid) {
             AlertDialog.Builder(this)
-                .setTitle("Plugin inválido · ${plugin.manifest?.name ?: plugin.id}")
+                .setTitle(getString(R.string.invalid_plugin, plugin.manifest?.name ?: plugin.id))
                 .setMessage(plugin.validationErrors.joinToString("\n"))
-                .setPositiveButton(if (enabled) "Deshabilitar" else "Habilitar") { _, _ ->
+                .setPositiveButton(if (enabled) R.string.disable_plugin else R.string.enable_plugin) { _, _ ->
                     if (enabled) pluginRepository.disable(plugin.id) else pluginRepository.enable(plugin.id)
                     reloadPlugins()
                 }
-                .setNeutralButton("Eliminar") { _, _ ->
+                .setNeutralButton(R.string.delete) { _, _ ->
                     pluginRepository.delete(plugin.id)
                     reloadPlugins()
                 }
@@ -528,8 +690,9 @@ class MainActivity : AppCompatActivity() {
                 .show()
             return
         }
-        val toggle = if (enabled) "Deshabilitar" else "Habilitar"
-        val actions = if (enabled) arrayOf("Agregar al escritorio", toggle, "Eliminar") else arrayOf(toggle, "Eliminar")
+        val toggle = getString(if (enabled) R.string.disable_plugin else R.string.enable_plugin)
+        val actions = if (enabled) arrayOf(getString(R.string.add_to_desktop), toggle, getString(R.string.delete))
+        else arrayOf(toggle, getString(R.string.delete))
         AlertDialog.Builder(this)
             .setTitle(plugin.manifest?.name ?: plugin.id)
             .setItems(actions) { _, action ->
@@ -538,12 +701,12 @@ class MainActivity : AppCompatActivity() {
                     action == if (enabled) 1 else 0 -> {
                         if (enabled) pluginRepository.disable(plugin.id) else pluginRepository.enable(plugin.id)
                         reloadPlugins()
-                        Toast.makeText(this, if (enabled) "Plugin deshabilitado" else "Plugin habilitado", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, if (enabled) R.string.plugin_disabled else R.string.plugin_enabled, Toast.LENGTH_SHORT).show()
                     }
                     else -> AlertDialog.Builder(this)
-                        .setTitle("Eliminar plugin")
+                        .setTitle(R.string.delete_plugin)
                         .setMessage(plugin.id)
-                        .setPositiveButton("Eliminar") { _, _ ->
+                        .setPositiveButton(R.string.delete) { _, _ ->
                             pluginRepository.delete(plugin.id)
                             reloadPlugins()
                         }
@@ -571,7 +734,7 @@ class MainActivity : AppCompatActivity() {
             }.onSuccess {
                 reloadConfig()
                 runOnUiThread {
-                    Toast.makeText(this, "Plugin agregado al escritorio", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, R.string.plugin_added, Toast.LENGTH_SHORT).show()
                 }
             }.onFailure { runOnUiThread { root.showConfigError(it.message.orEmpty()) } }
         }
@@ -584,14 +747,14 @@ class MainActivity : AppCompatActivity() {
                 result.onSuccess { entries ->
                     val installable = entries.filter { !it.isSuite && it.repoUrl.isNotBlank() }
                     AlertDialog.Builder(this)
-                        .setTitle("Marketplace Omarchy")
+                        .setTitle(R.string.marketplace_title)
                         .setItems(installable.map { it.name }.toTypedArray()) { _, position ->
                             installMarketplace(installable[position])
                         }
                         .setNegativeButton(android.R.string.cancel, null)
                         .show()
                 }.onFailure {
-                    Toast.makeText(this, "Marketplace: ${it.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, getString(R.string.marketplace_error, it.message.orEmpty()), Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -604,8 +767,8 @@ class MainActivity : AppCompatActivity() {
                 is InstallPreparation.Success -> runCatching {
                     pluginRepository.installPrepared(preparation.plugin)
                     reloadPlugins()
-                    "Plugin instalado: ${entry.name}"
-                }.getOrElse { "No se pudo instalar: ${it.message}" }
+                    getString(R.string.plugin_installed, entry.name)
+                }.getOrElse { getString(R.string.plugin_install_failed, it.message.orEmpty()) }
                 is InstallPreparation.Failure -> preparation.message
             }
             runOnUiThread { Toast.makeText(this, message, Toast.LENGTH_LONG).show() }
@@ -615,11 +778,11 @@ class MainActivity : AppCompatActivity() {
     fun showSystemWidgetPicker(desktopIndex: Int) {
         val providers = runCatching { appWidgetHost.queryInstalledProviders() }.getOrDefault(emptyList())
         if (providers.isEmpty()) {
-            root.showConfigError("No hay widgets Android instalados")
+            root.showConfigError(getString(R.string.no_android_widgets))
             return
         }
         AlertDialog.Builder(this)
-            .setTitle("Agregar widget Android")
+            .setTitle(R.string.add_android_widget)
             .setItems(providers.map(AppWidgetProviderDto::label).toTypedArray()) { _, position ->
                 val provider = providers[position]
                 val launch = appWidgetHost.requestBinding(provider.provider)
@@ -631,7 +794,7 @@ class MainActivity : AppCompatActivity() {
                         appWidgetBinding.launch(checkNotNull(launch.permissionIntent))
                     }
                     is AppWidgetBindingRequest.InvalidProvider ->
-                        root.showConfigError("Proveedor de widget inválido")
+                        root.showConfigError(getString(R.string.invalid_widget_provider))
                 }
             }
             .setNegativeButton(android.R.string.cancel, null)
@@ -725,6 +888,15 @@ class MainActivity : AppCompatActivity() {
             onQuake = QuakeHandler(::showQuake),
             omarchyAdapter = omarchy,
             screenFrames = screenFrames,
+            notificationChannel = object : OmarchyNotificationChannel {
+                override fun receive(payload: JSONObject): OmarchyNotification {
+                    val notification = notificationStore.receive(payload)
+                    runOnUiThread { root.submitNotifications(notificationStore.load()) }
+                    return notification
+                }
+
+                override fun load(): List<OmarchyNotification> = notificationStore.load()
+            },
         ).also(LocalApiServer::start)
         apiServer?.takeIf(LocalApiServer::isRunning)?.let { server ->
             val registrar = AndroidNsdRegistrar(getSystemService(NsdManager::class.java))
@@ -815,6 +987,15 @@ class MainActivity : AppCompatActivity() {
             checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == android.content.pm.PackageManager.PERMISSION_GRANTED
         else -> true
     }
+
+    private fun edgeLabel(edge: EdgePosition): String = getString(
+        when (edge) {
+            EdgePosition.TOP -> R.string.edge_top
+            EdgePosition.BOTTOM -> R.string.edge_bottom
+            EdgePosition.LEFT -> R.string.edge_left
+            EdgePosition.RIGHT -> R.string.edge_right
+        },
+    )
 
     private fun reloadConfig() {
         io.execute {
@@ -933,7 +1114,7 @@ class MainActivity : AppCompatActivity() {
         if (uri.scheme != "omarchy") return
         val peer = OmarchyPeerUri.parse(uri.toString())
         if (peer == null) {
-            root.showConfigError("Enlace Omarchy inválido")
+            root.showConfigError(getString(R.string.invalid_omarchy_link))
             return
         }
         connectPeer(peer, persist = true)

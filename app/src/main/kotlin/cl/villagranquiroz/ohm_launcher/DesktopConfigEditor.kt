@@ -3,6 +3,28 @@ package cl.villagranquiroz.ohm_launcher
 import org.json.JSONObject
 
 object DesktopConfigEditor {
+    fun appendEdgeBox(source: String, name: String, edge: EdgePosition): String {
+        val root = JSONObject(source)
+        val boxes = root.optJSONArray("edgeBoxes") ?: org.json.JSONArray().also { root.put("edgeBoxes", it) }
+        val usedIds = (0 until boxes.length()).mapNotNull(boxes::optJSONObject).map { it.optString("id") }.toSet()
+        var number = boxes.length() + 1
+        while ("box-$number" in usedIds) number++
+        boxes.put(
+            JSONObject()
+                .put("id", "box-$number")
+                .put("name", name.trim().ifBlank { "Caja $number" })
+                .put("edge", edge.jsonName)
+                .put("direction", if (edge == EdgePosition.LEFT || edge == EdgePosition.RIGHT) "vertical" else "horizontal")
+                .put("visible", true)
+                .put("showTitle", true)
+                .put("compact", false)
+                .put("showExpandButton", true)
+                .put("color", "#66E0FF")
+                .put("items", org.json.JSONArray()),
+        )
+        return root.toString(2)
+    }
+
     fun insertDesktop(source: String, insertIndex: Int, templateIndex: Int): String {
         val root = JSONObject(source)
         val desktops = root.getJSONArray("desktops")
@@ -41,6 +63,104 @@ object DesktopConfigEditor {
             "direction",
             if (edge == EdgePosition.LEFT || edge == EdgePosition.RIGHT) "vertical" else "horizontal",
         )
+        return root.toString(2)
+    }
+
+    fun appendEdgeBoxApp(source: String, id: String, app: InstalledApp): String =
+        appendEdgeBoxApps(source, id, listOf(app))
+
+    fun appendEdgeBoxApps(source: String, id: String, apps: List<InstalledApp>): String {
+        val root = JSONObject(source)
+        val boxes = root.optJSONArray("edgeBoxes") ?: error("edgeBoxes is missing")
+        val box = (0 until boxes.length())
+            .mapNotNull(boxes::optJSONObject)
+            .firstOrNull { it.optString("id") == id }
+            ?: error("edge box not found: $id")
+        val items = box.optJSONArray("items") ?: org.json.JSONArray().also { box.put("items", it) }
+        val existing = (0 until items.length())
+            .mapNotNull(items::optJSONObject)
+            .filter { it.optString("type") == "app" }
+            .mapTo(mutableSetOf()) {
+                "${it.optString("package")}/${it.optString("activity")}"
+            }
+        apps.forEach { app ->
+            val key = "${app.packageName}/${app.activityName}"
+            if (!existing.add(key)) return@forEach
+            items.put(
+                JSONObject()
+                    .put("type", "app")
+                    .put("package", app.packageName)
+                    .put("activity", app.activityName)
+                    .put("label", app.label),
+            )
+        }
+        return root.toString(2)
+    }
+
+    fun moveEdgeBoxItem(
+        source: String,
+        sourceBoxId: String,
+        sourceIndex: Int,
+        targetBoxId: String,
+        targetIndex: Int,
+    ): String {
+        val root = JSONObject(source)
+        val boxes = root.optJSONArray("edgeBoxes") ?: error("edgeBoxes is missing")
+        fun box(id: String): JSONObject = (0 until boxes.length())
+            .mapNotNull(boxes::optJSONObject)
+            .firstOrNull { it.optString("id") == id }
+            ?: error("edge box not found: $id")
+
+        val sourceBox = box(sourceBoxId)
+        val targetBox = box(targetBoxId)
+        val sourceItems = sourceBox.optJSONArray("items") ?: error("source items are missing")
+        require(sourceIndex in 0 until sourceItems.length()) { "source item index out of range" }
+        val sourceList = MutableList<Any?>(sourceItems.length()) { sourceItems.get(it) }
+        val moved = sourceList.removeAt(sourceIndex)
+        if (sourceBox === targetBox) {
+            val insertion = (if (targetIndex > sourceIndex) targetIndex - 1 else targetIndex)
+                .coerceIn(0, sourceList.size)
+            sourceList.add(insertion, moved)
+            sourceBox.put("items", org.json.JSONArray(sourceList))
+        } else {
+            val targetItems = targetBox.optJSONArray("items") ?: org.json.JSONArray()
+            val targetList = MutableList<Any?>(targetItems.length()) { targetItems.get(it) }
+            targetList.add(targetIndex.coerceIn(0, targetList.size), moved)
+            sourceBox.put("items", org.json.JSONArray(sourceList))
+            targetBox.put("items", org.json.JSONArray(targetList))
+        }
+        return root.toString(2)
+    }
+
+    fun removeEdgeBoxItem(source: String, boxId: String, itemIndex: Int): String {
+        val root = JSONObject(source)
+        val boxes = root.optJSONArray("edgeBoxes") ?: error("edgeBoxes is missing")
+        val box = (0 until boxes.length())
+            .mapNotNull(boxes::optJSONObject)
+            .firstOrNull { it.optString("id") == boxId }
+            ?: error("edge box not found: $boxId")
+        val items = box.optJSONArray("items") ?: error("items are missing")
+        require(itemIndex in 0 until items.length()) { "item index out of range" }
+        items.remove(itemIndex)
+        return root.toString(2)
+    }
+
+    fun appendOmarchyNotifyWidget(source: String, desktopIndex: Int): String {
+        val root = JSONObject(source)
+        val widgets = widgetsAt(root, desktopIndex)
+        val exists = (0 until widgets.length())
+            .mapNotNull(widgets::optJSONObject)
+            .any { it.optString("type") == "omarchy_notify" }
+        if (!exists) {
+            widgets.put(
+                JSONObject()
+                    .put("type", "omarchy_notify")
+                    .put("w", 6)
+                    .put("h", 3)
+                    .put("span", 6)
+                    .put("maxMessages", 5),
+            )
+        }
         return root.toString(2)
     }
 

@@ -3,7 +3,9 @@ package cl.villagranquiroz.ohm_launcher
 import android.content.ClipData
 import android.content.Context
 import android.graphics.Color
+import android.graphics.Rect
 import android.graphics.Typeface
+import android.animation.ObjectAnimator
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.BatteryManager
@@ -12,6 +14,7 @@ import android.os.Looper
 import android.view.DragEvent
 import android.view.GestureDetector
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -29,6 +32,7 @@ import android.widget.Toast
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import cl.villagranquiroz.ohm_launcher.qml.QmlViewRenderer
 import java.text.SimpleDateFormat
@@ -41,6 +45,8 @@ import kotlin.math.roundToInt
 class NativeLauncherView(context: Context) : FrameLayout(context) {
     private data class WidgetDrag(val widgetIndex: Int)
     private data class EdgeBoxDrag(val id: String, val source: View)
+    private data class EdgeItemDrag(val boxId: String, val itemIndex: Int, val source: View)
+    private data class EdgeItemViewTag(val itemIndex: Int)
 
     var onQuakeRequested: (() -> Unit)? = null
     var onQuakeCloseRequested: (() -> Unit)? = null
@@ -59,6 +65,10 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     private val commandResults = LinearLayout(context)
     private val drawer = FrameLayout(context)
     private val drawerApps = RecyclerView(context)
+    private val drawerSearch = EditText(context)
+    private val drawerPickerActions = LinearLayout(context)
+    private val drawerPickerConfirm = TextView(context)
+    private val drawerPickerCancel = TextView(context)
     private val title = TextView(context)
     private val clockHandler = Handler(Looper.getMainLooper())
     private var config = LauncherConfig.parse(ConfigStorage.DEFAULT_CONFIG)
@@ -72,9 +82,13 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     private var appsBySearchKey: Map<String, InstalledApp> = emptyMap()
     private var plugins: Map<String, Plugin> = emptyMap()
     private var runtimeWidgets: List<org.json.JSONObject> = emptyList()
+    private var omarchyNotifications: List<OmarchyNotification> = emptyList()
     private var favoriteKeys: List<String> = emptyList()
     private var desktopIndex = 0
     private var drawerVisible = false
+    private var edgeBoxAppSelection: EdgeBoxAppSelection? = null
+    private var edgeBoxPickerApps: List<InstalledApp> = emptyList()
+    private var onEdgeBoxAppsConfirmed: ((List<InstalledApp>) -> Unit)? = null
     private var quakeVisible = false
     private var widgetEditing = false
     private var commandCollapsed = false
@@ -83,9 +97,20 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     private var drawerDragging = false
     private var drawerGestureConsumed = false
     private var edgeBoxDragging = false
+    private var launcherBarDragKind: LauncherBarKind? = null
+    private var launcherBarDragState: LauncherBarDragState? = null
+    private var launcherBarDragView: View? = null
+    private var launcherBarGhost: View? = null
+    private var launcherBarDownRawX = 0f
+    private var launcherBarDownRawY = 0f
     private val edgeBoxExpandedOverrides = mutableMapOf<String, Boolean>()
     private val edgeDropIndicators = mutableMapOf<EdgePosition, View>()
+    private val edgeGroups = mutableMapOf<EdgePosition, View>()
+    private var trashDropTarget: TextView? = null
+    private var dragGlowAccent: Int = 0xFF66E0FF.toInt()
+    private var dragSourceEdge: EdgePosition? = null
     private var orbitalMenu: OrbitalActionMenu? = null
+    private var edgeBoxSettingsMenuId: String? = null
     private val favoritesWriter = Executors.newSingleThreadExecutor()
     private val appAdapter = AppAdapter(
         context = context,
@@ -97,6 +122,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         },
         onLongClick = ::showAppMenu,
     )
+    private val edgeBoxPickerAdapter = EdgeBoxAppPickerAdapter(context, ::updatePickerConfirmState)
     private val clockTick = object : Runnable {
         override fun run() {
             updateClocks(this@NativeLauncherView)
@@ -242,6 +268,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (!widgetEditing && !drawerVisible && !quakeVisible && updateLauncherBarDrag(event)) return true
         if (!widgetEditing) {
             if (!quakeVisible) updateDrawerDrag(event)
             gestures.onTouchEvent(event)
@@ -251,6 +278,146 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             post { drawerGestureConsumed = false }
         }
         return handled
+    }
+
+    private fun updateLauncherBarDrag(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                val candidate = when {
+                    pointInside(favorites, event.rawX, event.rawY) -> LauncherBarKind.FAVORITES to favorites
+                    pointInside(commandContainer, event.rawX, event.rawY) -> LauncherBarKind.SEARCH to commandContainer
+                    else -> null
+                }
+                launcherBarDragKind = candidate?.first
+                launcherBarDragView = candidate?.second
+                launcherBarDragState = candidate?.let { LauncherBarDragState() }
+                launcherBarDownRawX = event.rawX
+                launcherBarDownRawY = event.rawY
+                return false
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val state = launcherBarDragState ?: return false
+                val displacement = kotlin.math.hypot(
+                    (event.rawX - launcherBarDownRawX).toDouble(),
+                    (event.rawY - launcherBarDownRawY).toDouble(),
+                ).toFloat()
+                val wasDragging = edgeBoxDragging
+                if (!state.update(displacement)) return false
+                if (!wasDragging) {
+                    edgeBoxDragging = true
+                    dragGlowAccent = themeColor("accent", 0xFF66E0FF.toInt())
+                    dragSourceEdge = null
+                    launcherBarDragView?.animate()?.alpha(.35f)?.scaleX(.94f)?.scaleY(.94f)?.setDuration(90)?.start()
+                    val cancel = MotionEvent.obtain(event).apply { action = MotionEvent.ACTION_CANCEL }
+                    super.dispatchTouchEvent(cancel)
+                    cancel.recycle()
+                }
+                showEdgeDropTargets(launcherBarDropTarget(event.rawX, event.rawY))
+                updateLauncherBarGhost(launcherBarDropTarget(event.rawX, event.rawY))
+                return true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                val state = launcherBarDragState ?: return false
+                val dragging = state.update(0f)
+                if (dragging && event.actionMasked == MotionEvent.ACTION_UP) {
+                    val kind = launcherBarDragKind
+                    val target = launcherBarDropTarget(event.rawX, event.rawY)
+                    if (kind != null && target != null) (context as? MainActivity)?.moveLauncherBar(kind, target)
+                }
+                if (dragging) {
+                    clearEdgeDropTargets()
+                    removeLauncherBarGhost()
+                    launcherBarDragView?.animate()?.alpha(1f)?.scaleX(1f)?.scaleY(1f)?.setDuration(120)?.start()
+                    edgeBoxDragging = false
+                    dragSourceEdge = null
+                }
+                launcherBarDragKind = null
+                launcherBarDragState = null
+                launcherBarDragView = null
+                return dragging
+            }
+        }
+        return launcherBarDragState?.update(0f) == true
+    }
+
+    private fun launcherBarDropTarget(rawX: Float, rawY: Float): EdgePosition? {
+        val location = IntArray(2)
+        edgeLayer.getLocationOnScreen(location)
+        return EdgeDropTarget.target(
+            edgeLayer.width,
+            edgeLayer.height,
+            rawX - location[0],
+            rawY - location[1],
+            dp(120).toFloat(),
+        )
+    }
+
+    /** Fantasma que ocupa el borde destino como una caja mientras se arrastra una barra. */
+    private fun updateLauncherBarGhost(target: EdgePosition?) {
+        val kind = launcherBarDragKind
+        if (target == null || kind == null) {
+            removeLauncherBarGhost()
+            return
+        }
+        val accent = themeColor("accent", 0xFF66E0FF.toInt())
+        val ghost = launcherBarGhost ?: View(context).apply {
+            elevation = dp(26).toFloat()
+            alpha = 0f
+            desktopLayer.addView(this, LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+            animate().alpha(1f).setDuration(120).start()
+        }.also { launcherBarGhost = it }
+        ghost.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(alphaColor(accent, 0x1F))
+            cornerRadius = dp(settings.barRadius.toInt()).toFloat()
+            setStroke(dp(2), alphaColor(accent, 0xCC))
+        }
+        val edge = LauncherEdge.entries.first { EdgePosition.parse(it.wireValue) == target }
+        ghost.layoutParams = when (kind) {
+            LauncherBarKind.FAVORITES -> {
+                val vertical = settings.effectiveFavoritesBarMode in setOf(FavoritesBarMode.VERTICAL, FavoritesBarMode.LIST)
+                LayoutParams(
+                    if (vertical) dp(66) else WRAP_CONTENT,
+                    if (vertical) WRAP_CONTENT else dp(66),
+                    when (edge) {
+                        LauncherEdge.TOP -> Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                        LauncherEdge.BOTTOM -> Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+                        LauncherEdge.LEFT -> Gravity.START or Gravity.CENTER_VERTICAL
+                        LauncherEdge.RIGHT -> Gravity.END or Gravity.CENTER_VERTICAL
+                    },
+                ).apply {
+                    val margin = dp(22)
+                    setMargins(margin, margin, margin, margin)
+                }
+            }
+            LauncherBarKind.SEARCH -> {
+                val vertical = edge == LauncherEdge.LEFT || edge == LauncherEdge.RIGHT
+                val targetEdge = EdgePosition.parse(edge.wireValue)
+                val sharesEdge = config.edgeBoxes.any { it.visible && it.edge == targetEdge } ||
+                    (settings.favoritesBarVisible && settings.favoritesBarPosition == edge)
+                LayoutParams(
+                    if (vertical) dp(190) else if (sharesEdge) (resources.displayMetrics.widthPixels * .48f).toInt() else MATCH_PARENT,
+                    if (vertical) WRAP_CONTENT else dp(58),
+                    when (edge) {
+                        LauncherEdge.TOP -> Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                        LauncherEdge.BOTTOM -> Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+                        LauncherEdge.LEFT -> Gravity.START or Gravity.CENTER_VERTICAL
+                        LauncherEdge.RIGHT -> Gravity.END or Gravity.CENTER_VERTICAL
+                    },
+                ).apply { setMargins(dp(14), dp(64), dp(14), dp(28)) }
+            }
+        }
+    }
+
+    private fun removeLauncherBarGhost() {
+        launcherBarGhost?.let { desktopLayer.removeView(it) }
+        launcherBarGhost = null
+    }
+
+    private fun pointInside(view: View, rawX: Float, rawY: Float): Boolean {
+        if (view.visibility != VISIBLE || view.width <= 0 || view.height <= 0) return false
+        val bounds = Rect()
+        return view.getGlobalVisibleRect(bounds) && bounds.contains(rawX.toInt(), rawY.toInt())
     }
 
     private fun updateDrawerDrag(event: MotionEvent) {
@@ -296,6 +463,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         renderFavorites()
         renderEdgeBoxes()
         renderDesktop()
+        edgeBoxSettingsMenuId?.let { id -> post { refreshEdgeBoxSettingsMenu(id) } }
     }
 
     fun submitSettings(value: LauncherSettings) {
@@ -352,6 +520,11 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         renderDesktop()
     }
 
+    fun submitNotifications(value: List<OmarchyNotification>) {
+        omarchyNotifications = value
+        renderDesktop()
+    }
+
     fun refreshAudioCapture() = ttfx.refreshAudioCapture()
 
     fun previewTtfx(desktop: Int, value: TtfxConfig) {
@@ -366,7 +539,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     }
 
     fun showConfigError(message: String) {
-        Toast.makeText(context, "Config inválida: $message", Toast.LENGTH_LONG).show()
+        Toast.makeText(context, context.getString(R.string.invalid_config, message), Toast.LENGTH_LONG).show()
     }
 
     fun showPeerUri(uri: Uri) {
@@ -447,7 +620,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
                 addView(clockView("HH:mm"))
-                addView(label("Desliza hacia arriba para ver tus apps", 13f, 0xAA9FB3C8.toInt()))
+                addView(label(context.getString(R.string.swipe_for_apps), 13f, 0xAA9FB3C8.toInt()))
             })
         }
     }
@@ -487,7 +660,10 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         "battery" -> {
             val manager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
             label(
-                "Batería ${manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)}%",
+                context.getString(
+                    R.string.battery_percent,
+                    manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY),
+                ),
                 16f,
                 themeColor("accent", 0xFF66E0FF.toInt()),
             )
@@ -495,6 +671,18 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         "apps_grid" -> appStrip(apps.take(node.raw.optInt("limit", 8)))
         "plugin_widget" -> renderPlugin(node.raw.optString("pluginId"))
         "system_widget" -> renderSystemWidget(node.raw)
+        "omarchy_notify" -> OmarchyNotifyView(
+            context = context,
+            messages = omarchyNotifications,
+            maxMessages = node.raw.optInt("maxMessages", 5),
+            accent = themeColor("accent", 0xFF66E0FF.toInt()),
+            surface = themeColor("lighter_background", 0xFF151D26.toInt()),
+            foreground = themeColor("foreground", Color.WHITE),
+            muted = themeColor("muted", 0xFF74869A.toInt()),
+        ).apply {
+            minimumWidth = dp(280)
+            minimumHeight = dp(210)
+        }
         "qml" -> QmlViewRenderer(context).render(node.raw.optString("source"))
         else -> label(node.raw.optString("text", node.type), 14f, 0xFF9FB3C8.toInt())
     }
@@ -517,7 +705,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             var downRawY = 0f
             var dragging = false
             val overlay = View(context).apply {
-                contentDescription = "Mover widget"
+                contentDescription = context.getString(R.string.move_widget)
                 isClickable = true
                 background = rounded(
                     alphaColor(themeColor("lighter_background", 0xFF151D26.toInt()), 0x22),
@@ -674,9 +862,9 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
 
     private fun renderPlugin(id: String): View {
         val plugin = plugins[id]
-            ?: return label("Plugin · $id", 14f, 0xFFFFB86C.toInt())
+            ?: return label(context.getString(R.string.plugin_error, id), 14f, 0xFFFFB86C.toInt())
         val entry = plugin.entryFileForKind("bar-widget")
-            ?: return label("Plugin error · $id", 12f, 0xFFFF6B7A.toInt())
+            ?: return label(context.getString(R.string.plugin_error, id), 12f, 0xFFFF6B7A.toInt())
         return runCatching {
             if (entry.extension.equals("json", ignoreCase = true)) {
                 val raw = org.json.JSONObject(entry.readText())
@@ -685,7 +873,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 QmlViewRenderer(context).render(entry.readText(), plugin.folder)
             }
         }
-            .getOrElse { label("Plugin error · $id", 12f, 0xFFFF6B7A.toInt()) }
+            .getOrElse { label(context.getString(R.string.plugin_error, id), 12f, 0xFFFF6B7A.toInt()) }
     }
 
     private fun renderSystemWidget(raw: org.json.JSONObject): View {
@@ -696,7 +884,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             context,
             appWidgetId,
             mapOf("width" to width, "height" to height),
-        ) ?: label("Widget Android · ${raw.optString("label", raw.optString("provider"))}", 13f, 0xFFFFB86C.toInt())
+        ) ?: label(context.getString(R.string.android_widget_label, raw.optString("label", raw.optString("provider"))), 13f, 0xFFFFB86C.toInt())
     }
 
     private fun renderContainer(raw: org.json.JSONObject): View = LinearLayout(context).apply {
@@ -776,7 +964,8 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 setOnClickListener { AppCatalog.launch(context, app) }
                 setOnLongClickListener { showAppMenu(app, this) }
             }
-            favorites.addView(icon, LinearLayout.LayoutParams(dp(50), dp(50)))
+            val badged = AppIconWithBadge.wrap(context, icon, app.packageName, iconSizeDp = 50)
+            favorites.addView(badged.root, LinearLayout.LayoutParams(dp(50), dp(50)))
         }
         favorites.visibility = if (settings.favoritesBarVisible && favorites.childCount > 0) VISIBLE else GONE
     }
@@ -806,6 +995,8 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
 
     private fun renderEdgeBoxes() {
         edgeLayer.removeAllViews()
+        trashDropTarget = null
+        edgeGroups.clear()
         EdgePosition.entries.forEach { edge ->
             val boxes = config.edgeBoxes.filter { it.visible && it.edge == edge }
             if (boxes.isEmpty()) return@forEach
@@ -835,6 +1026,42 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                     setMargins(margin, dp(64), margin, dp(38))
                 },
             )
+            edgeGroups[edge] = group
+        }
+        applyCommandBarSettings()
+        post(::arrangeSharedEdgeItems)
+    }
+
+    private fun arrangeSharedEdgeItems() {
+        val all = buildList {
+            addAll(edgeGroups.values)
+            add(favorites)
+            add(commandContainer)
+        }
+        all.forEach { it.translationX = 0f; it.translationY = 0f }
+        EdgePosition.entries.forEach { edge ->
+            val items = buildList {
+                edgeGroups[edge]?.takeIf { it.visibility == VISIBLE }?.let(::add)
+                if (settings.favoritesBarVisible &&
+                    EdgePosition.parse(settings.favoritesBarPosition.wireValue) == edge &&
+                    favorites.visibility == VISIBLE
+                ) add(favorites)
+                if (settings.bottomBarVisible &&
+                    EdgePosition.parse(settings.bottomBarPosition.wireValue) == edge &&
+                    commandContainer.visibility == VISIBLE
+                ) add(commandContainer)
+            }
+            if (items.size < 2) return@forEach
+            val verticalEdge = edge == EdgePosition.LEFT || edge == EdgePosition.RIGHT
+            val sizes = items.map { if (verticalEdge) it.height else it.width }
+            if (sizes.any { it <= 0 }) {
+                post(::arrangeSharedEdgeItems)
+                return@forEach
+            }
+            val offsets = SharedEdgeLayout.centerOffsets(sizes, dp(8))
+            items.zip(offsets).forEach { (view, offset) ->
+                if (verticalEdge) view.translationY = offset else view.translationX = offset
+            }
         }
     }
 
@@ -843,25 +1070,40 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         orientation = if (vertical) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER
         setPadding(dp(7), dp(5), dp(7), dp(5))
-        background = rounded(
-            alphaColor(themeColor("dark_background", 0xFF141B22.toInt()), 0xD9),
-            dp(settings.boxRadius.toInt()).toFloat(),
-            themeColor("accent", parseColor(box.color, 0xFF66E0FF.toInt())),
-        )
+        val boxColor = themeColor("accent", parseColor(box.color, 0xFF66E0FF.toInt()))
+        background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(alphaColor(themeColor("dark_background", 0xFF141B22.toInt()), 0xD9))
+            cornerRadius = dp(settings.boxRadius.toInt()).toFloat()
+            if (settings.boxBorderVisible) {
+                setStroke(dp(settings.boxBorderWidth.toInt().coerceIn(1, 8)), boxColor)
+            } else {
+                setStroke(0, boxColor)
+            }
+        }
         if (box.showTitle) {
             addView(label(box.name, 10f, themeColor("accent", parseColor(box.color, 0xFF66E0FF.toInt()))))
         }
         val expanded = edgeBoxExpandedOverrides[box.id] ?: !box.compact
-        val visibleItems = if (expanded) box.items else box.items.getOrNull(box.compactItem)?.let(::listOf).orEmpty()
-        visibleItems.forEach { item ->
+        val visibleItems = if (expanded) {
+            box.items.withIndex().toList()
+        } else {
+            box.items.getOrNull(box.compactItem)?.let { listOf(IndexedValue(box.compactItem, it)) }.orEmpty()
+        }
+        val draggableItems = mutableListOf<Pair<View, Int>>()
+        val itemSize = dp(settings.boxItemSize.toInt())
+        visibleItems.forEach { indexed ->
+            val item = indexed.value
             val fixedIcon = item.type == EdgeItemType.APP
+            val itemView = renderEdgeItem(item).apply { tag = EdgeItemViewTag(indexed.index) }
             addView(
-                renderEdgeItem(item),
+                itemView,
                 LinearLayout.LayoutParams(
-                    if (fixedIcon) dp(48) else WRAP_CONTENT,
-                    if (fixedIcon) dp(48) else WRAP_CONTENT,
+                    if (fixedIcon) itemSize else WRAP_CONTENT,
+                    if (fixedIcon) itemSize else WRAP_CONTENT,
                 ),
             )
+            if (fixedIcon) draggableItems += itemView to indexed.index
         }
         if (box.showExpandButton && box.items.size > 1) {
             addView(label(if (expanded) "−" else "+", 16f, themeColor("accent", 0xFF66E0FF.toInt())).apply {
@@ -878,6 +1120,123 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             })
         }
         installEdgeBoxGesture(this, box)
+        setOnDragListener { target, event -> handleEdgeItemDrag(target as ViewGroup, box, event) }
+        draggableItems.forEach { (view, itemIndex) -> installEdgeItemGesture(view, box, itemIndex) }
+    }
+
+    private fun installEdgeItemGesture(source: View, box: EdgeBoxConfig, itemIndex: Int) {
+        var downRawX = 0f
+        var downRawY = 0f
+        var armed = false
+        var dragStarted = false
+        var settingsOpened = false
+        var cancelledBeforeArm = false
+        val arm = Runnable {
+            armed = true
+            source.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            showTrashDropTarget()
+            ObjectAnimator.ofFloat(source, View.ROTATION, 0f, -5f, 5f, -4f, 4f, 0f).apply {
+                duration = 420
+                start()
+            }
+        }
+        val openSettings = Runnable {
+            if (!dragStarted) {
+                settingsOpened = true
+                armed = false
+                source.rotation = 0f
+                hideTrashDropTarget()
+                (context as? MainActivity)?.showEdgeBoxMenu(box.id)
+            }
+        }
+        source.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downRawX = event.rawX
+                    downRawY = event.rawY
+                    armed = false
+                    dragStarted = false
+                    settingsOpened = false
+                    cancelledBeforeArm = false
+                    clockHandler.postDelayed(arm, EdgeBoxInteractionState.ITEM_ACCEPT_MILLIS)
+                    clockHandler.postDelayed(openSettings, EdgeBoxInteractionState.SETTINGS_MILLIS)
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val displacement = kotlin.math.hypot(
+                        (event.rawX - downRawX).toDouble(),
+                        (event.rawY - downRawY).toDouble(),
+                    ).toFloat()
+                    if (!armed && displacement > EdgeBoxInteractionState.STILLNESS_SLOP_PX) {
+                        cancelledBeforeArm = true
+                        clockHandler.removeCallbacks(arm)
+                        clockHandler.removeCallbacks(openSettings)
+                    }
+                    if (armed && !dragStarted && displacement > EdgeBoxInteractionState.STILLNESS_SLOP_PX) {
+                        clockHandler.removeCallbacks(openSettings)
+                        dragStarted = source.startDragAndDrop(
+                            ClipData.newPlainText("ohm-edge-item", "$itemIndex"),
+                            View.DragShadowBuilder(source),
+                            EdgeItemDrag(box.id, itemIndex, source),
+                            0,
+                        )
+                        if (dragStarted) source.alpha = .25f
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    clockHandler.removeCallbacks(arm)
+                    clockHandler.removeCallbacks(openSettings)
+                    source.rotation = 0f
+                    if (!dragStarted) hideTrashDropTarget()
+                    if (!armed && !dragStarted && !settingsOpened && !cancelledBeforeArm &&
+                        event.actionMasked == MotionEvent.ACTION_UP
+                    ) {
+                        source.performClick()
+                    }
+                    true
+                }
+                else -> true
+            }
+        }
+    }
+
+    private fun handleEdgeItemDrag(target: ViewGroup, box: EdgeBoxConfig, event: DragEvent): Boolean {
+        val drag = event.localState as? EdgeItemDrag ?: return false
+        return when (event.action) {
+            DragEvent.ACTION_DRAG_STARTED -> true
+            DragEvent.ACTION_DRAG_ENTERED -> true.also {
+                target.animate().scaleX(1.05f).scaleY(1.05f).setDuration(90).start()
+            }
+            DragEvent.ACTION_DRAG_EXITED -> true.also {
+                target.animate().scaleX(1f).scaleY(1f).setDuration(90).start()
+            }
+            DragEvent.ACTION_DROP -> {
+                val vertical = box.direction in setOf(EdgeDirection.VERTICAL, EdgeDirection.LIST)
+                val coordinate = if (vertical) event.y else event.x
+                val tagged = (0 until target.childCount)
+                    .map { target.getChildAt(it) }
+                    .mapNotNull { child -> (child.tag as? EdgeItemViewTag)?.let { child to it.itemIndex } }
+                var insertion = box.items.size
+                for ((child, index) in tagged) {
+                    val center = if (vertical) child.top + child.height / 2f else child.left + child.width / 2f
+                    if (coordinate < center) {
+                        insertion = index
+                        break
+                    }
+                    insertion = index + 1
+                }
+                (context as? MainActivity)?.moveEdgeBoxItem(drag.boxId, drag.itemIndex, box.id, insertion)
+                true
+            }
+            DragEvent.ACTION_DRAG_ENDED -> {
+                drag.source.alpha = 1f
+                target.animate().scaleX(1f).scaleY(1f).setDuration(90).start()
+                hideTrashDropTarget()
+                true
+            }
+            else -> true
+        }
     }
 
     private fun installEdgeBoxGesture(source: View, box: EdgeBoxConfig) {
@@ -926,6 +1285,10 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                         clockHandler.removeCallbacks(openSettings)
                         dragging = true
                         edgeBoxDragging = true
+                        dragGlowAccent = runCatching { Color.parseColor(box.color) }.getOrNull()
+                            ?: themeColor("accent", 0xFF66E0FF.toInt())
+                        dragSourceEdge = box.edge
+                        showTrashDropTarget()
                         source.animate().alpha(.25f).scaleX(.92f).scaleY(.92f).setDuration(90).start()
                         showEdgeDropTargets(dropTarget(event.rawX, event.rawY))
                     }
@@ -936,13 +1299,20 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                     clockHandler.removeCallbacks(openSettings)
                     if (dragging) {
                         if (event.actionMasked == MotionEvent.ACTION_UP) {
-                            dropTarget(event.rawX, event.rawY)?.let { target ->
-                                (context as? MainActivity)?.moveEdgeBox(box.id, target)
+                            val delete = trashDropTarget?.let { pointInside(it, event.rawX, event.rawY) } == true
+                            if (delete) {
+                                (context as? MainActivity)?.confirmRemoveEdgeBox(box.id, box.name)
+                            } else {
+                                dropTarget(event.rawX, event.rawY)?.let { target ->
+                                    (context as? MainActivity)?.moveEdgeBox(box.id, target)
+                                }
                             }
                         }
                         clearEdgeDropTargets()
+                        hideTrashDropTarget()
                         source.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(120).start()
                         edgeBoxDragging = false
+                        dragSourceEdge = null
                     }
                     dragging || settingsOpened
                 }
@@ -1000,45 +1370,40 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
 
     private fun showEdgeDropTargets(active: EdgePosition?) {
         if (edgeDropIndicators.isEmpty()) {
+            val band = dp(90)
             EdgePosition.entries.forEach { edge ->
                 val horizontal = edge == EdgePosition.TOP || edge == EdgePosition.BOTTOM
-                val indicator = View(context).apply {
-                    contentDescription = "Destino ${edge.jsonName}"
-                    background = rounded(
-                        alphaColor(themeColor("accent", 0xFF66E0FF.toInt()), 0x88),
-                        dp(18).toFloat(),
-                        themeColor("bright_foreground", Color.WHITE),
-                    )
-                    elevation = dp(20).toFloat()
+                val glow = EdgePoleGlowView(context, edge).apply {
+                    contentDescription = context.getString(R.string.edge_target, edgeLabel(edge))
                 }
-                edgeDropIndicators[edge] = indicator
+                edgeDropIndicators[edge] = glow
                 edgeLayer.addView(
-                    indicator,
+                    glow,
                     LayoutParams(
-                        if (horizontal) dp(150) else dp(24),
-                        if (horizontal) dp(24) else dp(150),
+                        if (horizontal) MATCH_PARENT else band,
+                        if (horizontal) band else MATCH_PARENT,
                         when (edge) {
                             EdgePosition.TOP -> Gravity.TOP or Gravity.CENTER_HORIZONTAL
                             EdgePosition.BOTTOM -> Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
                             EdgePosition.LEFT -> Gravity.START or Gravity.CENTER_VERTICAL
                             EdgePosition.RIGHT -> Gravity.END or Gravity.CENTER_VERTICAL
                         },
-                    ).apply {
-                        val margin = dp(22)
-                        setMargins(margin, dp(72), margin, dp(46))
-                    },
+                    ),
                 )
             }
         }
         edgeDropIndicators.forEach { (edge, view) ->
-            val selected = edge == active
-            view.contentDescription = "Destino ${edge.jsonName}${if (selected) " activo" else ""}"
-            view.animate()
-                .alpha(if (selected) 1f else .38f)
-                .scaleX(if (selected) 1.35f else 1f)
-                .scaleY(if (selected) 1.35f else 1f)
-                .setDuration(90)
-                .start()
+            val glow = view as? EdgePoleGlowView ?: return@forEach
+            val state = when {
+                edge == active -> EdgePoleGlowView.GlowState.DEST
+                edge == dragSourceEdge -> EdgePoleGlowView.GlowState.SOURCE
+                else -> EdgePoleGlowView.GlowState.IDLE
+            }
+            glow.contentDescription = context.getString(
+                if (state == EdgePoleGlowView.GlowState.DEST) R.string.edge_target_active else R.string.edge_target,
+                edgeLabel(edge),
+            )
+            glow.setGlow(state, dragGlowAccent)
         }
     }
 
@@ -1047,19 +1412,72 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         edgeDropIndicators.clear()
     }
 
+    private fun showTrashDropTarget() {
+        if (trashDropTarget != null) return
+        val trash = label(NerdGlyph.TRASH, 30f, Color.WHITE).apply {
+            contentDescription = context.getString(R.string.trash_target)
+            gravity = Gravity.CENTER
+            typeface = NerdFont.load(context)
+            background = rounded(0xE6A82424.toInt(), dp(28).toFloat(), 0xFFFF7777.toInt())
+            elevation = dp(24).toFloat()
+            setOnDragListener { view, event ->
+                val drag = event.localState as? EdgeItemDrag ?: return@setOnDragListener false
+                when (event.action) {
+                    DragEvent.ACTION_DRAG_STARTED -> true
+                    DragEvent.ACTION_DRAG_ENTERED -> true.also {
+                        view.animate().scaleX(1.18f).scaleY(1.18f).setDuration(90).start()
+                    }
+                    DragEvent.ACTION_DRAG_EXITED -> true.also {
+                        view.animate().scaleX(1f).scaleY(1f).setDuration(90).start()
+                    }
+                    DragEvent.ACTION_DROP -> true.also {
+                        val item = config.edgeBoxes.firstOrNull { it.id == drag.boxId }
+                            ?.items?.getOrNull(drag.itemIndex)
+                        (context as? MainActivity)?.confirmRemoveEdgeBoxItem(
+                            drag.boxId,
+                            drag.itemIndex,
+                            item?.label.orEmpty(),
+                        )
+                    }
+                    DragEvent.ACTION_DRAG_ENDED -> true.also { hideTrashDropTarget() }
+                    else -> true
+                }
+            }
+        }
+        trashDropTarget = trash
+        edgeLayer.addView(trash, LayoutParams(dp(96), dp(96), Gravity.CENTER))
+        trash.alpha = 0f
+        trash.scaleX = .6f
+        trash.scaleY = .6f
+        trash.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(140).start()
+    }
+
+    private fun hideTrashDropTarget() {
+        val trash = trashDropTarget ?: return
+        trashDropTarget = null
+        trash.animate().alpha(0f).scaleX(.6f).scaleY(.6f).setDuration(100).withEndAction {
+            edgeLayer.removeView(trash)
+        }.start()
+    }
+
     private fun renderEdgeItem(item: EdgeItemConfig): View = when (item.type) {
         EdgeItemType.APP -> {
             val app = apps.firstOrNull {
                 it.packageName == item.packageName && (item.activity.isBlank() || it.activityName == item.activity)
             }
             if (app == null) label(item.label.ifBlank { item.packageName }, 9f, 0xFF9FB3C8.toInt())
-            else ImageView(context).apply {
-                setImageDrawable(runCatching {
-                    context.packageManager.getActivityIcon(android.content.ComponentName(app.packageName, app.activityName))
-                }.getOrNull())
-                contentDescription = app.label
-                setPadding(dp(5), dp(5), dp(5), dp(5))
-                setOnClickListener { AppCatalog.launch(context, app) }
+            else {
+                val iconSize = settings.boxItemSize.toInt()
+                val iconPad = (iconSize + 9) / 10
+                val icon = ImageView(context).apply {
+                    setImageDrawable(runCatching {
+                        context.packageManager.getActivityIcon(android.content.ComponentName(app.packageName, app.activityName))
+                    }.getOrNull())
+                    contentDescription = app.label
+                    setPadding(dp(iconPad), dp(iconPad), dp(iconPad), dp(iconPad))
+                    setOnClickListener { AppCatalog.launch(context, app) }
+                }
+                AppIconWithBadge.wrap(context, icon, app.packageName, iconSizeDp = iconSize).root
             }
         }
         EdgeItemType.SYSTEM_WIDGET -> renderSystemWidget(item.raw)
@@ -1094,7 +1512,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 setPadding(dp(6), dp(6), dp(6), dp(6))
                 setOnClickListener { AppCatalog.launch(context, app) }
             }
-            row.addView(icon, LinearLayout.LayoutParams(dp(54), dp(54)))
+            row.addView(AppIconWithBadge.wrap(context, icon, app.packageName, iconSizeDp = 54).root, LinearLayout.LayoutParams(dp(54), dp(54)))
         }
         return row
     }
@@ -1107,7 +1525,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             background = rounded(0xE6151D26.toInt(), dp(18).toFloat(), 0x5566E0FF)
         }
         commandInput.apply {
-            hint = "Buscar app"
+            hint = context.getString(R.string.search_app)
             setSingleLine(true)
             setTextColor(Color.WHITE)
             setHintTextColor(0xFF74869A.toInt())
@@ -1126,8 +1544,8 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             }
         }
         commandBar.addView(commandInput, LinearLayout.LayoutParams(0, dp(44), 1f))
-        commandBar.addView(commandButton("Terminal") { onQuakeRequested?.invoke() })
-        commandBar.addView(commandButton("Plugins") { (context as? MainActivity)?.showPluginManager() })
+        commandBar.addView(commandButton(context.getString(R.string.terminal)) { onQuakeRequested?.invoke() })
+        commandBar.addView(commandButton(context.getString(R.string.plugins)) { (context as? MainActivity)?.showPluginManager() })
         commandToggle.apply {
             gravity = Gravity.CENTER
             setTextColor(0xFF66E0FF.toInt())
@@ -1179,18 +1597,22 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                     commandInput.text.clear()
                 }
             }
-            row.addView(ImageView(context).apply {
+            val rowIcon = ImageView(context).apply {
                 setImageDrawable(runCatching {
                     context.packageManager.getActivityIcon(android.content.ComponentName(app.packageName, app.activityName))
                 }.getOrNull())
-            }, LinearLayout.LayoutParams(dp(36), dp(36)))
+            }
+            row.addView(
+                AppIconWithBadge.wrap(context, rowIcon, app.packageName, iconSizeDp = 36).root,
+                LinearLayout.LayoutParams(dp(36), dp(36)),
+            )
             row.addView(label(app.label, 13f, foreground).apply {
                 gravity = Gravity.START or Gravity.CENTER_VERTICAL
             }, LinearLayout.LayoutParams(0, dp(44), 1f))
             commandResults.addView(row, LinearLayout.LayoutParams(MATCH_PARENT, dp(48)))
         }
         if (commandResults.childCount == 0) {
-            commandResults.addView(label("Sin resultados", 12f, themeColor("muted", 0xFF74869A.toInt())))
+            commandResults.addView(label(context.getString(R.string.no_results), 12f, themeColor("muted", 0xFF74869A.toInt())))
         }
         commandResults.background = rounded(
             alphaColor(themeColor("dark_background", 0xFF141B22.toInt()), 0xF2),
@@ -1241,6 +1663,9 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         commandBar.visibility = if (commandCollapsed) GONE else VISIBLE
         commandToggle.text = if (commandCollapsed) "+" else "−"
         val vertical = settings.bottomBarPosition == LauncherEdge.LEFT || settings.bottomBarPosition == LauncherEdge.RIGHT
+        val commandEdge = EdgePosition.parse(settings.bottomBarPosition.wireValue)
+        val sharesEdge = config.edgeBoxes.any { it.visible && it.edge == commandEdge } ||
+            (settings.favoritesBarVisible && settings.favoritesBarPosition == settings.bottomBarPosition)
         commandBar.orientation = if (vertical) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
         commandInput.layoutParams = if (vertical) {
             LinearLayout.LayoutParams(dp(150), dp(48))
@@ -1248,7 +1673,9 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             LinearLayout.LayoutParams(0, dp(44), 1f)
         }
         commandContainer.layoutParams = LayoutParams(
-            if (commandCollapsed) dp(42) else if (vertical) dp(190) else MATCH_PARENT,
+            if (commandCollapsed) dp(42) else if (vertical) dp(190)
+            else if (sharesEdge) (resources.displayMetrics.widthPixels * .48f).toInt()
+            else MATCH_PARENT,
             if (commandCollapsed) dp(42) else if (vertical) WRAP_CONTENT else dp(58),
             when (settings.bottomBarPosition) {
                 LauncherEdge.TOP -> Gravity.TOP or Gravity.CENTER_HORIZONTAL
@@ -1261,6 +1688,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             setMargins(margin, dp(64), margin, dp(28))
         }
         positionCommandResults()
+        post(::arrangeSharedEdgeItems)
     }
 
     private fun applyThemeChrome() {
@@ -1289,32 +1717,112 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         setOnClickListener { action() }
     }
 
+    fun showEdgeBoxAppPicker(available: List<InstalledApp>, onConfirm: (List<InstalledApp>) -> Unit) {
+        edgeBoxPickerApps = available
+        edgeBoxAppSelection = EdgeBoxAppSelection(available)
+        onEdgeBoxAppsConfirmed = onConfirm
+        drawerSearch.setText("")
+        drawerSearch.hint = context.getString(R.string.select_apps)
+        drawerSearch.setPadding(dp(18), 0, dp(108), 0)
+        drawerPickerActions.visibility = VISIBLE
+        drawerApps.layoutManager = LinearLayoutManager(context)
+        drawerApps.adapter = edgeBoxPickerAdapter
+        edgeBoxPickerAdapter.submit(available, requireNotNull(edgeBoxAppSelection))
+        updatePickerConfirmState()
+        showDrawer(true)
+        drawerSearch.requestFocus()
+        postDelayed({
+            val keyboard = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            keyboard.showSoftInput(drawerSearch, InputMethodManager.SHOW_IMPLICIT)
+        }, 180)
+    }
+
+    private fun updatePickerConfirmState() {
+        val hasSelection = edgeBoxAppSelection?.selectedApps()?.isNotEmpty() == true
+        drawerPickerConfirm.isEnabled = hasSelection
+        drawerPickerConfirm.alpha = if (hasSelection) 1f else .35f
+    }
+
+    private fun finishEdgeBoxAppPicker(confirm: Boolean) {
+        val selected = if (confirm) edgeBoxAppSelection?.selectedApps().orEmpty() else emptyList()
+        val callback = onEdgeBoxAppsConfirmed
+        edgeBoxAppSelection = null
+        edgeBoxPickerApps = emptyList()
+        onEdgeBoxAppsConfirmed = null
+        drawerPickerActions.visibility = GONE
+        drawerSearch.text.clear()
+        drawerSearch.hint = context.getString(R.string.search_apps)
+        drawerSearch.setPadding(dp(18), 0, dp(18), 0)
+        drawerApps.layoutManager = GridLayoutManager(context, 4)
+        drawerApps.adapter = appAdapter
+        appAdapter.submit(apps, favoriteKeys)
+        showDrawer(false)
+        if (confirm && selected.isNotEmpty()) callback?.invoke(selected)
+    }
+
+    private fun updateDrawerFilter(query: String) {
+        val selection = edgeBoxAppSelection
+        if (selection == null) {
+            val filtered = if (query.isBlank()) apps else {
+                appSearchIndex.search(query, apps.size).mapNotNull { appsBySearchKey[it.key] }
+            }
+            appAdapter.submit(filtered, favoriteKeys)
+            return
+        }
+        val availableKeys = edgeBoxPickerApps
+            .associateBy { "${it.packageName}/${it.activityName}" }
+        val filtered = if (query.isBlank()) edgeBoxPickerApps else {
+            appSearchIndex.search(query, apps.size).mapNotNull { availableKeys[it.key] }
+        }
+        edgeBoxPickerAdapter.submit(filtered, selection)
+    }
+
     private fun buildDrawer() {
         drawer.setBackgroundColor(0xF20B0F14.toInt())
         val column = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(48), dp(16), dp(20))
         }
-        val search = EditText(context).apply {
-            hint = "Buscar aplicaciones"
+        drawerSearch.apply {
+            hint = context.getString(R.string.search_apps)
             setHintTextColor(0xFF74869A.toInt())
             setTextColor(Color.WHITE)
             setSingleLine(true)
+            ellipsize = android.text.TextUtils.TruncateAt.END
             background = rounded(0xFF151D26.toInt(), dp(20).toFloat(), 0x4466E0FF)
             setPadding(dp(18), 0, dp(18), 0)
-            addTextChangedListener(SimpleTextWatcher { query ->
-                val filtered = if (query.isBlank()) {
-                    apps
-                } else {
-                    appSearchIndex.search(query, apps.size).mapNotNull { appsBySearchKey[it.key] }
-                }
-                appAdapter.submit(
-                    filtered,
-                    favoriteKeys,
-                )
-            })
+            addTextChangedListener(SimpleTextWatcher(::updateDrawerFilter))
         }
-        column.addView(search, LinearLayout.LayoutParams(MATCH_PARENT, dp(50)))
+        drawerPickerActions.apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            visibility = GONE
+        }
+        drawerPickerConfirm.apply {
+            text = NerdGlyph.CHECK
+            typeface = NerdFont.load(context)
+            textSize = 20f
+            gravity = Gravity.CENTER
+            setTextColor(0xFF66E0FF.toInt())
+            contentDescription = context.getString(R.string.confirm_selection)
+            setOnClickListener { if (isEnabled) finishEdgeBoxAppPicker(confirm = true) }
+        }
+        drawerPickerCancel.apply {
+            text = NerdGlyph.CLOSE
+            typeface = NerdFont.load(context)
+            textSize = 20f
+            gravity = Gravity.CENTER
+            setTextColor(0xFFFF6B7A.toInt())
+            contentDescription = context.getString(R.string.cancel_selection)
+            setOnClickListener { finishEdgeBoxAppPicker(confirm = false) }
+        }
+        drawerPickerActions.addView(drawerPickerConfirm, LinearLayout.LayoutParams(dp(48), dp(48)))
+        drawerPickerActions.addView(drawerPickerCancel, LinearLayout.LayoutParams(dp(48), dp(48)))
+        val searchContainer = FrameLayout(context).apply {
+            addView(drawerSearch, LayoutParams(MATCH_PARENT, dp(50)))
+            addView(drawerPickerActions, LayoutParams(dp(100), dp(50), Gravity.END or Gravity.CENTER_VERTICAL))
+        }
+        column.addView(searchContainer, LinearLayout.LayoutParams(MATCH_PARENT, dp(50)))
         drawerApps.layoutManager = GridLayoutManager(context, 4)
         drawerApps.adapter = appAdapter
         val appsParams = LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f)
@@ -1324,6 +1832,10 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     }
 
     private fun showDrawer(show: Boolean) {
+        if (!show && edgeBoxAppSelection != null) {
+            finishEdgeBoxAppPicker(confirm = false)
+            return
+        }
         drawerVisible = show
         if (show) {
             drawer.visibility = VISIBLE
@@ -1336,51 +1848,131 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         }
     }
 
+    fun showEdgeBoxSettingsMenu(id: String) {
+        if (orbitalMenu != null) return
+        val box = config.edgeBoxes.firstOrNull { it.id == id } ?: return
+        val activity = context as? MainActivity ?: return
+        edgeBoxSettingsMenuId = id
+        val actions = listOf(
+            OrbitalAction(NerdGlyph.UP, context.getString(R.string.move_to, edgeLabel(EdgePosition.TOP)), false) {
+                activity.moveEdgeBox(id, EdgePosition.TOP)
+            },
+            OrbitalAction(NerdGlyph.DOWN, context.getString(R.string.move_to, edgeLabel(EdgePosition.BOTTOM)), false) {
+                activity.moveEdgeBox(id, EdgePosition.BOTTOM)
+            },
+            OrbitalAction(NerdGlyph.LEFT, context.getString(R.string.move_to, edgeLabel(EdgePosition.LEFT)), false) {
+                activity.moveEdgeBox(id, EdgePosition.LEFT)
+            },
+            OrbitalAction(NerdGlyph.RIGHT, context.getString(R.string.move_to, edgeLabel(EdgePosition.RIGHT)), false) {
+                activity.moveEdgeBox(id, EdgePosition.RIGHT)
+            },
+            OrbitalAction(NerdGlyph.ADD, context.getString(R.string.add_application), false) {
+                orbitalMenu?.close()
+                activity.showEdgeBoxAppPicker(id)
+            },
+            OrbitalAction(
+                if (box.compact) NerdGlyph.EXPAND else NerdGlyph.COMPRESS,
+                context.getString(if (box.compact) R.string.expand else R.string.collapse),
+                false,
+            ) { activity.toggleEdgeBoxCompact(id) },
+            OrbitalAction(
+                if (box.showTitle) NerdGlyph.EYE_SLASH else NerdGlyph.EYE,
+                context.getString(if (box.showTitle) R.string.hide_title else R.string.show_title),
+                false,
+            ) { activity.toggleEdgeBoxTitle(id) },
+            OrbitalAction(
+                if (box.showExpandButton) NerdGlyph.EYE_SLASH else NerdGlyph.EYE,
+                context.getString(if (box.showExpandButton) R.string.hide_expand_button else R.string.show_expand_button),
+                false,
+            ) { activity.toggleEdgeBoxExpandButton(id) },
+            OrbitalAction(NerdGlyph.TRASH, context.getString(R.string.remove_box), false) {
+                activity.confirmRemoveEdgeBox(id, box.name)
+            },
+        )
+        showOrbital(
+            actions = actions,
+            backgroundAlpha = 0x72,
+            dismissOnBackgroundTap = false,
+            edgeBoxMenuId = id,
+        )
+    }
+
+    private fun refreshEdgeBoxSettingsMenu(id: String) {
+        if (edgeBoxSettingsMenuId != id) return
+        if (config.edgeBoxes.none { it.id == id }) {
+            orbitalMenu?.close()
+            return
+        }
+        orbitalMenu?.let(::removeView)
+        orbitalMenu = null
+        showEdgeBoxSettingsMenu(id)
+    }
+
+    private fun desktopActions(): List<OrbitalAction> {
+        val activity = context as? MainActivity ?: return emptyList()
+        return mutableListOf(
+            OrbitalAction(NerdGlyph.LEFT, context.getString(R.string.menu_add_left)) { activity.addDesktop(desktopIndex, desktopIndex) },
+            OrbitalAction(NerdGlyph.RIGHT, context.getString(R.string.menu_add_right)) { activity.addDesktop(desktopIndex + 1, desktopIndex) },
+            OrbitalAction(NerdGlyph.TUNE, context.getString(R.string.menu_adjust)) { activity.showDesktopSettings(desktopIndex) },
+        ).apply {
+            if (config.desktops.size > 1) add(OrbitalAction(NerdGlyph.TRASH, context.getString(R.string.menu_delete)) { activity.deleteDesktop(desktopIndex) })
+        }
+    }
+
     private fun showDesktopMenu() {
         if (orbitalMenu != null) return
         val activity = context as? MainActivity ?: return
-        val desktopActions = mutableListOf(
-            OrbitalAction("Agregar ←") { activity.addDesktop(desktopIndex, desktopIndex) },
-            OrbitalAction("Agregar →") { activity.addDesktop(desktopIndex + 1, desktopIndex) },
-            OrbitalAction("Ajustar") { activity.showDesktopSettings(desktopIndex) },
-        ).apply {
-            if (config.desktops.size > 1) add(OrbitalAction("Eliminar") { activity.deleteDesktop(desktopIndex) })
+        val actions = mutableListOf<OrbitalAction>()
+        if (!activity.isDefaultLauncher()) {
+            actions += OrbitalAction(NerdGlyph.HOME, context.getString(R.string.menu_home_launcher)) {
+                activity.requestDefaultLauncher()
+            }
         }
-        val actions = listOf(
-            OrbitalAction("Escritorios") { showOrbital(desktopActions) },
-            OrbitalAction("Personalizar") {
+        if (!notificationListenerEnabled()) {
+            actions += OrbitalAction(NerdGlyph.BELL, context.getString(R.string.menu_notification_access)) {
+                activity.openNotificationAccessSettings()
+            }
+        }
+        actions += listOf(
+            OrbitalAction(NerdGlyph.DESKTOP, context.getString(R.string.menu_desktops)) { showOrbital(desktopActions()) },
+            OrbitalAction(NerdGlyph.TUNE, context.getString(R.string.menu_personalize)) {
                 showOrbital(
                     listOf(
-                        OrbitalAction(if (widgetEditing) "Salir de edición" else "Editar widgets") { setWidgetEditing(!widgetEditing) },
-                        OrbitalAction("Escritorio") { activity.showDesktopSettings(desktopIndex) },
-                        OrbitalAction("Launcher") { activity.showLauncherSettings() },
+                        OrbitalAction(
+                            NerdGlyph.EDIT,
+                            context.getString(if (widgetEditing) R.string.menu_exit_edit else R.string.menu_edit_widgets),
+                        ) { setWidgetEditing(!widgetEditing) },
+                        OrbitalAction(NerdGlyph.DESKTOP, context.getString(R.string.menu_desktop)) { activity.showDesktopSettings(desktopIndex) },
+                        OrbitalAction(NerdGlyph.SETTINGS, context.getString(R.string.menu_launcher)) { activity.showLauncherSettings() },
                     ),
                 )
             },
-            OrbitalAction("Añadir") {
+            OrbitalAction(NerdGlyph.ADD, context.getString(R.string.menu_add)) {
                 showOrbital(
                     listOf(
-                        OrbitalAction("Widget Android") { activity.showSystemWidgetPicker(desktopIndex) },
-                        OrbitalAction("Plugin") { activity.showPluginPicker(desktopIndex) },
+                        OrbitalAction(NerdGlyph.WIDGETS, context.getString(R.string.menu_android_widget)) { activity.showSystemWidgetPicker(desktopIndex) },
+                        OrbitalAction(NerdGlyph.PUZZLE, context.getString(R.string.menu_plugin)) { activity.showPluginPicker(desktopIndex) },
+                        OrbitalAction(NerdGlyph.BELL, context.getString(R.string.omarchy_notify)) { activity.addOmarchyNotifyWidget(desktopIndex) },
+                        OrbitalAction(NerdGlyph.BOX, context.getString(R.string.menu_box)) { activity.showAddEdgeBoxDialog() },
                     ),
                 )
             },
-            OrbitalAction("Plugins") { activity.showPluginManager() },
-            OrbitalAction("Omarchy") {
+            OrbitalAction(NerdGlyph.PUZZLE, context.getString(R.string.menu_plugins)) { activity.showPluginManager() },
+            OrbitalAction(NerdGlyph.LINK, context.getString(R.string.menu_omarchy)) {
                 showOrbital(
                     listOf(
-                        OrbitalAction(OmarchyMenuAction.BLUETOOTH.label) { activity.scanOmarchyBluetooth() },
-                        OrbitalAction(OmarchyMenuAction.SHOW_QR.label) { activity.showOmarchyQr() },
-                        OrbitalAction(OmarchyMenuAction.READ_QR.label) { activity.readOmarchyQr() },
+                        OrbitalAction(NerdGlyph.BLUETOOTH, context.getString(R.string.menu_bluetooth)) { activity.scanOmarchyBluetooth() },
+                        OrbitalAction(NerdGlyph.QR, context.getString(R.string.menu_show_qr)) { activity.showOmarchyQr() },
+                        OrbitalAction(NerdGlyph.CAMERA, context.getString(R.string.menu_read_qr)) { activity.readOmarchyQr() },
                     ),
                 )
             },
-            OrbitalAction("Sistema") {
+            OrbitalAction(NerdGlyph.SETTINGS, context.getString(R.string.menu_system)) {
                 showOrbital(
                     listOf(
-                        OrbitalAction("Launcher HOME") { activity.requestDefaultLauncher() },
-                        OrbitalAction("Gestos") { activity.openAccessibilitySettings() },
-                        OrbitalAction("Almacenamiento") { activity.requestPublicStorageAccess() },
+                        OrbitalAction(NerdGlyph.HOME, context.getString(R.string.menu_home_launcher)) { activity.requestDefaultLauncher() },
+                        OrbitalAction(NerdGlyph.HAND, context.getString(R.string.menu_gestures)) { activity.openAccessibilitySettings() },
+                        OrbitalAction(NerdGlyph.STORAGE, context.getString(R.string.menu_storage)) { activity.requestPublicStorageAccess() },
                     ),
                 )
             },
@@ -1388,13 +1980,32 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         showOrbital(actions)
     }
 
-    private fun showOrbital(actions: List<OrbitalAction>) {
+    private fun notificationListenerEnabled(): Boolean {
+        val enabled = android.provider.Settings.Secure.getString(
+            context.contentResolver,
+            "enabled_notification_listeners",
+        ) ?: return false
+        val component = "${context.packageName}/${context.packageName}.OhmNotificationListenerService"
+        return enabled.split(':').any { it.equals(component, ignoreCase = true) }
+    }
+
+    private fun showOrbital(
+        actions: List<OrbitalAction>,
+        backgroundAlpha: Int = 0xD9,
+        dismissOnBackgroundTap: Boolean = true,
+        edgeBoxMenuId: String? = null,
+    ) {
         if (orbitalMenu != null) return
         orbitalMenu = OrbitalActionMenu(
             context = context,
             actions = actions,
             accent = themeColor("accent", 0xFF66E0FF.toInt()),
-            onDismissed = { orbitalMenu = null },
+            backgroundAlpha = backgroundAlpha,
+            dismissOnBackgroundTap = dismissOnBackgroundTap,
+            onDismissed = {
+                orbitalMenu = null
+                if (edgeBoxSettingsMenuId == edgeBoxMenuId) edgeBoxSettingsMenuId = null
+            },
         ).also { addView(it, LayoutParams(MATCH_PARENT, MATCH_PARENT)) }
     }
 
@@ -1454,6 +2065,15 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
 
     private fun parseColor(value: String, fallback: Int): Int =
         runCatching { Color.parseColor(value) }.getOrDefault(fallback)
+
+    private fun edgeLabel(edge: EdgePosition): String = context.getString(
+        when (edge) {
+            EdgePosition.TOP -> R.string.edge_top
+            EdgePosition.BOTTOM -> R.string.edge_bottom
+            EdgePosition.LEFT -> R.string.edge_left
+            EdgePosition.RIGHT -> R.string.edge_right
+        },
+    )
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
@@ -1519,6 +2139,72 @@ private class AppAdapter(
     override fun getItemCount(): Int = apps.size
 
     class Holder(view: View, val icon: ImageView, val label: TextView) : RecyclerView.ViewHolder(view)
+}
+
+private class EdgeBoxAppPickerAdapter(
+    private val context: Context,
+    private val onSelectionChanged: () -> Unit,
+) : RecyclerView.Adapter<EdgeBoxAppPickerAdapter.Holder>() {
+    private var apps: List<InstalledApp> = emptyList()
+    private var selection = EdgeBoxAppSelection(emptyList())
+
+    fun submit(value: List<InstalledApp>, selection: EdgeBoxAppSelection) {
+        apps = value
+        this.selection = selection
+        notifyDataSetChanged()
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
+        val row = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(12.dp(context), 6.dp(context), 8.dp(context), 6.dp(context))
+            layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 64.dp(context))
+        }
+        val icon = ImageView(context).apply { setPadding(4.dp(context), 4.dp(context), 4.dp(context), 4.dp(context)) }
+        val label = TextView(context).apply {
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            gravity = Gravity.START or Gravity.CENTER_VERTICAL
+            maxLines = 2
+        }
+        val check = TextView(context).apply {
+            typeface = NerdFont.load(context)
+            textSize = 22f
+            gravity = Gravity.CENTER
+            contentDescription = context.getString(R.string.confirm_selection)
+        }
+        row.addView(icon, LinearLayout.LayoutParams(52.dp(context), 52.dp(context)))
+        row.addView(label, LinearLayout.LayoutParams(0, 58.dp(context), 1f))
+        row.addView(check, LinearLayout.LayoutParams(52.dp(context), 52.dp(context)))
+        return Holder(row, icon, label, check)
+    }
+
+    override fun onBindViewHolder(holder: Holder, position: Int) {
+        val app = apps[position]
+        val selected = selection.isSelected(app)
+        holder.label.text = app.label
+        holder.icon.setImageDrawable(
+            runCatching {
+                context.packageManager.getActivityIcon(android.content.ComponentName(app.packageName, app.activityName))
+            }.getOrNull(),
+        )
+        holder.check.text = if (selected) NerdGlyph.CHECK_SQUARE else NerdGlyph.SQUARE
+        holder.check.setTextColor(if (selected) 0xFF66E0FF.toInt() else 0xFF74869A.toInt())
+        holder.itemView.setBackgroundColor(if (selected) 0x3328C7D9 else Color.TRANSPARENT)
+        holder.itemView.setOnClickListener {
+            val changedPosition = holder.adapterPosition
+            if (changedPosition == RecyclerView.NO_POSITION) return@setOnClickListener
+            selection.toggle(app)
+            notifyItemChanged(changedPosition)
+            onSelectionChanged()
+        }
+    }
+
+    override fun getItemCount(): Int = apps.size
+
+    class Holder(view: View, val icon: ImageView, val label: TextView, val check: TextView) :
+        RecyclerView.ViewHolder(view)
 }
 
 private class SimpleTextWatcher(private val changed: (String) -> Unit) : android.text.TextWatcher {

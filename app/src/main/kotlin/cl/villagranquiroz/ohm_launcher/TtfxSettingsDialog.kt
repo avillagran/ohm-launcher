@@ -34,6 +34,7 @@ object TtfxSettingsDialog {
     fun show(
         context: Context,
         current: TtfxConfig,
+        panelOpacity: Double = 0.86,
         onPreview: (TtfxConfig) -> Unit = {},
         onSave: (TtfxConfig) -> Unit,
     ) {
@@ -47,9 +48,9 @@ object TtfxSettingsDialog {
         val previewCard = FrameLayout(context).apply {
             background = rounded(0xFF090D12.toInt(), dp(18).toFloat(), 0x8066E0FF.toInt(), dp(1))
             clipToOutline = true
-            addView(preview, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(176)))
+            addView(preview, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(136)))
             addView(TextView(context).apply {
-                text = "VISTA PREVIA · EN VIVO"
+                text = context.getString(R.string.ttfx_live_preview)
                 setTextColor(accent)
                 textSize = 10f
                 typeface = Typeface.DEFAULT_BOLD
@@ -61,20 +62,20 @@ object TtfxSettingsDialog {
         }
         val column = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(10), dp(18), dp(12))
-            addView(previewCard, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(176)).apply {
-                bottomMargin = dp(16)
+            setPadding(dp(12), dp(6), dp(12), dp(8))
+            addView(previewCard, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(136)).apply {
+                bottomMargin = dp(10)
             })
         }
-        column.addView(section(context, "COMPOSICIÓN", "Los cambios se aplican al escritorio mientras editas.", accent, foreground, muted))
+        column.addView(section(context, context.getString(R.string.ttfx_composition), context.getString(R.string.ttfx_composition_help), accent, foreground, muted))
         val enabled = SwitchCompat(context).apply {
-            text = "Fondo TTFX"
+            text = context.getString(R.string.ttfx_background)
             setTextColor(foreground)
             isChecked = current.enabled
             setPadding(dp(4), dp(6), dp(4), dp(6))
         }
         val text = EditText(context).apply {
-            hint = "Texto de la animación"
+            hint = context.getString(R.string.ttfx_text_hint)
             setText(current.text)
             setTextColor(foreground)
             setHintTextColor(muted)
@@ -90,24 +91,24 @@ object TtfxSettingsDialog {
             background = rounded(0xFF151D26.toInt(), dp(14).toFloat(), 0x5566E0FF, dp(1))
         }
         val audio = SwitchCompat(context).apply {
-            this.text = "Reaccionar al audio"
+            this.text = context.getString(R.string.ttfx_react_audio)
             setTextColor(foreground)
             isChecked = current.audio
             setPadding(dp(4), dp(6), dp(4), dp(6))
         }
         column.addView(enabled)
         column.addView(text, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(50)).apply { bottomMargin = dp(10) })
-        column.addView(labeled(context, "Efecto", effect, foreground, muted))
-        val size = seek(context, column, "Tamaño", 1, 7, current.textSize, foreground, muted)
-        val resolution = seek(context, column, "Resolución · mayor es más rápida", 1, 8, current.resolution, foreground, muted)
-        val speed = seek(context, column, "Velocidad", 2, 50, (current.speed * 10).toInt(), foreground, muted) { "${it / 10.0}×" }
-        column.addView(section(context, "POSICIÓN", "Se actualiza sin reiniciar el motor TTFX.", accent, foreground, muted))
-        val x = seek(context, column, "Posición X", 0, 100, (current.textX * 100).toInt(), foreground, muted) { "$it%" }
-        val y = seek(context, column, "Posición Y", 0, 100, (current.textY * 100).toInt(), foreground, muted) { "$it%" }
-        column.addView(section(context, "AUDIO", "Color e intensidad responden en tiempo real.", accent, foreground, muted))
+        column.addView(labeled(context, context.getString(R.string.ttfx_effect), effect, foreground, muted))
+        val size = seek(context, column, context.getString(R.string.ttfx_size), 1, 12, current.textSize, foreground, muted)
+        val resolution = seek(context, column, context.getString(R.string.ttfx_resolution), 1, 8, current.resolution, foreground, muted)
+        val speed = seek(context, column, context.getString(R.string.ttfx_speed), 2, 50, (current.speed * 10).toInt(), foreground, muted) { "${it / 10.0}×" }
+        column.addView(section(context, context.getString(R.string.ttfx_position), context.getString(R.string.ttfx_position_help), accent, foreground, muted))
+        val x = seek(context, column, context.getString(R.string.ttfx_position_x), 0, 100, (current.textX * 100).toInt(), foreground, muted) { "$it%" }
+        val y = seek(context, column, context.getString(R.string.ttfx_position_y), 0, 100, (current.textY * 100).toInt(), foreground, muted) { "$it%" }
+        column.addView(section(context, context.getString(R.string.ttfx_audio), context.getString(R.string.ttfx_audio_help), accent, foreground, muted))
         column.addView(audio)
-        val intensity = seek(context, column, "Intensidad", 0, 10, current.intensity, foreground, muted)
-        val reactivity = seek(context, column, "Reactividad", 0, 5, current.reactivity, foreground, muted)
+        val intensity = seek(context, column, context.getString(R.string.ttfx_intensity), 0, 10, current.intensity, foreground, muted)
+        val reactivity = seek(context, column, context.getString(R.string.ttfx_reactivity), 0, 5, current.reactivity, foreground, muted)
 
         fun configFromControls() = TtfxConfig(
             enabled = enabled.isChecked,
@@ -149,11 +150,12 @@ object TtfxSettingsDialog {
         ready = true
         preview.submit(current.copy(audio = false))
         val scroll = ScrollView(context).apply { addView(column) }
+        SettingsDialogSurface.constrainContent(context, scroll, panelOpacity)
         val dialog = AlertDialog.Builder(context)
-            .setTitle("Editor TTFX")
+            .setTitle(R.string.ttfx_editor)
             .setView(scroll)
-            .setNegativeButton("Cancelar", null)
-            .setPositiveButton("Guardar") { _, _ ->
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.save) { _, _ ->
                 session.update(configFromControls())
                 session.commit(onSave)
             }
@@ -162,6 +164,7 @@ object TtfxSettingsDialog {
             handler.removeCallbacksAndMessages(null)
             session.cancel()
         }
+        dialog.setOnShowListener { SettingsDialogSurface.apply(dialog, panelOpacity) }
         dialog.show()
     }
 

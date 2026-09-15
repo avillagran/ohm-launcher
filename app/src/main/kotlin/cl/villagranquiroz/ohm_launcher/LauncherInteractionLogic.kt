@@ -11,6 +11,32 @@ internal object ScreenSharePermissionPolicy {
         started && !accessibilityEnabled
 }
 
+internal class LauncherBarDragState {
+    private var dragging = false
+
+    fun update(displacement: Float): Boolean {
+        if (displacement >= DRAG_SLOP_PX) dragging = true
+        return dragging
+    }
+
+    companion object {
+        const val DRAG_SLOP_PX = 16f
+    }
+}
+
+internal object SharedEdgeLayout {
+    fun centerOffsets(sizes: List<Int>, spacing: Int): List<Float> {
+        if (sizes.isEmpty()) return emptyList()
+        val total = sizes.sum() + spacing.coerceAtLeast(0) * (sizes.size - 1)
+        var cursor = -total / 2f
+        return sizes.map { size ->
+            val center = cursor + size / 2f
+            cursor += size + spacing.coerceAtLeast(0)
+            center
+        }
+    }
+}
+
 enum class LauncherVerticalAction {
     NONE,
     OPEN_DRAWER,
@@ -128,11 +154,16 @@ object OrbitalMenuGeometry {
         val centerX = width / 2f
         val centerY = height * .46f
         val base = min(width, height).toFloat()
+        val firstRingCount = if (count <= 9) count else min(count, 8)
         return (0 until count).map { index ->
-            val ring = if (index < 8) 0 else 1
-            val ringIndex = if (ring == 0) index else index - 8
-            val ringCount = if (ring == 0) min(count, 8) else count - 8
-            val radius = base * if (ring == 0) .27f else .43f
+            val ring = if (index < firstRingCount) 0 else 1
+            val ringIndex = if (ring == 0) index else index - firstRingCount
+            val ringCount = if (ring == 0) firstRingCount else count - firstRingCount
+            val radius = base * when {
+                ring == 1 -> .44f
+                count == 9 -> .37f
+                else -> .30f
+            }
             val angle = -Math.PI / 2 + 2 * Math.PI * ringIndex / ringCount.coerceAtLeast(1)
             OrbitalMenuPoint(
                 x = centerX + cos(angle).toFloat() * radius,

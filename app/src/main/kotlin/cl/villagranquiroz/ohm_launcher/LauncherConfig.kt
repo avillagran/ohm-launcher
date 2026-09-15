@@ -89,7 +89,7 @@ data class TtfxConfig(
             enabled = json.optBoolean("ttfxBackground", true),
             effect = json.optString("ttfxEffect", "matrix"),
             text = json.optString("ttfxText", "OHM"),
-            textSize = json.optInt("ttfxTextSize", 3).coerceIn(1, 7),
+            textSize = json.optInt("ttfxTextSize", 3).coerceIn(1, 12),
             textX = json.optDouble("ttfxTextX", 0.5).coerceIn(0.0, 1.0),
             textY = json.optDouble("ttfxTextY", 0.5).coerceIn(0.0, 1.0),
             audio = json.optBoolean("ttfxAudio", true),

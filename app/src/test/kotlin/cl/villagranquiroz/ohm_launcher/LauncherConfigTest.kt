@@ -6,6 +6,15 @@ import org.junit.Test
 
 class LauncherConfigTest {
     @Test
+    fun allowsLargerTtfxTextSizesForRasterizedCustomText() {
+        val twelve = LauncherConfig.parse("""{"desktops":[{"ttfxTextSize":12,"widgets":[]}]}""")
+        val clamped = LauncherConfig.parse("""{"desktops":[{"ttfxTextSize":99,"widgets":[]}]}""")
+
+        assertEquals(12, twelve.desktops.single().ttfx.textSize)
+        assertEquals(12, clamped.desktops.single().ttfx.textSize)
+    }
+
+    @Test
     fun retainsUnknownRootDataForCompatibleMutations() {
         val config = LauncherConfig.parse(
             """{"future":{"enabled":true},"desktops":[{"widgets":[]}]}""",
