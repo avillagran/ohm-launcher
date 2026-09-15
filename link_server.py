@@ -186,6 +186,71 @@ def push_theme_to_phone(state: dict, payload: dict, opener=urllib.request.urlope
         return False
 
 
+NOTIFICATION_FIELD_LIMITS = {
+    "id": 128,
+    "title": 120,
+    "message": 4000,
+    "source": 80,
+    "level": 16,
+    "channel": 80,
+    "timestamp": 64,
+}
+NOTIFICATION_LEVELS = ("info", "success", "warning", "error")
+MAX_NOTIFICATION_BODY = 8192
+
+
+class PayloadTooLarge(ValueError):
+    pass
+
+
+def validate_notification(data: dict) -> dict:
+    """Validate a notification payload before forwarding it to the phone."""
+    if not isinstance(data, dict):
+        raise ValueError("JSON body must be an object")
+    unknown = sorted(set(data) - set(NOTIFICATION_FIELD_LIMITS))
+    if unknown:
+        raise ValueError("unknown field: %s" % unknown[0])
+    if "message" not in data or data["message"] == "":
+        raise ValueError("message is required")
+    for field, limit in NOTIFICATION_FIELD_LIMITS.items():
+        if field not in data:
+            continue
+        value = data[field]
+        if not isinstance(value, str):
+            raise ValueError("%s must be a string" % field)
+        if len(value) > limit:
+            raise ValueError("%s must be at most %d characters" % (field, limit))
+    if "level" in data and data["level"] not in NOTIFICATION_LEVELS:
+        raise ValueError("level must be one of: %s" % ", ".join(NOTIFICATION_LEVELS))
+    return dict(data)
+
+
+def push_notification_to_phone(state: dict, payload: dict,
+                               opener=urllib.request.urlopen):
+    """Forward a notification to a connected phone and return its JSON reply."""
+    if not state.get("connected") or not state.get("peerIp"):
+        return None
+    host = str(state["peerIp"])
+    if ":" in host and not host.startswith("["):
+        host = "[%s]" % host
+    try:
+        port = int(state.get("peerPort", 8753))
+        body = json.dumps(payload).encode("utf-8")
+        request = urllib.request.Request(
+            "http://%s:%d/omarchy/notify" % (host, port),
+            data=body,
+            headers={"Content-Type": "application/json", "Content-Length": str(len(body))},
+            method="POST",
+        )
+        with opener(request, timeout=5) as response:
+            if not 200 <= int(response.status) < 300:
+                return None
+            decoded = json.loads(response.read().decode("utf-8") or "{}")
+            return decoded if isinstance(decoded, dict) else {"ok": True}
+    except (OSError, ValueError):
+        return None
+
+
 def parse_avahi_peer(output: str):
     candidates = []
     for line in output.splitlines():
@@ -266,7 +331,7 @@ def theme_sync_loop(stop_event=None) -> None:
 
 
 class Handler(BaseHTTPRequestHandler):
-    def _read_body(self) -> bytes:
+    def _read_body(self, max_bytes=None) -> bytes:
         """Read the request body, decoding Transfer-Encoding: chunked when
         present (dart:io's HttpClient sends chunked unless contentLength is
         set, and http.server does not decode it by itself)."""
@@ -284,10 +349,14 @@ class Handler(BaseHTTPRequestHandler):
                     while self.rfile.readline(65536) not in (b"\r\n", b"\n", b""):
                         pass
                     break
+                if max_bytes is not None and len(out) + size > max_bytes:
+                    raise PayloadTooLarge()
                 out += self.rfile.read(size)
                 self.rfile.read(2)  # trailing CRLF
             return bytes(out)
         length = int(self.headers.get("Content-Length", "0"))
+        if max_bytes is not None and length > max_bytes:
+            raise PayloadTooLarge()
         return self.rfile.read(length) if length else b""
 
     def _cors(self) -> None:
@@ -336,7 +405,41 @@ class Handler(BaseHTTPRequestHandler):
         return ip, port
 
     def do_POST(self):
-        if self.path == "/omarchy/link":
+        if self.path == "/omarchy/notify":
+            content_type = (self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+            if content_type != "application/json":
+                self._json(415, {"ok": False, "error": "content_type_must_be_json"})
+                return
+            try:
+                raw = self._read_body(MAX_NOTIFICATION_BODY)
+                data = json.loads(raw.decode("utf-8"))
+                payload = validate_notification(data)
+            except PayloadTooLarge:
+                self._json(413, {"ok": False, "error": "payload_too_large"})
+                return
+            except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
+                self._json(400, {"ok": False, "error": "invalid_request",
+                                 "detail": str(error)})
+                return
+            state = read_state()
+            discovered = False
+            if not state.get("connected") or not state.get("peerIp"):
+                state = discover_phone()
+                discovered = bool(state.get("connected") and state.get("peerIp"))
+            if not state.get("connected") or not state.get("peerIp"):
+                self._json(503, {"ok": False, "error": "phone_unavailable"})
+                return
+            if discovered:
+                persisted = dict(state)
+                persisted["linkPort"] = PORT
+                write_state(persisted)
+            phone_reply = push_notification_to_phone(state, payload)
+            if phone_reply is None:
+                self._json(503, {"ok": False, "error": "phone_delivery_failed"})
+                return
+            log("notification forwarded to connected phone")
+            self._json(200, {"ok": True, "delivered": True, "phone": phone_reply})
+        elif self.path == "/omarchy/link":
             try:
                 raw = self._read_body()
                 data = json.loads(raw.decode("utf-8") or "{}")
