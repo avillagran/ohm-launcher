@@ -103,7 +103,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = Color.TRANSPARENT
-        window.navigationBarColor = Color.TRANSPARENT
+        window.navigationBarColor = windowBackgroundColor(null)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
         root = NativeLauncherView(this)
         setContentView(root)
         runCatching {
@@ -931,12 +934,19 @@ class MainActivity : AppCompatActivity() {
             isAppearanceLightNavigationBars = darkIcons
         }
         window.statusBarColor = Color.TRANSPARENT
-        window.navigationBarColor = Color.TRANSPARENT
+        // Sólido (no transparente): un color de barra opaco viaja con la ventana
+        // durante las transiciones y evita el flash blanco al cambiar de app.
+        window.navigationBarColor = windowBackgroundColor(palette)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isStatusBarContrastEnforced = false
             window.isNavigationBarContrastEnforced = false
         }
     }
+
+    private fun windowBackgroundColor(palette: OmarchyThemePalette?): Int =
+        palette?.color("dark_background")
+            ?.let { runCatching { Color.parseColor(it) }.getOrNull() }
+            ?: 0xFF0B0F14.toInt()
 
     private fun showQuake(open: Boolean) {
         if (open && !currentSettings.quakeTerminal) return
