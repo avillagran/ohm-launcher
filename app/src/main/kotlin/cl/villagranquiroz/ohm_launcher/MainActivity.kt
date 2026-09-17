@@ -36,7 +36,6 @@ import java.util.concurrent.Executors
 import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
-    private val io = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
     private lateinit var root: NativeLauncherView
     private lateinit var storage: ConfigStorage
@@ -219,7 +218,6 @@ class MainActivity : AppCompatActivity() {
         if (::screenCapture.isInitialized) screenCapture.stop()
         lanAdvertiser?.stop()
         apiServer?.close()
-        io.shutdownNow()
         super.onDestroy()
     }
 
@@ -634,6 +632,7 @@ class MainActivity : AppCompatActivity() {
 
     fun saveDesktopTtfx(index: Int, settings: TtfxConfig) {
         editDesktopConfig { DesktopConfigEditor.updateTtfx(it, index, settings) }
+        if (settings.audio) ensureAudioPermission()
     }
 
     fun showPluginPicker(desktopIndex: Int) {
@@ -998,16 +997,16 @@ class MainActivity : AppCompatActivity() {
     )
 
     private fun reloadConfig() {
+        if (isDestroyed) return
         io.execute {
             runCatching { storage.read(configRoot) }
                 .onSuccess { config ->
                     currentConfig = config
                     runOnUiThread {
-                        root.submitConfig(config)
-                        if (config.desktops.any { it.ttfx.audio }) ensureAudioPermission()
+                        if (!isDestroyed) root.submitConfig(config)
                     }
                 }
-                .onFailure { error -> runOnUiThread { root.showConfigError(error.message.orEmpty()) } }
+                .onFailure { error -> runOnUiThread { if (!isDestroyed) root.showConfigError(error.message.orEmpty()) } }
         }
     }
 
@@ -1030,10 +1029,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun reloadPlugins() {
+        if (isDestroyed) return
         io.execute {
             pluginRepository.pluginsDirectory.mkdirs()
             val plugins = pluginRepository.discover()
             runOnUiThread {
+                if (isDestroyed) return@runOnUiThread
                 root.submitPlugins(plugins)
                 watchPlugins(plugins)
             }
@@ -1063,17 +1064,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun reloadRuntimeWidgets() {
+        if (isDestroyed) return
         io.execute {
             val widgets = runtimeWidgetStore.load()
-            runOnUiThread { root.submitRuntimeWidgets(widgets) }
+            runOnUiThread { if (!isDestroyed) root.submitRuntimeWidgets(widgets) }
         }
     }
 
     private fun reloadSettings() {
+        if (isDestroyed) return
         io.execute {
             runCatching { settingsStore.read() }.onSuccess { settings ->
                 currentSettings = settings
                 runOnUiThread {
+                    if (isDestroyed) return@runOnUiThread
                     root.submitSettings(settings)
                     applySystemTheme(settings)
                 }
@@ -1188,6 +1192,9 @@ class MainActivity : AppCompatActivity() {
     )
 
     companion object {
+        /** Executor de proceso: la activity puede destruirse y recrearse mientras
+         *  el proceso sigue vivo (servicios); nunca se apaga en onDestroy. */
+        private val io = Executors.newSingleThreadExecutor()
         private const val REQUEST_STORAGE = 4001
         private const val API_PORT = 8753
         private const val PEER_PROBE_INTERVAL_MS = 15_000L
