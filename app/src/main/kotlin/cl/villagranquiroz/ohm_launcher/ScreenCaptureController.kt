@@ -43,13 +43,21 @@ class ScreenCaptureController(
         if (!ScreenCaptureService.awaitForeground(3_000)) return false
         return runCatching {
             val metrics = context.resources.displayMetrics
-            val width = metrics.widthPixels
-            val height = metrics.heightPixels
+            // The viewer renders at most ~560px wide: capture at half resolution
+            // (VirtualDisplay scales, layout kept via halved dpi). That makes
+            // the JPEG encode ~4x cheaper so 15fps is actually sustainable,
+            // while status keeps reporting the REAL size so remote-control
+            // taps keep mapping onto full phone pixels.
+            val realWidth = metrics.widthPixels
+            val realHeight = metrics.heightPixels
+            val captureWidth = (realWidth / 2) and 1.inv()
+            val captureHeight = (realHeight / 2) and 1.inv()
+            val captureDpi = (metrics.densityDpi / 2).coerceAtLeast(120)
             val worker = HandlerThread("ohm-screen-capture").apply { start() }
             val handler = Handler(worker.looper)
             val projection = projectionManager.getMediaProjection(resultCode, Intent(data))
                 ?: error("MediaProjection consent was not accepted")
-            val imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
+            val imageReader = ImageReader.newInstance(captureWidth, captureHeight, PixelFormat.RGBA_8888, 2)
             projection.registerCallback(object : MediaProjection.Callback() {
                 override fun onStop() = stop(releaseProjection = false)
             }, handler)
@@ -60,15 +68,15 @@ class ScreenCaptureController(
                     if (now - lastFrameAt < FRAME_INTERVAL_MS) return@setOnImageAvailableListener
                     lastFrameAt = now
                     val plane = it.planes.firstOrNull() ?: return@setOnImageAvailableListener
-                    val paddedWidth = paddedBitmapWidth(width, plane.pixelStride, plane.rowStride)
-                    val padded = Bitmap.createBitmap(paddedWidth, height, Bitmap.Config.ARGB_8888)
+                    val paddedWidth = paddedBitmapWidth(captureWidth, plane.pixelStride, plane.rowStride)
+                    val padded = Bitmap.createBitmap(paddedWidth, captureHeight, Bitmap.Config.ARGB_8888)
                     try {
                         padded.copyPixelsFromBuffer(plane.buffer)
-                        val visible = if (paddedWidth == width) padded else Bitmap.createBitmap(padded, 0, 0, width, height)
+                        val visible = if (paddedWidth == captureWidth) padded else Bitmap.createBitmap(padded, 0, 0, captureWidth, captureHeight)
                         try {
                             val output = ByteArrayOutputStream()
                             if (visible.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, output)) {
-                                onFrame(output.toByteArray(), width, height)
+                                onFrame(output.toByteArray(), realWidth, realHeight)
                             }
                         } finally {
                             if (visible !== padded) visible.recycle()
@@ -80,9 +88,9 @@ class ScreenCaptureController(
             }, handler)
             val virtualDisplay = projection.createVirtualDisplay(
                 "ohm-screen",
-                width,
-                height,
-                metrics.densityDpi,
+                captureWidth,
+                captureHeight,
+                captureDpi,
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                 imageReader.surface,
                 null,
@@ -125,6 +133,6 @@ class ScreenCaptureController(
 
     companion object {
         private const val JPEG_QUALITY = 60
-        private const val FRAME_INTERVAL_MS = 100L
+        private const val FRAME_INTERVAL_MS = 66L
     }
 }

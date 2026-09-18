@@ -510,10 +510,13 @@ Panel {
           anchors.horizontalCenter: parent.horizontalCenter
         }
 
-        // Refresh the frame view + counter while sharing.
+        // Refresh the frame view + counter while sharing. 120ms polling plus
+        // the phone-side 15fps capture keeps the stream fluid (~7fps end to
+        // end through the LAN); the previous 500ms poll made it feel like
+        // slow screenshots.
         Timer {
           running: root.screenSharing
-          interval: 500
+          interval: 120
           repeat: true
           onTriggered: {
             var x = new XMLHttpRequest()
@@ -526,7 +529,8 @@ Panel {
                   if (j.h) root.screenH = j.h
                   if (j.frames && j.frames !== root.frameCount) {
                     root.frameCount = j.frames
-                    screenImage.source = ""
+                    // Keep the old frame visible until the new one lands:
+                    // no source reset, no white flash between frames.
                     screenImage.source = base() + "/omarchy/screen/frame?sequence=" + j.frames
                   }
                 } catch (e) {}
