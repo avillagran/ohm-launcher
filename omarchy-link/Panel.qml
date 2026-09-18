@@ -135,11 +135,41 @@ Panel {
     root.frameCount = 0
     screenImage.source = ""
     postOnly("/omarchy/screen/start")
+    screenRetry.start()
   }
   function stopScreen() {
     root.screenSharing = false
+    screenRetry.stop()
     screenImage.source = ""
     postOnly("/omarchy/screen/stop")
+  }
+  // Chained long-poll: the phone answers only when a frame newer than
+  // frameCount exists (or after 20s with 204), so frames arrive at capture
+  // speed instead of timer speed.
+  function pullScreenFrame() {
+    if (!root.screenSharing) return
+    var x = new XMLHttpRequest()
+    x.open("GET", base() + "/omarchy/screen/status?after=" + root.frameCount + "&timeout=20000")
+    x.onreadystatechange = function () {
+      if (x.readyState !== XMLHttpRequest.DONE) return
+      var advanced = false
+      if (x.status === 200) {
+        try {
+          var j = JSON.parse(x.responseText)
+          if (j.w) root.screenW = j.w
+          if (j.h) root.screenH = j.h
+          if (j.frames && j.frames !== root.frameCount) {
+            root.frameCount = j.frames
+            // Old frame stays visible until the new one is decoded: no flash.
+            screenImage.source = base() + "/omarchy/screen/frame?sequence=" + j.frames
+            advanced = true
+          }
+        } catch (e) {}
+      }
+      if (advanced) pullScreenFrame()
+      else screenRetry.start()
+    }
+    x.send()
   }
   function backupPhotos() {
     postOnly("/omarchy/photos/backup")
@@ -510,34 +540,15 @@ Panel {
           anchors.horizontalCenter: parent.horizontalCenter
         }
 
-        // Refresh the frame view + counter while sharing. 120ms polling plus
-        // the phone-side 15fps capture keeps the stream fluid (~7fps end to
-        // end through the LAN); the previous 500ms poll made it feel like
-        // slow screenshots.
+        // Push-over-HTTP frame pull (RedmiCam MjpegServer pattern, adapted to
+        // QML): each request blocks on the phone until a frame NEWER than the
+        // last one lands (~15fps capture speed, no fixed polling interval,
+        // no white flash between frames). 204/error -> short retry timer.
         Timer {
-          running: root.screenSharing
-          interval: 120
-          repeat: true
-          onTriggered: {
-            var x = new XMLHttpRequest()
-            x.open("GET", base() + "/omarchy/screen/status")
-            x.onreadystatechange = function () {
-              if (x.readyState === XMLHttpRequest.DONE) {
-                try {
-                  var j = JSON.parse(x.responseText)
-                  if (j.w) root.screenW = j.w
-                  if (j.h) root.screenH = j.h
-                  if (j.frames && j.frames !== root.frameCount) {
-                    root.frameCount = j.frames
-                    // Keep the old frame visible until the new one lands:
-                    // no source reset, no white flash between frames.
-                    screenImage.source = base() + "/omarchy/screen/frame?sequence=" + j.frames
-                  }
-                } catch (e) {}
-              }
-            }
-            x.send()
-          }
+          id: screenRetry
+          interval: 400
+          repeat: false
+          onTriggered: pullScreenFrame()
         }
 
         // Toggle to reveal the internal log (verification surface for an agent/user).

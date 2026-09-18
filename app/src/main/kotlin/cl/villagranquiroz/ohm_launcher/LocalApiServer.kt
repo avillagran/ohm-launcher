@@ -448,7 +448,30 @@ class LocalApiServer(
     ) {
         val directPath = target.substringBefore('?')
         if (method == "GET" && directPath == "/omarchy/screen/status") {
-            val status = screenFrames?.status() ?: ScreenFrameStatus(0, 0, 0, 0)
+            val query = target.substringAfter('?', "")
+            fun queryParam(name: String): String? =
+                query.split('&').firstOrNull { it.startsWith("$name=") }?.substringAfter('=', "")
+            val after = queryParam("after")?.toLongOrNull() ?: 0L
+            val timeoutMs = (queryParam("timeout")?.toLongOrNull() ?: 0L).coerceIn(0L, 25_000L)
+            val store = screenFrames
+            if (store != null && after > 0L && timeoutMs > 0L) {
+                // Long-poll: respond the moment a frame newer than `after` is
+                // captured instead of making the viewer poll on a timer. 204 on
+                // timeout so the client re-arms; socket soTimeout is 30s, so
+                // the 25s cap always answers before the socket is killed.
+                val frame = store.awaitNewerThan(after, timeoutMs)
+                if (frame == null) {
+                    writeResponse(output, 204, ByteArray(0), null)
+                } else {
+                    writeJson(
+                        output,
+                        200,
+                        mapOf("frames" to frame.sequence, "last" to frame.capturedAt, "w" to frame.width, "h" to frame.height),
+                    )
+                }
+                return
+            }
+            val status = store?.status() ?: ScreenFrameStatus(0, 0, 0, 0)
             writeJson(
                 output,
                 200,

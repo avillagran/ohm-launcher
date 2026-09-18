@@ -18,27 +18,53 @@ data class ScreenFrameStatus(
 
 /** Thread-safe latest-frame slot; slow viewers never create an unbounded queue. */
 class LatestScreenFrameStore {
+    private val lock = Object()
     private var latest: CapturedScreenFrame? = null
     private var sequence = 0L
 
-    @Synchronized
     fun update(jpeg: ByteArray, width: Int, height: Int) {
         require(jpeg.isNotEmpty() && width > 0 && height > 0)
-        sequence += 1
-        latest = CapturedScreenFrame(jpeg.copyOf(), width, height, sequence, System.currentTimeMillis())
+        synchronized(lock) {
+            sequence += 1
+            latest = CapturedScreenFrame(jpeg.copyOf(), width, height, sequence, System.currentTimeMillis())
+            // Wake long-polling viewers the instant a frame lands (push-over-HTTP).
+            lock.notifyAll()
+        }
     }
 
-    @Synchronized
-    fun snapshot(): CapturedScreenFrame? = latest?.copy(jpeg = latest!!.jpeg.copyOf())
+    /** Blocks until a frame newer than [sequence] arrives or [timeoutMs]
+     *  elapses (null then). The panel chains these to get push latency with
+     *  plain XMLHttpRequest — no fixed polling interval. */
+    fun awaitNewerThan(sequence: Long, timeoutMs: Long): CapturedScreenFrame? {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var remaining = timeoutMs
+        synchronized(lock) {
+            while (remaining > 0L) {
+                val current = latest
+                if (current != null && current.sequence > sequence) {
+                    return current.copy(jpeg = current.jpeg.copyOf())
+                }
+                lock.wait(remaining)
+                remaining = deadline - System.currentTimeMillis()
+            }
+        }
+        return null
+    }
 
-    @Synchronized
-    fun status(): ScreenFrameStatus = latest?.let {
-        ScreenFrameStatus(sequence, it.capturedAt, it.width, it.height)
-    } ?: ScreenFrameStatus(sequence, 0, 0, 0)
+    fun snapshot(): CapturedScreenFrame? = synchronized(lock) {
+        latest?.copy(jpeg = latest!!.jpeg.copyOf())
+    }
 
-    @Synchronized
+    fun status(): ScreenFrameStatus = synchronized(lock) {
+        latest?.let { ScreenFrameStatus(sequence, it.capturedAt, it.width, it.height) }
+            ?: ScreenFrameStatus(sequence, 0, 0, 0)
+    }
+
     fun clear() {
-        latest = null
-        sequence = 0
+        synchronized(lock) {
+            latest = null
+            sequence = 0
+            lock.notifyAll()
+        }
     }
 }
