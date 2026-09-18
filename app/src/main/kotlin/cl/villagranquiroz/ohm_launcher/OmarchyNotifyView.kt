@@ -114,7 +114,7 @@ class OmarchyNotifyView(
     private fun rounded(fill: Int, radius: Float, stroke: Int) = GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
         setColor(fill)
-        cornerRadius = radius
+        cornerRadius = OmarchyThemeShapeState.surfaceRadiusPx(radius, resources.displayMetrics.density)
         setStroke(dp(1), stroke)
     }
 

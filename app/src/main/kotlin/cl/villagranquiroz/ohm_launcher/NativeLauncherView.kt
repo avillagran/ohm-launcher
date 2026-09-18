@@ -29,6 +29,7 @@ import android.widget.LinearLayout
 import android.widget.Space
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.VideoView
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.recyclerview.widget.GridLayoutManager
@@ -47,12 +48,14 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     private data class EdgeBoxDrag(val id: String, val source: View)
     private data class EdgeItemDrag(val boxId: String, val itemIndex: Int, val source: View)
     private data class EdgeItemViewTag(val itemIndex: Int)
+    private data class EdgeBoxViewTag(val id: String)
 
     var onQuakeRequested: (() -> Unit)? = null
     var onQuakeCloseRequested: (() -> Unit)? = null
     var appWidgetHostController: AndroidAppWidgetHostController? = null
     private val desktopLayer = FrameLayout(context)
     private val wallpaper = ImageView(context)
+    private val videoWallpaper = VideoView(context)
     private val ttfx = NativeTtfxView(context)
     private val ttfxMini = TtfxMiniControlsView(context)
     private val content = WidgetGridLayout(context)
@@ -61,6 +64,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     private val commandContainer = FrameLayout(context)
     private val commandBar = LinearLayout(context)
     private val commandInput = EditText(context)
+    private val commandMenu = ImageView(context)
     private val commandToggle = TextView(context)
     private val commandResults = LinearLayout(context)
     private val drawer = FrameLayout(context)
@@ -110,7 +114,10 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     private var dragGlowAccent: Int = 0xFF66E0FF.toInt()
     private var dragSourceEdge: EdgePosition? = null
     private var orbitalMenu: OrbitalActionMenu? = null
+    private var omarchyMenu: OmarchyMenuOverlay? = null
+    private var themeSelector: OmarchyThemeSelectorOverlay? = null
     private var edgeBoxSettingsMenuId: String? = null
+
     private val favoritesWriter = Executors.newSingleThreadExecutor()
     private val appAdapter = AppAdapter(
         context = context,
@@ -171,7 +178,9 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                             startedInLowerHalf = first.y > height * .45f,
                         )
                     ) {
-                        LauncherVerticalAction.OPEN_DRAWER -> true.also { showDrawer(true) }
+                        LauncherVerticalAction.OPEN_OMARCHY_MENU -> true.also {
+                            showOmarchyLauncherMenu(OmarchyMenuOpenTrigger.SWIPE_UP)
+                        }
                         LauncherVerticalAction.CLOSE_DRAWER -> true.also { showDrawer(false) }
                         LauncherVerticalAction.OPEN_QUAKE -> true.also { onQuakeRequested?.invoke() }
                         LauncherVerticalAction.CLOSE_QUAKE, LauncherVerticalAction.NONE -> false
@@ -187,13 +196,26 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             override fun onDown(event: MotionEvent): Boolean = true
 
             override fun onDoubleTap(event: MotionEvent): Boolean {
-                if (!WidgetEditModePolicy.shouldExit(widgetEditing, 2)) return false
-                setWidgetEditing(false)
+                when (BackgroundTapPolicy.onDoubleTap(widgetEditing)) {
+                    BackgroundDoubleTapAction.OPEN_OMARCHY_MENU ->
+                        showOmarchyLauncherMenu(OmarchyMenuOpenTrigger.DOUBLE_TAP)
+                    BackgroundDoubleTapAction.EXIT_EDIT_AND_OPEN_OMARCHY_MENU -> {
+                        setWidgetEditing(false)
+                        showOmarchyLauncherMenu(OmarchyMenuOpenTrigger.DOUBLE_TAP)
+                    }
+                }
                 return true
             }
 
             override fun onLongPress(event: MotionEvent) {
-                if (!widgetEditing) showDesktopMenu()
+                when (BackgroundTapPolicy.onLongPress(widgetEditing)) {
+                    BackgroundDoubleTapAction.OPEN_OMARCHY_MENU ->
+                        showOmarchyLauncherMenu(OmarchyMenuOpenTrigger.LONG_PRESS)
+                    BackgroundDoubleTapAction.EXIT_EDIT_AND_OPEN_OMARCHY_MENU -> {
+                        setWidgetEditing(false)
+                        showOmarchyLauncherMenu(OmarchyMenuOpenTrigger.LONG_PRESS)
+                    }
+                }
             }
         },
     )
@@ -204,6 +226,8 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         addView(desktopLayer, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         wallpaper.scaleType = ImageView.ScaleType.CENTER_CROP
         desktopLayer.addView(wallpaper, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        desktopLayer.addView(videoWallpaper, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        videoWallpaper.visibility = GONE
         desktopLayer.addView(ttfx, LayoutParams(MATCH_PARENT, MATCH_PARENT))
 
         content.setPadding(dp(18), dp(52), dp(18), dp(110))
@@ -260,7 +284,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         drawer.alpha = 0f
 
         setOnLongClickListener {
-            showDesktopMenu()
+            showOmarchyLauncherMenu(OmarchyMenuOpenTrigger.LONG_PRESS)
             true
         }
         isLongClickable = true
@@ -268,12 +292,19 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        if (!widgetEditing && !drawerVisible && !quakeVisible && updateLauncherBarDrag(event)) return true
-        if (!widgetEditing) {
-            if (!quakeVisible) updateDrawerDrag(event)
+        val routeLauncherGestures = LauncherGestureGate.routeToDesktop(
+            widgetEditing = widgetEditing,
+            selectorVisible = themeSelector != null,
+        )
+        if (routeLauncherGestures && !drawerVisible && !quakeVisible && updateLauncherBarDrag(event)) return true
+        if (routeLauncherGestures) {
+            if (!quakeVisible && (drawerVisible || edgeBoxAppSelection != null)) updateDrawerDrag(event)
             gestures.onTouchEvent(event)
         }
         val handled = super.dispatchTouchEvent(event)
+        if (event.actionMasked == MotionEvent.ACTION_UP && orbitalMenu?.awaitsCloseRelease == true) {
+            orbitalMenu?.revealCloseAtAnchor()
+        }
         if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
             post { drawerGestureConsumed = false }
         }
@@ -369,7 +400,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         ghost.background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             setColor(alphaColor(accent, 0x1F))
-            cornerRadius = dp(settings.barRadius.toInt()).toFloat()
+            cornerRadius = surfaceRadius(dp(settings.barRadius.toInt()).toFloat())
             setStroke(dp(2), alphaColor(accent, 0xCC))
         }
         val edge = LauncherEdge.entries.first { EdgePosition.parse(it.wireValue) == target }
@@ -483,6 +514,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     private fun applySettingsNow(value: LauncherSettings, theme: OmarchyThemePalette?) {
         settings = value
         omarchyTheme = theme
+        OmarchyThemeShapeState.apply(theme)
         ttfx.submitTheme(omarchyTheme)
         applyThemeChrome()
         applyFavoriteBarSettings()
@@ -490,6 +522,14 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         renderFavorites()
         renderEdgeBoxes()
         renderDesktop()
+        if (theme?.hasSquareCorners == true) post { enforceSquareCorners(this) }
+    }
+
+    private fun enforceSquareCorners(view: View) {
+        (view.background?.current as? GradientDrawable)?.cornerRadius = 0f
+        if (view is ViewGroup) {
+            for (index in 0 until view.childCount) enforceSquareCorners(view.getChildAt(index))
+        }
     }
 
     fun submitApps(value: List<InstalledApp>) {
@@ -526,6 +566,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     }
 
     fun refreshAudioCapture() = ttfx.refreshAudioCapture()
+
 
     fun previewTtfx(desktop: Int, value: TtfxConfig) {
         if (desktop == desktopIndex) ttfx.submit(value)
@@ -597,12 +638,34 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         if (desktop.backgroundImage.isBlank()) {
             wallpaper.visibility = GONE
             wallpaper.setImageDrawable(null)
+            videoWallpaper.stopPlayback()
+            videoWallpaper.visibility = GONE
         } else {
             val uri = Uri.parse(desktop.backgroundImage).let { parsed ->
                 if (parsed.scheme == null) Uri.fromFile(java.io.File(desktop.backgroundImage)) else parsed
             }
-            wallpaper.setImageURI(uri)
-            wallpaper.visibility = VISIBLE
+            val extension = uri.lastPathSegment.orEmpty().substringAfterLast('.', "").lowercase()
+            if (extension in VIDEO_BACKGROUND_EXTENSIONS) {
+                wallpaper.visibility = GONE
+                wallpaper.setImageDrawable(null)
+                if (videoWallpaper.tag != uri.toString()) {
+                    videoWallpaper.tag = uri.toString()
+                    videoWallpaper.setVideoURI(uri)
+                    videoWallpaper.setOnPreparedListener { player ->
+                        player.isLooping = true
+                        videoWallpaper.start()
+                    }
+                } else if (!videoWallpaper.isPlaying) {
+                    videoWallpaper.start()
+                }
+                videoWallpaper.visibility = VISIBLE
+            } else {
+                videoWallpaper.stopPlayback()
+                videoWallpaper.visibility = GONE
+                videoWallpaper.tag = null
+                wallpaper.setImageURI(uri)
+                wallpaper.visibility = VISIBLE
+            }
         }
         ttfx.submit(desktop.ttfx)
         ttfxMini.submit(desktop.ttfx)
@@ -616,11 +679,12 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             content.addCentered(renderWidget(WidgetNode(raw.optString("type", "container"), raw)))
         }
         if (desktop.widgets.isEmpty() && runtimeWidgets.isEmpty()) {
+            val desktopText = themeColor("desktop_text", themeColor("accent", 0xFFBDEFFF.toInt()))
             content.addCentered(LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                addView(clockView("HH:mm"))
-                addView(label(context.getString(R.string.swipe_for_apps), 13f, 0xAA9FB3C8.toInt()))
+                addView(clockView("HH:mm", 58f, desktopText))
+                addView(label(context.getString(R.string.swipe_for_apps), 13f, alphaColor(desktopText, 0xAA)))
             })
         }
     }
@@ -629,7 +693,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         "clock" -> {
             val format = node.raw.optString("format", "HH:mm")
             val size = node.raw.optDouble("fontSize", node.raw.optDouble("size", 58.0)).toFloat()
-            val color = themeColor("accent", parseColor(node.raw.optString("color"), 0xFFBDEFFF.toInt()))
+            val color = themeColor("desktop_text", themeColor("accent", parseColor(node.raw.optString("color"), 0xFFBDEFFF.toInt())))
             if (ClockStylePolicy.isParticle(node.raw.optString("style"))) {
                 ParticleClockView(
                     context = context,
@@ -665,7 +729,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                     manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY),
                 ),
                 16f,
-                themeColor("accent", 0xFF66E0FF.toInt()),
+                themeColor("desktop_text", themeColor("accent", 0xFF66E0FF.toInt())),
             )
         }
         "apps_grid" -> appStrip(apps.take(node.raw.optInt("limit", 8)))
@@ -1066,6 +1130,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     }
 
     private fun renderEdgeBox(box: EdgeBoxConfig): View = LinearLayout(context).apply {
+        tag = EdgeBoxViewTag(box.id)
         val vertical = box.direction in setOf(EdgeDirection.VERTICAL, EdgeDirection.LIST)
         orientation = if (vertical) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER
@@ -1074,7 +1139,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             setColor(alphaColor(themeColor("dark_background", 0xFF141B22.toInt()), 0xD9))
-            cornerRadius = dp(settings.boxRadius.toInt()).toFloat()
+            cornerRadius = surfaceRadius(dp(settings.boxRadius.toInt()).toFloat())
             if (settings.boxBorderVisible) {
                 setStroke(dp(settings.boxBorderWidth.toInt().coerceIn(1, 8)), boxColor)
             } else {
@@ -1129,7 +1194,6 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         var downRawY = 0f
         var armed = false
         var dragStarted = false
-        var settingsOpened = false
         var cancelledBeforeArm = false
         val arm = Runnable {
             armed = true
@@ -1140,15 +1204,6 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 start()
             }
         }
-        val openSettings = Runnable {
-            if (!dragStarted) {
-                settingsOpened = true
-                armed = false
-                source.rotation = 0f
-                hideTrashDropTarget()
-                (context as? MainActivity)?.showEdgeBoxMenu(box.id)
-            }
-        }
         source.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
@@ -1156,10 +1211,8 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                     downRawY = event.rawY
                     armed = false
                     dragStarted = false
-                    settingsOpened = false
                     cancelledBeforeArm = false
                     clockHandler.postDelayed(arm, EdgeBoxInteractionState.ITEM_ACCEPT_MILLIS)
-                    clockHandler.postDelayed(openSettings, EdgeBoxInteractionState.SETTINGS_MILLIS)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -1170,10 +1223,8 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                     if (!armed && displacement > EdgeBoxInteractionState.STILLNESS_SLOP_PX) {
                         cancelledBeforeArm = true
                         clockHandler.removeCallbacks(arm)
-                        clockHandler.removeCallbacks(openSettings)
                     }
                     if (armed && !dragStarted && displacement > EdgeBoxInteractionState.STILLNESS_SLOP_PX) {
-                        clockHandler.removeCallbacks(openSettings)
                         dragStarted = source.startDragAndDrop(
                             ClipData.newPlainText("ohm-edge-item", "$itemIndex"),
                             View.DragShadowBuilder(source),
@@ -1186,10 +1237,9 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     clockHandler.removeCallbacks(arm)
-                    clockHandler.removeCallbacks(openSettings)
                     source.rotation = 0f
                     if (!dragStarted) hideTrashDropTarget()
-                    if (!armed && !dragStarted && !settingsOpened && !cancelledBeforeArm &&
+                    if (!armed && !dragStarted && !cancelledBeforeArm &&
                         event.actionMasked == MotionEvent.ACTION_UP
                     ) {
                         source.performClick()
@@ -1242,8 +1292,10 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     private fun installEdgeBoxGesture(source: View, box: EdgeBoxConfig) {
         var downRawX = 0f
         var downRawY = 0f
+        var armed = false
         var dragging = false
-        var settingsOpened = false
+        var cancelledBeforeArm = false
+        val taps = EdgeBoxDoubleTapState()
         fun dropTarget(rawX: Float, rawY: Float): EdgePosition? {
             val location = IntArray(2)
             edgeLayer.getLocationOnScreen(location)
@@ -1255,21 +1307,25 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 dp(120).toFloat(),
             )
         }
-        val openSettings = Runnable {
-            if (!dragging) {
-                settingsOpened = true
-                (context as? MainActivity)?.showEdgeBoxMenu(box.id)
-            }
+        val arm = Runnable {
+            armed = true
+            source.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            dragGlowAccent = runCatching { Color.parseColor(box.color) }.getOrNull()
+                ?: themeColor("accent", 0xFF66E0FF.toInt())
+            dragSourceEdge = box.edge
+            showTrashDropTarget()
+            showEdgeDropTargets(box.edge)
         }
         val listener = OnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downRawX = event.rawX
                     downRawY = event.rawY
+                    armed = false
                     dragging = false
-                    settingsOpened = false
-                    clockHandler.removeCallbacks(openSettings)
-                    clockHandler.postDelayed(openSettings, EdgeBoxInteractionState.SETTINGS_MILLIS)
+                    cancelledBeforeArm = false
+                    clockHandler.removeCallbacks(arm)
+                    clockHandler.postDelayed(arm, EdgeBoxInteractionState.ITEM_ACCEPT_MILLIS)
                     false
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -1277,18 +1333,13 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                         (event.rawX - downRawX).toDouble(),
                         (event.rawY - downRawY).toDouble(),
                     ).toFloat()
-                    if (displacement > EdgeBoxInteractionState.STILLNESS_SLOP_PX && !dragging) {
-                        clockHandler.removeCallbacks(openSettings)
-                        clockHandler.postDelayed(openSettings, EdgeBoxInteractionState.SETTINGS_MILLIS)
+                    if (!armed && displacement > EdgeBoxInteractionState.STILLNESS_SLOP_PX) {
+                        cancelledBeforeArm = true
+                        clockHandler.removeCallbacks(arm)
                     }
-                    if (!dragging && displacement >= EdgeBoxInteractionState.BOX_DRAG_SLOP_PX) {
-                        clockHandler.removeCallbacks(openSettings)
+                    if (armed && !dragging && displacement > EdgeBoxInteractionState.STILLNESS_SLOP_PX) {
                         dragging = true
                         edgeBoxDragging = true
-                        dragGlowAccent = runCatching { Color.parseColor(box.color) }.getOrNull()
-                            ?: themeColor("accent", 0xFF66E0FF.toInt())
-                        dragSourceEdge = box.edge
-                        showTrashDropTarget()
                         source.animate().alpha(.25f).scaleX(.92f).scaleY(.92f).setDuration(90).start()
                         showEdgeDropTargets(dropTarget(event.rawX, event.rawY))
                     }
@@ -1296,7 +1347,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                     dragging
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    clockHandler.removeCallbacks(openSettings)
+                    clockHandler.removeCallbacks(arm)
                     if (dragging) {
                         if (event.actionMasked == MotionEvent.ACTION_UP) {
                             val delete = trashDropTarget?.let { pointInside(it, event.rawX, event.rawY) } == true
@@ -1304,7 +1355,11 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                                 (context as? MainActivity)?.confirmRemoveEdgeBox(box.id, box.name)
                             } else {
                                 dropTarget(event.rawX, event.rawY)?.let { target ->
-                                    (context as? MainActivity)?.moveEdgeBox(box.id, target)
+                                    (context as? MainActivity)?.moveEdgeBox(
+                                        box.id,
+                                        target,
+                                        edgeBoxInsertionIndex(target, box.id, event.rawX, event.rawY),
+                                    )
                                 }
                             }
                         }
@@ -1313,8 +1368,14 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                         source.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(120).start()
                         edgeBoxDragging = false
                         dragSourceEdge = null
+                    } else {
+                        clearEdgeDropTargets()
+                        hideTrashDropTarget()
                     }
-                    dragging || settingsOpened
+                    val openMenu = event.actionMasked == MotionEvent.ACTION_UP &&
+                        !armed && !cancelledBeforeArm && taps.registerTap(event.eventTime)
+                    if (openMenu) (context as? MainActivity)?.showEdgeBoxMenu(box.id)
+                    dragging || armed || openMenu
                 }
                 else -> dragging
             }
@@ -1327,6 +1388,34 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         }
         source.isClickable = true
         attach(source)
+    }
+
+    private fun edgeBoxInsertionIndex(
+        edge: EdgePosition,
+        draggedId: String,
+        rawX: Float,
+        rawY: Float,
+    ): Int {
+        val group = edgeGroups[edge] as? ViewGroup ?: return 0
+        val location = IntArray(2)
+        group.getLocationOnScreen(location)
+        val coordinate = if (edge == EdgePosition.LEFT || edge == EdgePosition.RIGHT) {
+            rawY - location[1]
+        } else {
+            rawX - location[0]
+        }
+        val candidates = (0 until group.childCount)
+            .map(group::getChildAt)
+            .filter { (it.tag as? EdgeBoxViewTag)?.id != draggedId }
+        candidates.forEachIndexed { index, view ->
+            val center = if (edge == EdgePosition.LEFT || edge == EdgePosition.RIGHT) {
+                view.top + view.translationY + view.height / 2f
+            } else {
+                view.left + view.translationX + view.width / 2f
+            }
+            if (coordinate < center) return index
+        }
+        return candidates.size
     }
 
     private fun handleEdgeBoxDrag(event: DragEvent): Boolean {
@@ -1521,8 +1610,15 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         commandBar.apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(8), dp(6), dp(48), dp(6))
-            background = rounded(0xE6151D26.toInt(), dp(18).toFloat(), 0x5566E0FF)
+            setPadding(0, 0, dp(42), 0)
+            background = rounded(0xF21A1B26.toInt(), 0f, 0x331A1B26)
+        }
+        commandMenu.apply {
+            setImageResource(R.drawable.omarchy_logo)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            setPadding(dp(9), dp(9), dp(9), dp(9))
+            contentDescription = context.getString(R.string.menu_omarchy_launcher)
+            setOnClickListener { showOmarchyLauncherMenu() }
         }
         commandInput.apply {
             hint = context.getString(R.string.search_app)
@@ -1543,9 +1639,8 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 true
             }
         }
+        commandBar.addView(commandMenu, LinearLayout.LayoutParams(dp(46), dp(46)))
         commandBar.addView(commandInput, LinearLayout.LayoutParams(0, dp(44), 1f))
-        commandBar.addView(commandButton(context.getString(R.string.terminal)) { onQuakeRequested?.invoke() })
-        commandBar.addView(commandButton(context.getString(R.string.plugins)) { (context as? MainActivity)?.showPluginManager() })
         commandToggle.apply {
             gravity = Gravity.CENTER
             setTextColor(0xFF66E0FF.toInt())
@@ -1667,6 +1762,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         val sharesEdge = config.edgeBoxes.any { it.visible && it.edge == commandEdge } ||
             (settings.favoritesBarVisible && settings.favoritesBarPosition == settings.bottomBarPosition)
         commandBar.orientation = if (vertical) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+        commandMenu.layoutParams = LinearLayout.LayoutParams(dp(46), dp(46))
         commandInput.layoutParams = if (vertical) {
             LinearLayout.LayoutParams(dp(150), dp(48))
         } else {
@@ -1676,7 +1772,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             if (commandCollapsed) dp(42) else if (vertical) dp(190)
             else if (sharesEdge) (resources.displayMetrics.widthPixels * .48f).toInt()
             else MATCH_PARENT,
-            if (commandCollapsed) dp(42) else if (vertical) WRAP_CONTENT else dp(58),
+            if (commandCollapsed) dp(42) else if (vertical) WRAP_CONTENT else dp(48),
             when (settings.bottomBarPosition) {
                 LauncherEdge.TOP -> Gravity.TOP or Gravity.CENTER_HORIZONTAL
                 LauncherEdge.BOTTOM -> Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
@@ -1684,8 +1780,13 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 LauncherEdge.RIGHT -> Gravity.END or Gravity.CENTER_VERTICAL
             },
         ).apply {
-            val margin = dp(14)
-            setMargins(margin, dp(64), margin, dp(28))
+            val inset = OmarchyBarInsets.forEdge(settings.bottomBarPosition, dp(14))
+            setMargins(
+                inset.left,
+                inset.top + if (settings.bottomBarPosition == LauncherEdge.TOP) dp(28) else 0,
+                inset.right,
+                inset.bottom + if (settings.bottomBarPosition == LauncherEdge.BOTTOM) dp(28) else 0,
+            )
         }
         positionCommandResults()
         post(::arrangeSharedEdgeItems)
@@ -1693,12 +1794,13 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
 
     private fun applyThemeChrome() {
         val accent = themeColor("accent", 0xFF66E0FF.toInt())
+        val desktopText = themeColor("desktop_text", accent)
         val foreground = themeColor("foreground", Color.WHITE)
         val muted = themeColor("muted", 0xFF74869A.toInt())
         val surface = themeColor("lighter_background", 0xFF151D26.toInt())
         val dark = themeColor("dark_background", 0xFF0B0F14.toInt())
-        title.setTextColor(foreground)
-        commandBar.background = rounded(alphaColor(surface, 0xE6), dp(18).toFloat(), alphaColor(accent, 0x55))
+        title.setTextColor(desktopText)
+        commandBar.background = rounded(alphaColor(dark, 0xF2), 0f, alphaColor(dark, 0xF2))
         commandInput.setTextColor(foreground)
         commandInput.setHintTextColor(muted)
         commandToggle.setTextColor(accent)
@@ -1735,6 +1837,28 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             val keyboard = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
             keyboard.showSoftInput(drawerSearch, InputMethodManager.SHOW_IMPLICIT)
         }, 180)
+    }
+
+    fun handleBackPressed(): Boolean {
+        if (WidgetEditExitPolicy.consumeBack(widgetEditing)) {
+            orbitalMenu?.close()
+            setWidgetEditing(false)
+            return true
+        }
+        themeSelector?.let {
+            it.close()
+            return true
+        }
+        omarchyMenu?.let { return it.handleBack() }
+        orbitalMenu?.let {
+            it.close()
+            return true
+        }
+        if (drawerVisible) {
+            showDrawer(false)
+            return true
+        }
+        return false
     }
 
     private fun updatePickerConfirmState() {
@@ -1908,76 +2032,158 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         showEdgeBoxSettingsMenu(id)
     }
 
-    private fun desktopActions(): List<OrbitalAction> {
-        val activity = context as? MainActivity ?: return emptyList()
-        return mutableListOf(
-            OrbitalAction(NerdGlyph.LEFT, context.getString(R.string.menu_add_left)) { activity.addDesktop(desktopIndex, desktopIndex) },
-            OrbitalAction(NerdGlyph.RIGHT, context.getString(R.string.menu_add_right)) { activity.addDesktop(desktopIndex + 1, desktopIndex) },
-            OrbitalAction(NerdGlyph.TUNE, context.getString(R.string.menu_adjust)) { activity.showDesktopSettings(desktopIndex) },
-        ).apply {
-            if (config.desktops.size > 1) add(OrbitalAction(NerdGlyph.TRASH, context.getString(R.string.menu_delete)) { activity.deleteDesktop(desktopIndex) })
+
+    private fun showOmarchyLauncherMenu(trigger: OmarchyMenuOpenTrigger = OmarchyMenuOpenTrigger.LOGO_TAP) {
+        if (widgetEditing) setWidgetEditing(false)
+        if (orbitalMenu != null || omarchyMenu != null) return
+        dismissCommandInput()
+        val activity = context as? MainActivity ?: return
+        val menuApps = apps.ifEmpty { AppCatalog.query(context) }
+        val appEntries = menuApps.map { app ->
+            OmarchyMenuEntry(
+                icon = NerdGlyph.APPS,
+                label = app.label,
+                detail = app.packageName,
+                action = { AppCatalog.launch(context, app) },
+                iconKey = "${app.packageName}/${app.activityName}",
+                iconLoader = { AppCatalog.icon(context, app) },
+            )
         }
+        val syncedTheme = omarchyTheme
+        val notSynced = context.getString(R.string.menu_not_synced)
+        val entries = listOf(
+            OmarchyMenuEntry(NerdGlyph.APPS, context.getString(R.string.menu_apps), children = appEntries),
+            OmarchyMenuEntry(
+                NerdGlyph.STYLE,
+                context.getString(R.string.menu_style),
+                children = listOf(
+                    OmarchyMenuEntry(
+                        NerdGlyph.THEME,
+                        context.getString(R.string.menu_theme),
+                        detail = syncedTheme?.name ?: notSynced,
+                        action = activity::showOmarchyThemeSelector,
+                    ),
+                    OmarchyMenuEntry(
+                        NerdGlyph.IMAGE,
+                        context.getString(R.string.menu_background),
+                        detail = syncedTheme?.desktopBackground?.path ?: syncedTheme?.background?.name ?: notSynced,
+                        action = activity::showOmarchyBackgroundSelector,
+                    ),
+                    OmarchyMenuEntry(
+                        NerdGlyph.SYNC,
+                        context.getString(R.string.menu_sync_style),
+                        action = activity::syncStyleFromOmarchy,
+                    ),
+                ),
+            ),
+            OmarchyMenuEntry(
+                NerdGlyph.TUNE,
+                context.getString(R.string.menu_personalize),
+                children = listOf(
+                    OmarchyMenuEntry(
+                        NerdGlyph.EDIT,
+                        context.getString(if (widgetEditing) R.string.menu_exit_edit else R.string.menu_edit_widgets),
+                        action = { setWidgetEditing(!widgetEditing) },
+                    ),
+                    OmarchyMenuEntry(NerdGlyph.DESKTOP, context.getString(R.string.menu_desktop), action = { activity.showDesktopSettings(desktopIndex) }),
+                    OmarchyMenuEntry(NerdGlyph.SETTINGS, context.getString(R.string.menu_launcher), action = { activity.showLauncherSettings() }),
+                ),
+            ),
+            OmarchyMenuEntry(
+                NerdGlyph.DESKTOP,
+                context.getString(R.string.menu_desktops),
+                children = buildList {
+                    add(OmarchyMenuEntry(NerdGlyph.LEFT, context.getString(R.string.menu_add_left), action = { activity.addDesktop(desktopIndex, desktopIndex) }))
+                    add(OmarchyMenuEntry(NerdGlyph.RIGHT, context.getString(R.string.menu_add_right), action = { activity.addDesktop(desktopIndex + 1, desktopIndex) }))
+                    add(OmarchyMenuEntry(NerdGlyph.TUNE, context.getString(R.string.menu_adjust), action = { activity.showDesktopSettings(desktopIndex) }))
+                    if (config.desktops.size > 1) add(OmarchyMenuEntry(NerdGlyph.TRASH, context.getString(R.string.menu_delete), action = { activity.deleteDesktop(desktopIndex) }))
+                },
+            ),
+            OmarchyMenuEntry(
+                NerdGlyph.ADD,
+                context.getString(R.string.menu_add),
+                children = listOf(
+                    OmarchyMenuEntry(NerdGlyph.WIDGETS, context.getString(R.string.menu_android_widget), action = { activity.showSystemWidgetPicker(desktopIndex) }),
+                    OmarchyMenuEntry(NerdGlyph.PUZZLE, context.getString(R.string.menu_plugin), action = { activity.showPluginPicker(desktopIndex) }),
+                    OmarchyMenuEntry(NerdGlyph.BELL, context.getString(R.string.omarchy_notify), action = { activity.addOmarchyNotifyWidget(desktopIndex) }),
+                    OmarchyMenuEntry(NerdGlyph.BOX, context.getString(R.string.menu_box), action = { activity.showAddEdgeBoxDialog() }),
+                ),
+            ),
+            OmarchyMenuEntry(NerdGlyph.PUZZLE, context.getString(R.string.menu_plugins), action = { activity.showPluginManager() }),
+            OmarchyMenuEntry(
+                NerdGlyph.LINK,
+                context.getString(R.string.menu_omarchy),
+                children = listOf(
+                    OmarchyMenuEntry(NerdGlyph.BLUETOOTH, context.getString(R.string.menu_bluetooth), action = { activity.scanOmarchyBluetooth() }),
+                    OmarchyMenuEntry(NerdGlyph.QR, context.getString(R.string.menu_show_qr), action = { activity.showOmarchyQr() }),
+                    OmarchyMenuEntry(NerdGlyph.CAMERA, context.getString(R.string.menu_read_qr), action = { activity.readOmarchyQr() }),
+                ),
+            ),
+            OmarchyMenuEntry(
+                NerdGlyph.SETTINGS,
+                context.getString(R.string.menu_system),
+                children = buildList {
+                    if (OmarchySystemMenuPolicy.showDefaultLauncherShortcut(activity.isDefaultLauncher())) {
+                        add(OmarchyMenuEntry(NerdGlyph.HOME, context.getString(R.string.menu_home_launcher), action = { activity.requestDefaultLauncher() }))
+                    }
+                    if (OmarchySystemMenuPolicy.showNotificationAccessShortcut(notificationListenerEnabled())) {
+                        add(OmarchyMenuEntry(NerdGlyph.BELL, context.getString(R.string.menu_notification_access), action = { activity.openNotificationAccessSettings() }))
+                    }
+                    add(OmarchyMenuEntry(NerdGlyph.HAND, context.getString(R.string.menu_gestures), action = { activity.openAccessibilitySettings() }))
+                    add(OmarchyMenuEntry(NerdGlyph.STORAGE, context.getString(R.string.menu_storage), action = { activity.requestPublicStorageAccess() }))
+                },
+            ),
+        )
+        val foreground = themeColor("foreground", 0xFFC0CAF5.toInt())
+        val muted = themeColor("muted", 0xFF565F89.toInt())
+        val accent = themeColor("accent", 0xFF7AA2F7.toInt())
+        val overlay = OmarchyMenuOverlay(
+            context = context,
+            rootEntries = entries,
+            searchEntries = appEntries,
+            colors = OmarchyMenuOverlay.Colors(
+                background = themeColor("background", 0xFF1A1B26.toInt()),
+                foreground = foreground,
+                border = alphaColor(foreground, 0x66),
+                scrim = alphaColor(themeColor("dark_background", 0xFF16161E.toInt()), 0xB0),
+                selectedBackground = themeColor("lighter_background", 0xFF24283B.toInt()),
+                selectedText = accent,
+                muted = muted,
+            ),
+            onDismissed = { omarchyMenu = null },
+        ).also { addView(it, LayoutParams(MATCH_PARENT, MATCH_PARENT)) }
+        omarchyMenu = overlay
+        if (OmarchyMenuInputPolicy.focusInput(trigger)) overlay.focusInput()
     }
 
-    private fun showDesktopMenu() {
-        if (orbitalMenu != null) return
-        val activity = context as? MainActivity ?: return
-        val actions = mutableListOf<OrbitalAction>()
-        if (!activity.isDefaultLauncher()) {
-            actions += OrbitalAction(NerdGlyph.HOME, context.getString(R.string.menu_home_launcher)) {
-                activity.requestDefaultLauncher()
-            }
-        }
-        if (!notificationListenerEnabled()) {
-            actions += OrbitalAction(NerdGlyph.BELL, context.getString(R.string.menu_notification_access)) {
-                activity.openNotificationAccessSettings()
-            }
-        }
-        actions += listOf(
-            OrbitalAction(NerdGlyph.DESKTOP, context.getString(R.string.menu_desktops)) { showOrbital(desktopActions()) },
-            OrbitalAction(NerdGlyph.TUNE, context.getString(R.string.menu_personalize)) {
-                showOrbital(
-                    listOf(
-                        OrbitalAction(
-                            NerdGlyph.EDIT,
-                            context.getString(if (widgetEditing) R.string.menu_exit_edit else R.string.menu_edit_widgets),
-                        ) { setWidgetEditing(!widgetEditing) },
-                        OrbitalAction(NerdGlyph.DESKTOP, context.getString(R.string.menu_desktop)) { activity.showDesktopSettings(desktopIndex) },
-                        OrbitalAction(NerdGlyph.SETTINGS, context.getString(R.string.menu_launcher)) { activity.showLauncherSettings() },
-                    ),
-                )
+    fun showOmarchyThemeSelector(
+        catalog: OmarchyThemeCatalog,
+        previewLoader: (OmarchyThemeChoice) -> ByteArray?,
+        onApply: (OmarchyThemeChoice) -> Unit,
+    ) {
+        themeSelector?.close()
+        val foreground = themeColor("foreground", 0xFFC0CAF5.toInt())
+        val background = themeColor("background", 0xFF1A1B26.toInt())
+        lateinit var selector: OmarchyThemeSelectorOverlay
+        selector = OmarchyThemeSelectorOverlay(
+            context = context,
+            catalog = catalog,
+            colors = OmarchyThemeSelectorOverlay.Colors(
+                foreground = foreground,
+                background = background,
+                scrim = alphaColor(themeColor("dark_background", 0xFF16161E.toInt()), 0xD9),
+                selectedBorder = themeColor("accent", 0xFF7AA2F7.toInt()),
+                unselectedBorder = alphaColor(foreground, 0x47),
+            ),
+            previewLoader = previewLoader,
+            onApply = { choice ->
+                selector.close()
+                onApply(choice)
             },
-            OrbitalAction(NerdGlyph.ADD, context.getString(R.string.menu_add)) {
-                showOrbital(
-                    listOf(
-                        OrbitalAction(NerdGlyph.WIDGETS, context.getString(R.string.menu_android_widget)) { activity.showSystemWidgetPicker(desktopIndex) },
-                        OrbitalAction(NerdGlyph.PUZZLE, context.getString(R.string.menu_plugin)) { activity.showPluginPicker(desktopIndex) },
-                        OrbitalAction(NerdGlyph.BELL, context.getString(R.string.omarchy_notify)) { activity.addOmarchyNotifyWidget(desktopIndex) },
-                        OrbitalAction(NerdGlyph.BOX, context.getString(R.string.menu_box)) { activity.showAddEdgeBoxDialog() },
-                    ),
-                )
-            },
-            OrbitalAction(NerdGlyph.PUZZLE, context.getString(R.string.menu_plugins)) { activity.showPluginManager() },
-            OrbitalAction(NerdGlyph.LINK, context.getString(R.string.menu_omarchy)) {
-                showOrbital(
-                    listOf(
-                        OrbitalAction(NerdGlyph.BLUETOOTH, context.getString(R.string.menu_bluetooth)) { activity.scanOmarchyBluetooth() },
-                        OrbitalAction(NerdGlyph.QR, context.getString(R.string.menu_show_qr)) { activity.showOmarchyQr() },
-                        OrbitalAction(NerdGlyph.CAMERA, context.getString(R.string.menu_read_qr)) { activity.readOmarchyQr() },
-                    ),
-                )
-            },
-            OrbitalAction(NerdGlyph.SETTINGS, context.getString(R.string.menu_system)) {
-                showOrbital(
-                    listOf(
-                        OrbitalAction(NerdGlyph.HOME, context.getString(R.string.menu_home_launcher)) { activity.requestDefaultLauncher() },
-                        OrbitalAction(NerdGlyph.HAND, context.getString(R.string.menu_gestures)) { activity.openAccessibilitySettings() },
-                        OrbitalAction(NerdGlyph.STORAGE, context.getString(R.string.menu_storage)) { activity.requestPublicStorageAccess() },
-                    ),
-                )
-            },
+            onDismissed = { if (themeSelector === selector) themeSelector = null },
         )
-        showOrbital(actions)
+        themeSelector = selector
+        addView(selector, LayoutParams(MATCH_PARENT, MATCH_PARENT))
     }
 
     private fun notificationListenerEnabled(): Boolean {
@@ -1994,14 +2200,20 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         backgroundAlpha: Int = 0xD9,
         dismissOnBackgroundTap: Boolean = true,
         edgeBoxMenuId: String? = null,
+        anchorX: Float? = null,
+        anchorY: Float? = null,
+        closeAtRelease: Boolean = false,
     ) {
-        if (orbitalMenu != null) return
+        if (orbitalMenu != null || omarchyMenu != null) return
         orbitalMenu = OrbitalActionMenu(
             context = context,
             actions = actions,
             accent = themeColor("accent", 0xFF66E0FF.toInt()),
             backgroundAlpha = backgroundAlpha,
             dismissOnBackgroundTap = dismissOnBackgroundTap,
+            anchorX = anchorX,
+            anchorY = anchorY,
+            closeAtRelease = closeAtRelease,
             onDismissed = {
                 orbitalMenu = null
                 if (edgeBoxSettingsMenuId == edgeBoxMenuId) edgeBoxSettingsMenuId = null
@@ -2020,9 +2232,12 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     private fun rounded(fill: Int, radius: Float, stroke: Int) = GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
         setColor(fill)
-        cornerRadius = radius
+        cornerRadius = surfaceRadius(radius)
         setStroke(dp(1), stroke)
     }
+
+    private fun surfaceRadius(requestedPx: Float): Float =
+        OmarchyThemeShapeState.surfaceRadiusPx(requestedPx, resources.displayMetrics.density)
 
     private fun themeColor(role: String, fallback: Int): Int =
         omarchyTheme?.color(role)?.let { runCatching { Color.parseColor(it) }.getOrNull() } ?: fallback
@@ -2085,6 +2300,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     }
 
     private companion object {
+        val VIDEO_BACKGROUND_EXTENSIONS = setOf("mp4", "webm", "mkv", "m4v", "mov", "avi")
         const val THEME_TRANSITION_OUT_MILLIS = 170L
         const val THEME_TRANSITION_IN_MILLIS = 330L
         const val THEME_TRANSITION_MID_ALPHA = 0.18f

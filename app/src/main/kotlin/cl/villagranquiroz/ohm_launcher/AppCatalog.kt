@@ -1,8 +1,11 @@
 package cl.villagranquiroz.ohm_launcher
 
 import android.content.Context
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.drawable.Drawable
+import android.util.LruCache
 
 data class InstalledApp(
     val label: String,
@@ -11,6 +14,8 @@ data class InstalledApp(
 )
 
 object AppCatalog {
+    private val iconCache = LruCache<String, Drawable.ConstantState>(128)
+
     fun query(context: Context): List<InstalledApp> {
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
         val flags = if (android.os.Build.VERSION.SDK_INT >= 33) {
@@ -44,5 +49,17 @@ object AppCatalog {
         val intent = Intent().setClassName(app.packageName, app.activityName)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
         context.startActivity(intent)
+    }
+
+    fun icon(context: Context, app: InstalledApp): Drawable? {
+        val key = "${app.packageName}/${app.activityName}"
+        iconCache.get(key)?.let { return it.newDrawable(context.resources) }
+        val icon = runCatching {
+            context.packageManager.getActivityIcon(ComponentName(app.packageName, app.activityName))
+        }.recoverCatching {
+            context.packageManager.getApplicationIcon(app.packageName)
+        }.getOrNull()
+        icon?.constantState?.let { iconCache.put(key, it) }
+        return icon
     }
 }

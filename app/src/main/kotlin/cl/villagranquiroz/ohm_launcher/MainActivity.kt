@@ -4,7 +4,9 @@ import android.Manifest
 import android.app.role.RoleManager
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.net.nsd.NsdManager
 import android.os.Build
@@ -22,16 +24,19 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
-import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import java.io.File
 import java.net.NetworkInterface
+import java.security.MessageDigest
 import java.util.concurrent.Executors
 import org.json.JSONObject
 
@@ -73,11 +78,18 @@ class MainActivity : AppCompatActivity() {
     private val pluginReload = Runnable { reloadPlugins() }
     @Volatile private var currentConfig = LauncherConfig.parse(ConfigStorage.DEFAULT_CONFIG)
     @Volatile private var currentSettings = LauncherSettings.parse("{}")
+    @Volatile private var syncedThemeCatalog: OmarchyThemeCatalog? = null
+    @Volatile private var pendingThemeSelection: String? = null
+    @Volatile private var syncedBackgroundCatalog: OmarchyBackgroundCatalog? = null
+    private val pendingBackgroundSelection = OmarchyPendingSelection()
+    private lateinit var backgroundSyncStore: OmarchyBackgroundSyncStore
+    private val bundledThemeCatalog: OmarchyThemeCatalog by lazy(::loadBundledThemeCatalog)
     private val screenConsent = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val data = result.data ?: return@registerForActivityResult
-        val started = ::screenCapture.isInitialized && screenCapture.start(result.resultCode, data)
-        if (started) {
-            connectionState.setScreenSharing(true)
+        if (::screenCapture.isInitialized) {
+            screenCapture.start(result.resultCode, data) { started ->
+                connectionState.setScreenSharing(started)
+            }
         }
         // No second dialog here: the remote-control (accessibility) prompt
         // appears lazily on the first input attempt, so starting the share
@@ -101,14 +113,21 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = Color.TRANSPARENT
-        window.navigationBarColor = windowBackgroundColor(null)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            window.isNavigationBarContrastEnforced = false
-        }
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(LauncherSystemBarPolicy.navigationBarColor()),
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) window.isNavigationBarContrastEnforced = false
         root = NativeLauncherView(this)
         setContentView(root)
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (root.handleBackPressed()) return
+                isEnabled = false
+                onBackPressedDispatcher.onBackPressed()
+                isEnabled = true
+            }
+        })
         runCatching {
             EmbeddedToolsInstaller(filesDir, assets::open).install(Build.SUPPORTED_ABIS.toList())
         }.onFailure { error ->
@@ -160,21 +179,25 @@ class MainActivity : AppCompatActivity() {
             privateRoot = (getExternalFilesDir(null) ?: filesDir).resolve("OhmLauncher"),
         )
         configRoot = storage.initialize(canUsePublicStorage())
+        syncedThemeCatalog = loadSyncedThemeCatalog()
+        backgroundSyncStore = OmarchyBackgroundSyncStore(configRoot)
+        syncedBackgroundCatalog = backgroundSyncStore.load()
         settingsStore = LauncherSettingsStore(
             configRoot.resolve(LauncherSettingsStore.FILE_NAME),
             configRoot.resolve(ConfigStorage.CONFIG_NAME),
         )
         currentSettings = settingsStore.read()
         root.submitSettings(currentSettings)
+        currentConfig = runCatching { storage.read(configRoot) }.getOrElse { currentConfig }
+        root.submitConfig(currentConfig)
         applySystemTheme(currentSettings)
         pluginRepository = PluginRepository(configRoot)
         runtimeWidgetStore = RuntimeWidgetStore(configRoot.resolve("runtime_widgets.json"))
         notificationStore = OmarchyNotificationStore(configRoot.resolve("omarchy_notifications.json"))
         seedBuiltInPlugins()
         startApiServer()
-        restorePeer()
-        reloadConfig()
         startWatcher()
+        restorePeer()
         reloadPlugins()
         reloadRuntimeWidgets()
         root.submitNotifications(notificationStore.load())
@@ -496,8 +519,8 @@ class MainActivity : AppCompatActivity() {
         editDesktopConfig { DesktopConfigEditor.deleteDesktop(it, desktopIndex) }
     }
 
-    fun moveEdgeBox(id: String, edge: EdgePosition) {
-        editDesktopConfig { DesktopConfigEditor.moveEdgeBox(it, id, edge) }
+    fun moveEdgeBox(id: String, edge: EdgePosition, targetIndex: Int? = null) {
+        editDesktopConfig { DesktopConfigEditor.moveEdgeBox(it, id, edge, targetIndex) }
     }
 
     fun moveEdgeBoxItem(sourceBoxId: String, sourceIndex: Int, targetBoxId: String, targetIndex: Int) {
@@ -920,6 +943,12 @@ class MainActivity : AppCompatActivity() {
 
                 override fun load(): List<OmarchyNotification> = notificationStore.load()
             },
+            onThemeCatalogPut = ::persistSyncedThemeCatalog,
+            onThemeSelectionGet = ::themeSelectionSnapshot,
+            onThemeSelectionAck = ::acknowledgeThemeSelection,
+            onBackgroundCatalogPut = ::persistSyncedBackgroundCatalog,
+            onBackgroundSelectionGet = ::backgroundSelectionSnapshot,
+            onBackgroundSelectionAck = ::acknowledgeBackgroundSelection,
         ).also(LocalApiServer::start)
         apiServer?.takeIf(LocalApiServer::isRunning)?.let { server ->
             val registrar = AndroidNsdRegistrar(getSystemService(NsdManager::class.java))
@@ -939,35 +968,82 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyOmarchyTheme(payload: JSONObject) {
-        val updated = settingsStore.updateOmarchyTheme(payload)
+        val normalized = withDesktopTextColor(payload)
+        val updated = settingsStore.updateOmarchyTheme(normalized)
         currentSettings = updated
         runOnUiThread {
             root.submitSettings(updated)
             applySystemTheme(updated)
         }
+        val palette = OmarchyThemePalette.parse(normalized)
+        val peer = updated.omarchyPeer
+        palette.background?.let { background ->
+            val pushed = resolvePushedBackground(background)
+            when {
+                pushed != null -> io.execute { applySyncedBackground(pushed, palette.desktopBackground) }
+                peer != null -> io.execute { syncBackgroundFromPeer(peer, background, palette.desktopBackground) }
+            }
+        }
     }
+
+    private fun withDesktopTextColor(payload: JSONObject): JSONObject {
+        val normalized = JSONObject(payload.toString())
+        val palette = OmarchyThemePalette.parse(normalized)
+        val desktopText = OmarchyDesktopTextPolicy.preferredColor(palette.colors)
+        if (desktopText != null) normalized.getJSONObject("colors").put("desktop_text", desktopText)
+        return normalized
+    }
+
+    private fun sampleBackground(file: File): IntArray = runCatching {
+        val extension = file.extension.lowercase()
+        val bitmap = if (extension in setOf("mp4", "webm", "mkv", "m4v", "mov", "avi")) {
+            MediaMetadataRetriever().run {
+                try {
+                    setDataSource(file.absolutePath)
+                    frameAtTime
+                } finally {
+                    release()
+                }
+            }
+        } else {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(file.absolutePath, bounds)
+            var sample = 1
+            while (bounds.outWidth / sample > 256 || bounds.outHeight / sample > 256) sample *= 2
+            BitmapFactory.decodeFile(file.absolutePath, BitmapFactory.Options().apply { inSampleSize = sample })
+        } ?: return@runCatching IntArray(0)
+        try {
+            val step = maxOf(1, kotlin.math.sqrt((bitmap.width.toLong() * bitmap.height / 4096.0)).toInt())
+            buildList {
+                for (y in 0 until bitmap.height step step) {
+                    for (x in 0 until bitmap.width step step) add(bitmap.getPixel(x, y))
+                }
+            }.toIntArray()
+        } finally {
+            bitmap.recycle()
+        }
+    }.getOrDefault(IntArray(0))
 
     private fun applySystemTheme(settings: LauncherSettings) {
         val palette = OmarchyThemePalette.fromSettings(settings.raw)
         val darkIcons = palette?.useDarkSystemIcons == true
-        WindowInsetsControllerCompat(window, root).apply {
-            isAppearanceLightStatusBars = darkIcons
-            isAppearanceLightNavigationBars = darkIcons
-        }
-        window.statusBarColor = Color.TRANSPARENT
-        // Sólido (no transparente): un color de barra opaco viaja con la ventana
-        // durante las transiciones y evita el flash blanco al cambiar de app.
-        window.navigationBarColor = windowBackgroundColor(palette)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            window.isStatusBarContrastEnforced = false
-            window.isNavigationBarContrastEnforced = false
-        }
+        enableEdgeToEdge(
+            statusBarStyle = if (darkIcons) {
+                SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+            } else {
+                SystemBarStyle.dark(Color.TRANSPARENT)
+            },
+            navigationBarStyle = if (darkIcons) {
+                SystemBarStyle.light(
+                    LauncherSystemBarPolicy.navigationBarColor(),
+                    LauncherSystemBarPolicy.navigationBarColor(),
+                )
+            } else {
+                SystemBarStyle.dark(LauncherSystemBarPolicy.navigationBarColor())
+            },
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) window.isNavigationBarContrastEnforced = false
     }
-
-    private fun windowBackgroundColor(palette: OmarchyThemePalette?): Int =
-        palette?.color("dark_background")
-            ?.let { runCatching { Color.parseColor(it) }.getOrNull() }
-            ?: 0xFF0B0F14.toInt()
 
     private fun showQuake(open: Boolean) {
         if (open && !currentSettings.quakeTerminal) return
@@ -1185,8 +1261,246 @@ class MainActivity : AppCompatActivity() {
 
     private fun syncThemeFromPeer(peer: OmarchyPeer) {
         val palette = peerClient.fetchTheme(peer) ?: return
-        if (palette == OmarchyThemePalette.fromSettings(currentSettings.raw)) return
-        applyOmarchyTheme(palette.toJson())
+        if (palette != OmarchyThemePalette.fromSettings(currentSettings.raw)) {
+            applyOmarchyTheme(palette.toJson())
+        } else {
+            palette.background?.let { syncBackgroundFromPeer(peer, it, palette.desktopBackground) }
+        }
+    }
+
+    fun syncStyleFromOmarchy() {
+        val peer = currentSettings.omarchyPeer ?: run {
+            root.showConfigError(getString(R.string.menu_style_not_connected))
+            return
+        }
+        io.execute { syncThemeFromPeer(peer) }
+    }
+
+    fun showOmarchyThemeSelector() {
+        val bundled = bundledThemeCatalog
+        val synced = syncedThemeCatalog
+        val themes = linkedMapOf<String, OmarchyThemeChoice>()
+        bundled.themes.forEach { themes[it.id] = it }
+        synced?.themes?.forEach { themes[it.id] = it }
+        if (themes.isEmpty()) {
+            root.showConfigError(getString(R.string.theme_selector_unavailable))
+            return
+        }
+        val current = OmarchyThemePalette.fromSettings(currentSettings.raw)?.name
+            ?: synced?.current
+            ?: bundled.current
+        val catalog = OmarchyThemeCatalog(current, themes.values.toList())
+        root.showOmarchyThemeSelector(
+            catalog = catalog,
+            previewLoader = ::loadSyncedThemePreview,
+            onApply = { choice ->
+                choice.palette?.let { applyOmarchyTheme(it.toJson()) }
+                if (currentSettings.omarchyPeer != null) pendingThemeSelection = choice.id
+            },
+        )
+    }
+
+    fun showOmarchyBackgroundSelector() {
+        syncedBackgroundCatalog?.takeIf { it.backgrounds.isNotEmpty() }?.let { catalog ->
+            showBackgroundCatalog(catalog, backgroundSyncStore::loadPreview)
+            return
+        }
+        val peer = currentSettings.omarchyPeer ?: run {
+            root.showConfigError(getString(R.string.menu_style_not_connected))
+            return
+        }
+        io.execute {
+            val catalog = peerClient.fetchBackgrounds(peer)
+            if (catalog == null || catalog.backgrounds.isEmpty()) {
+                runOnUiThread {
+                    if (!isDestroyed) root.showConfigError(getString(R.string.background_selector_unavailable))
+                }
+                return@execute
+            }
+            val backgroundsById = catalog.backgrounds.associateBy { it.id }
+            val pickerCatalog = OmarchyThemeCatalog(
+                current = catalog.current.id,
+                themes = catalog.backgrounds.map { background ->
+                    OmarchyThemeChoice(background.id, background.label, background.preview)
+                },
+            )
+            runOnUiThread {
+                if (isDestroyed) return@runOnUiThread
+                root.showOmarchyThemeSelector(
+                    catalog = pickerCatalog,
+                    previewLoader = { choice ->
+                        backgroundsById[choice.id]
+                            ?.takeIf { it.hasPreview }
+                            ?.let { peerClient.fetchBackgroundPreview(peer, it) }
+                    },
+                    onApply = { choice ->
+                        pendingBackgroundSelection.select(choice.id)
+                    },
+                )
+            }
+        }
+    }
+
+    private fun showBackgroundCatalog(
+        catalog: OmarchyBackgroundCatalog,
+        previewLoader: (OmarchyBackgroundChoice) -> ByteArray?,
+    ) {
+        val backgroundsById = catalog.backgrounds.associateBy { it.id }
+        root.showOmarchyThemeSelector(
+            catalog = OmarchyThemeCatalog(
+                current = catalog.current.id,
+                themes = catalog.backgrounds.map { background ->
+                    OmarchyThemeChoice(background.id, background.label, background.previewPath.orEmpty())
+                },
+            ),
+            previewLoader = { choice -> backgroundsById[choice.id]?.let(previewLoader) },
+            onApply = { choice -> pendingBackgroundSelection.select(choice.id) },
+        )
+    }
+
+    private fun persistSyncedBackgroundCatalog(payload: JSONObject) {
+        backgroundSyncStore.persist(payload)?.let { syncedBackgroundCatalog = it }
+    }
+
+    private fun backgroundSelectionSnapshot(): JSONObject = pendingBackgroundSelection.snapshot()
+
+    private fun acknowledgeBackgroundSelection(payload: JSONObject) {
+        pendingBackgroundSelection.acknowledge(payload)
+    }
+
+    private fun parseSyncedThemeCatalog(payload: JSONObject): OmarchyThemeCatalog? = runCatching {
+        val current = payload.optString("current")
+        val array = payload.getJSONArray("themes")
+        check(array.length() in 1..256)
+        val shared = configRoot.resolve("shared").canonicalFile
+        val themes = buildList {
+            for (index in 0 until array.length()) {
+                val item = array.getJSONObject(index)
+                val id = item.getString("id")
+                check(Regex("^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$").matches(id))
+                val rawPreview = item.optString("previewPath")
+                val preview = rawPreview.takeIf(String::isNotBlank)?.let(::File)?.canonicalFile
+                if (preview != null) check(preview.path.startsWith(shared.path + File.separator) && preview.isFile)
+                add(
+                    OmarchyThemeChoice(
+                        id,
+                        item.optString("label", id),
+                        preview?.absolutePath.orEmpty(),
+                        item.optJSONObject("palette")?.let(OmarchyThemePalette::parse),
+                    ),
+                )
+            }
+        }
+        check(themes.distinctBy { it.id }.size == themes.size)
+        OmarchyThemeCatalog(current, themes)
+    }.getOrNull()
+
+    private fun persistSyncedThemeCatalog(payload: JSONObject) {
+        val parsed = parseSyncedThemeCatalog(payload) ?: return
+        val file = configRoot.resolve("omarchy_theme_catalog.json")
+        val temporary = configRoot.resolve(".omarchy_theme_catalog.tmp")
+        temporary.writeText(payload.toString(2))
+        check(temporary.renameTo(file) || temporary.copyTo(file, overwrite = true).let { temporary.delete() })
+        syncedThemeCatalog = parsed
+    }
+
+    private fun loadSyncedThemeCatalog(): OmarchyThemeCatalog? = runCatching {
+        val file = configRoot.resolve("omarchy_theme_catalog.json")
+        if (!file.isFile) null else parseSyncedThemeCatalog(JSONObject(file.readText()))
+    }.getOrNull()
+
+    private fun loadBundledThemeCatalog(): OmarchyThemeCatalog = runCatching {
+        val root = JSONObject(assets.open("omarchy/themes/catalog.json").bufferedReader().use { it.readText() })
+        val array = root.getJSONArray("themes")
+        val themes = buildList {
+            for (index in 0 until array.length()) {
+                val item = array.getJSONObject(index)
+                add(
+                    OmarchyThemeChoice(
+                        id = item.getString("id"),
+                        label = item.getString("label"),
+                        previewPath = "asset://${item.getString("previewAsset")}",
+                        palette = OmarchyThemePalette.parse(item.getJSONObject("palette")),
+                    ),
+                )
+            }
+        }
+        OmarchyThemeCatalog(root.optString("current", "matte-black"), themes)
+    }.getOrElse { OmarchyThemeCatalog("", emptyList()) }
+
+    private fun loadSyncedThemePreview(choice: OmarchyThemeChoice): ByteArray? = runCatching {
+        if (choice.previewPath.startsWith("asset://")) {
+            return@runCatching assets.open(choice.previewPath.removePrefix("asset://")).use { it.readBytes() }
+        }
+        val shared = configRoot.resolve("shared").canonicalFile
+        val file = File(choice.previewPath).canonicalFile
+        check(file.isFile && file.path.startsWith(shared.path + File.separator))
+        check(file.length() in 1..(16L * 1024L * 1024L))
+        file.readBytes()
+    }.getOrNull()
+
+    private fun themeSelectionSnapshot(): JSONObject {
+        val id = pendingThemeSelection
+        return if (id == null) JSONObject().put("pending", false)
+        else JSONObject().put("pending", true).put("id", id)
+    }
+
+    private fun acknowledgeThemeSelection(payload: JSONObject) {
+        val id = payload.optString("id")
+        if (id.isNotEmpty() && pendingThemeSelection == id) pendingThemeSelection = null
+    }
+
+    private fun syncBackgroundFromPeer(
+        peer: OmarchyPeer,
+        background: OmarchyThemeBackground,
+        desktopBackground: OmarchyDesktopBackground?,
+    ) {
+        val directory = filesDir.resolve("omarchy-style")
+        val file = peerClient.fetchThemeBackground(peer, background, directory) ?: return
+        applySyncedBackground(file, desktopBackground)
+    }
+
+    private fun resolvePushedBackground(background: OmarchyThemeBackground): File? = runCatching {
+        val shared = configRoot.resolve("shared").canonicalFile
+        val file = File(background.phonePath ?: return null).canonicalFile
+        if (!file.isFile || !file.path.startsWith(shared.path + File.separator)) return null
+        file.takeIf { sha256(it) == background.sha256 }
+    }.getOrNull()
+
+    private fun applySyncedBackground(file: File, desktopBackground: OmarchyDesktopBackground?) {
+        val directory = filesDir.resolve("omarchy-style")
+        runCatching {
+            val configFile = configRoot.resolve(ConfigStorage.CONFIG_NAME)
+            val document = JSONObject(configFile.readText())
+            val desktops = document.optJSONArray("desktops") ?: return@runCatching
+            for (index in 0 until desktops.length()) {
+                desktops.optJSONObject(index)?.let { desktop ->
+                    OmarchyDesktopBackgroundApplier.apply(desktop, desktopBackground, file.absolutePath)
+                }
+            }
+            storage.write(configRoot, document.toString(2))
+            val updatedConfig = storage.read(configRoot)
+            currentConfig = updatedConfig
+            runOnUiThread { if (!isDestroyed) root.submitConfig(updatedConfig) }
+            directory.listFiles()
+                ?.filter { it.isFile && it != file }
+                ?.forEach(File::delete)
+        }.onFailure { error ->
+            runOnUiThread { root.showConfigError(error.message.orEmpty()) }
+        }
+    }
+
+    private fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     private fun disconnectPeer() {

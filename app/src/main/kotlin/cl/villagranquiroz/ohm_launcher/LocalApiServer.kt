@@ -74,6 +74,12 @@ class LocalApiServer(
     private val omarchyAdapter: OmarchyApiAdapter? = null,
     private val screenFrames: LatestScreenFrameStore? = null,
     private val notificationChannel: OmarchyNotificationChannel? = null,
+    private val onThemeCatalogPut: ((JSONObject) -> Unit)? = null,
+    private val onThemeSelectionGet: (() -> JSONObject)? = null,
+    private val onThemeSelectionAck: ((JSONObject) -> Unit)? = null,
+    private val onBackgroundCatalogPut: ((JSONObject) -> Unit)? = null,
+    private val onBackgroundSelectionGet: (() -> JSONObject)? = null,
+    private val onBackgroundSelectionAck: ((JSONObject) -> Unit)? = null,
     private val lanMode: Boolean = false,
 ) : Closeable {
     @Volatile
@@ -447,6 +453,61 @@ class LocalApiServer(
         output: java.io.OutputStream,
     ) {
         val directPath = target.substringBefore('?')
+        if (directPath == "/omarchy/themes/catalog" && method == "PUT") {
+            val body = parseBoundedObject(bodyStream, MAX_JSON_BODY_BYTES)
+            if (body == null) writeJson(output, 400, mapOf("error" to "invalid_json"))
+            else {
+                onThemeCatalogPut?.invoke(body)
+                writeJson(output, 200, mapOf("ok" to true))
+            }
+            return
+        }
+        if (directPath == "/omarchy/themes/selection" && method == "GET") {
+            writeResponse(
+                output,
+                200,
+                (onThemeSelectionGet?.invoke() ?: JSONObject().put("pending", false)).toString().toByteArray(StandardCharsets.UTF_8),
+                "application/json; charset=utf-8",
+            )
+            return
+        }
+        if (directPath == "/omarchy/themes/selection/ack" && method == "PUT") {
+            val body = parseBoundedObject(bodyStream, MAX_JSON_BODY_BYTES)
+            if (body == null) writeJson(output, 400, mapOf("error" to "invalid_json"))
+            else {
+                onThemeSelectionAck?.invoke(body)
+                writeJson(output, 200, mapOf("ok" to true))
+            }
+            return
+        }
+        if (directPath == "/omarchy/backgrounds/catalog" && method == "PUT") {
+            val body = parseBoundedObject(bodyStream, MAX_JSON_BODY_BYTES)
+            if (body == null) writeJson(output, 400, mapOf("error" to "invalid_json"))
+            else {
+                onBackgroundCatalogPut?.invoke(body)
+                writeJson(output, 200, mapOf("ok" to true))
+            }
+            return
+        }
+        if (directPath == "/omarchy/backgrounds/selection" && method == "GET") {
+            writeResponse(
+                output,
+                200,
+                (onBackgroundSelectionGet?.invoke() ?: JSONObject().put("pending", false)).toString()
+                    .toByteArray(StandardCharsets.UTF_8),
+                "application/json; charset=utf-8",
+            )
+            return
+        }
+        if (directPath == "/omarchy/backgrounds/selection/ack" && method == "PUT") {
+            val body = parseBoundedObject(bodyStream, MAX_JSON_BODY_BYTES)
+            if (body == null) writeJson(output, 400, mapOf("error" to "invalid_json"))
+            else {
+                onBackgroundSelectionAck?.invoke(body)
+                writeJson(output, 200, mapOf("ok" to true))
+            }
+            return
+        }
         if (method == "GET" && directPath == "/omarchy/screen/status") {
             val query = target.substringAfter('?', "")
             fun queryParam(name: String): String? =

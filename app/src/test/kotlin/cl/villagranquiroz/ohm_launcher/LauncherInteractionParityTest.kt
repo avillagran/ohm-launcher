@@ -55,7 +55,7 @@ class LauncherInteractionParityTest {
             ),
         )
         assertEquals(
-            LauncherVerticalAction.OPEN_DRAWER,
+            LauncherVerticalAction.OPEN_OMARCHY_MENU,
             LauncherGesturePolicy.verticalAction(
                 quakeVisible = false,
                 drawerVisible = false,
@@ -85,6 +85,34 @@ class LauncherInteractionParityTest {
         assertTrue(CommandBarFocusPolicy.shouldDismiss(hasFocus = true, backgroundPressed = true))
         assertFalse(CommandBarFocusPolicy.shouldDismiss(hasFocus = false, backgroundPressed = true))
         assertFalse(CommandBarFocusPolicy.shouldDismiss(hasFocus = true, backgroundPressed = false))
+    }
+
+    @Test
+    fun openingMenuWhileEditingFirstExitsWidgetEditMode() {
+        assertEquals(BackgroundDoubleTapAction.OPEN_OMARCHY_MENU, BackgroundTapPolicy.onDoubleTap(editing = false))
+        assertEquals(BackgroundDoubleTapAction.EXIT_EDIT_AND_OPEN_OMARCHY_MENU, BackgroundTapPolicy.onDoubleTap(editing = true))
+        assertEquals(BackgroundDoubleTapAction.OPEN_OMARCHY_MENU, BackgroundTapPolicy.onLongPress(editing = false))
+        assertEquals(BackgroundDoubleTapAction.EXIT_EDIT_AND_OPEN_OMARCHY_MENU, BackgroundTapPolicy.onLongPress(editing = true))
+    }
+
+    @Test
+    fun backExitsWidgetEditModeBeforeLeavingTheLauncher() {
+        assertTrue(WidgetEditExitPolicy.consumeBack(editing = true))
+        assertFalse(WidgetEditExitPolicy.consumeBack(editing = false))
+    }
+
+    @Test
+    fun themeAndBackgroundSelectorsOwnSwipesWithoutChangingDesktop() {
+        assertTrue(LauncherGestureGate.routeToDesktop(widgetEditing = false, selectorVisible = false))
+        assertFalse(LauncherGestureGate.routeToDesktop(widgetEditing = false, selectorVisible = true))
+        assertFalse(LauncherGestureGate.routeToDesktop(widgetEditing = true, selectorVisible = false))
+    }
+
+    @Test
+    fun omarchySearchBarIsFlushWithItsConfiguredScreenEdge() {
+        LauncherEdge.entries.forEach { edge ->
+            assertEquals(BarInsets(0, 0, 0, 0), OmarchyBarInsets.forEdge(edge, 14))
+        }
     }
 
     @Test
@@ -156,6 +184,31 @@ class LauncherInteractionParityTest {
 
         assertTrue(points.all { it.ring == 0 })
         assertEquals(9, points.map { it.x to it.y }.distinct().size)
+    }
+
+    @Test
+    fun longPressOrbitalMenuOpensAroundTheFingerAndStaysOnScreen() {
+        val points = OrbitalMenuGeometry.positions(
+            count = 6,
+            width = 1080,
+            height = 2400,
+            anchorX = 70f,
+            anchorY = 2100f,
+            itemWidth = 104,
+            itemHeight = 84,
+        )
+
+        assertTrue(points.all { it.x in 52f..1028f })
+        assertTrue(points.all { it.y in 42f..2358f })
+        assertTrue(points.map { it.x }.average() < 400.0)
+        assertTrue(points.map { it.y }.average() > 1700.0)
+    }
+
+    @Test
+    fun longPressActionsDeploySequentiallyAndCloseAppearsAfterRelease() {
+        assertEquals(listOf(0L, 70L, 140L, 210L), (0..3).map(OrbitalMenuMotion::actionDelayMillis))
+        assertEquals(1_000L, OrbitalMenuMotion.CLOSE_REVEAL_DELAY_MILLIS)
+        assertEquals(OrbitalMenuPoint(37f, 2363f, 0), OrbitalMenuMotion.closeCenter(10f, 2390f, 1080, 2400, 74, 74))
     }
 
     @Test

@@ -8,7 +8,7 @@
 #
 # Output: /tmp/omarchy-link-qr.png  (overwritten)
 #
-# The QR encodes: omarchy://<ip>:<port>?id=<id>
+# The QR includes a random pairing token. Remote API calls without it are denied.
 # The phone scans it with the system camera; Android routes the omarchy://
 # intent to OhmLauncher, which connects back to this PC.
 set -euo pipefail
@@ -17,12 +17,16 @@ IP="${1:-}"
 PORT="${2:-8753}"
 ID="${3:-omarchy-pc}"
 OUT="/tmp/omarchy-link-qr.png"
+TOKEN_FILE="/tmp/omarchy-link-token"
 
 if [ -z "$IP" ]; then
   IP="$(ip -4 addr show 2>/dev/null | grep -oP 'inet \K[0-9.]+' | grep -v '^127\.' | head -1)"
 fi
 [ -n "$IP" ] || { echo "could not detect LAN IP" >&2; exit 1; }
 
-URI="omarchy://${IP}:${PORT}?id=${ID}"
+umask 077
+TOKEN="$(openssl rand -hex 16)"
+printf '%s' "$TOKEN" > "$TOKEN_FILE"
+URI="omarchy://${IP}:${PORT}?id=${ID}&token=${TOKEN}"
 qrencode -o "$OUT" -s 8 -m 2 "$URI"
 echo "wrote $OUT -> $URI"

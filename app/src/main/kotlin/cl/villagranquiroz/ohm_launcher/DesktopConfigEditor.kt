@@ -51,18 +51,27 @@ object DesktopConfigEditor {
         return root.toString(2)
     }
 
-    fun moveEdgeBox(source: String, id: String, edge: EdgePosition): String {
+    fun moveEdgeBox(source: String, id: String, edge: EdgePosition, targetIndex: Int? = null): String {
         val root = JSONObject(source)
         val boxes = root.optJSONArray("edgeBoxes") ?: error("edgeBoxes is missing")
-        val box = (0 until boxes.length())
-            .mapNotNull(boxes::optJSONObject)
-            .firstOrNull { it.optString("id") == id }
+        val boxList = (0 until boxes.length()).mapNotNull(boxes::optJSONObject).toMutableList()
+        val box = boxList.firstOrNull { it.optString("id") == id }
             ?: error("edge box not found: $id")
         box.put("edge", edge.jsonName)
         box.put(
             "direction",
             if (edge == EdgePosition.LEFT || edge == EdgePosition.RIGHT) "vertical" else "horizontal",
         )
+        if (targetIndex != null) {
+            boxList.remove(box)
+            val targetBoxes = boxList.filter { it.optString("edge") == edge.jsonName }
+            val insertion = targetIndex.coerceIn(0, targetBoxes.size)
+            val globalIndex = targetBoxes.getOrNull(insertion)?.let(boxList::indexOf)
+                ?: targetBoxes.lastOrNull()?.let { boxList.indexOf(it) + 1 }
+                ?: boxList.size
+            boxList.add(globalIndex.coerceIn(0, boxList.size), box)
+            root.put("edgeBoxes", org.json.JSONArray(boxList))
+        }
         return root.toString(2)
     }
 

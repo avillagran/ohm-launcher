@@ -11,6 +11,7 @@
 
 import QtQuick
 import Quickshell
+import qs.Commons
 import qs.Ui
 
 BarWidget {
@@ -56,15 +57,25 @@ BarWidget {
     }
   }
 
-  // Bar button: Android icon; turns accent when connected -------------------
+  // Connection is a semantic status: keep it visibly green regardless of the
+  // active theme accent so a synchronized phone is recognizable at a glance.
   BarIconButton {
     id: button
     anchors.fill: parent
     bar: root.bar
     active: panelLoader.item && panelLoader.item.connected
     useActiveColor: true
-    activeColor: "#4caf50"
-    iconComponent: Component { AndroidIcon { color: button.active ? "#4caf50" : (root.bar ? root.bar.foreground : "#ffffff") } }
+    activeColor: panelLoader.item
+      ? panelLoader.item.connectionColor
+      : "#4ade80"
+    iconComponent: Component {
+      AndroidIcon {
+        cutoutColor: Color.background
+        color: button.active
+          ? button.activeColor
+          : (root.bar ? root.bar.foreground : Color.foreground)
+      }
+    }
     tooltipText: panelLoader.item && panelLoader.item.connected
       ? "OhmLauncher connected (" + panelLoader.item.peerName + ")"
       : "Open OhmLauncher Link"

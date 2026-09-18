@@ -34,9 +34,12 @@ Panel {
   // Port of THIS pc's link_server (for local status polls + QR generation).
   // Reported by link_server.py in the state file so the panel never assumes 8753.
   property int linkPort: 8753
-  property bool showLog: true
+  // Keep the diagnostics available without making them the panel's default focus.
+  property bool showLog: false
   property bool screenSharing: false
   property bool screenExpanded: false
+  property bool showPairing: false
+  property bool pairingDismissed: false
   property int frameCount: 0
   // Phone pixel size (from /omarchy/screen/status) for remote-control mapping.
   property int screenW: 0
@@ -49,6 +52,12 @@ Panel {
   property var anchorItem: null
   property var hostWidget: null
 
+  readonly property color accentColor: Color.accent
+  readonly property color connectionColor: "#4ade80"
+  readonly property color surfaceColor: Style.normalFillFor(root.barForeground, root.accentColor)
+  readonly property color surfaceBorder: Style.normalBorderFor(root.barForeground, root.accentColor)
+  readonly property int surfaceRadius: Style.cornerRadius
+
   // Apply the link-state JSON written by link_server.py (phone -> pc notify).
   function applyState(text) {
     try {
@@ -56,12 +65,19 @@ Panel {
       root.connected = d.connected === true
       root.peerIp = d.peerIp || ""
       root.peerName = d.peerName || ""
+      if (root.connected) root.showPairing = false
       if (d.peerPort) root.peerPort = parseInt(d.peerPort, 10)
       if (d.linkPort) root.linkPort = parseInt(d.linkPort, 10)
     } catch (e) { /* ignore malformed */ }
   }
 
-  function open() { controller.show(); regenerateQr(); serverTimer.restart() }
+  function open() {
+    controller.show()
+    refreshConnectionState()
+    if ((!root.connected && !root.pairingDismissed) || root.showPairing)
+      regenerateQr()
+    serverTimer.restart()
+  }
   function close() { controller.hide() }
   function switchPanel(direction) {
     if (root.bar && typeof root.bar.switchPanelFrom === "function")
@@ -81,6 +97,18 @@ Panel {
   }
 
   function base() { return "http://" + root.peerIp + ":" + root.peerPort }
+
+  // FileView remains the event-driven source, while this cheap local probe
+  // repairs stale bar state after helper/shell restarts or missed file events.
+  function refreshConnectionState() {
+    const x = new XMLHttpRequest()
+    x.open("GET", "http://127.0.0.1:" + String(root.linkPort) + "/omarchy/link")
+    x.onreadystatechange = function () {
+      if (x.readyState === XMLHttpRequest.DONE && x.status === 200)
+        root.applyState(x.responseText)
+    }
+    x.send()
+  }
 
   // Generic JSON GET against the OhmLauncher contract.
   function getJson(path, onOk, onErr) {
@@ -293,6 +321,14 @@ Panel {
     onLoaded: root.applyState(text())
   }
 
+  Timer {
+    interval: 2000
+    repeat: true
+    running: true
+    triggeredOnStart: true
+    onTriggered: root.refreshConnectionState()
+  }
+
   FileView {
     id: serverLogFile
     path: "/tmp/ls.log"
@@ -329,270 +365,448 @@ Panel {
       Column {
         id: content
         width: parent.width
-        spacing: Style.space(8)
+        spacing: Style.spacing.panelGap
         Translation { id: i18n }
 
-        Text {
+        // Compact brand block: mark, product name, peer, and state all read as
+        // one header instead of unrelated title/status lines.
+        Row {
           width: parent.width
-          text: i18n.t("title")
-          color: root.barForeground
-          font.family: root.bar ? root.bar.fontFamily : Style.font.family
-          font.pixelSize: Style.font.subtitle
-          font.bold: true
-        }
+          spacing: Style.spacing.md
 
-        Text {
-          width: parent.width
-          text: root.connected
-            ? i18n.t("connected", root.peerName, root.peerIp)
-            : i18n.t("notConnected")
-          color: root.barForeground
-          font.family: root.bar ? root.bar.fontFamily : Style.font.family
-          font.pixelSize: Style.font.body
-        }
+          Rectangle {
+            width: Style.space(34)
+            height: width
+            radius: root.surfaceRadius
+            color: root.connected
+              ? Style.selectedFillFor(root.barForeground, root.connectionColor)
+              : root.surfaceColor
+            border.width: Style.normalBorderWidth
+            border.color: root.connected ? root.connectionColor : root.surfaceBorder
 
-        // QR for the phone to scan and connect back to THIS pc.
-        // Generated as a PNG by make_qr.sh (Quickshell/Omarchy has no built-in
-        // QR painter). Regenerated when the panel opens. Hidden once connected.
-        Image {
-          id: qrImage
-          visible: !root.connected
-          width: 160; height: 160
-          fillMode: Image.PreserveAspectFit
-          source: "file:///tmp/omarchy-link-qr.png"
-          anchors.horizontalCenter: parent.horizontalCenter
-        }
+            AndroidIcon {
+              anchors.centerIn: parent
+              width: Style.space(18)
+              height: width
+              color: root.connected ? root.connectionColor : root.barForeground
+            }
+          }
 
-        // Hint: the system camera scanner on some phones (e.g. Xiaomi/HyperOS)
-        // does not open custom URI schemes, so Google Lens is the reliable way
-        // to trigger the omarchy:// deep link.
-        Text {
-          visible: !root.connected
-          width: parent.width
-          text: "(" + i18n.t("useGoogleLens") + ")"
-          color: root.barForeground
-          opacity: 0.7
-          horizontalAlignment: Text.AlignHCenter
-          font.family: root.bar ? root.bar.fontFamily : Style.font.family
-          font.pixelSize: Style.font.caption
-        }
+          Column {
+            width: parent.width - Style.space(34) - Style.spacing.md * 2 - statusMark.width
+            spacing: Style.spacing.xxs
 
-        // Once connected, the QR is no longer needed. This re-shows it to link
-        // an additional phone (the server keeps listening for more peers).
-        WidgetButton {
-          visible: root.connected
-          text: i18n.t("linkMore")
-          bar: root.bar
-          onPressed: function (b) {
-            if (b === 1) { regenerateQr(); qrImage.visible = true }
+            Text {
+              width: parent.width
+              text: i18n.t("title")
+              color: root.barForeground
+              font.family: root.bar ? root.bar.fontFamily : Style.font.family
+              font.pixelSize: Style.font.subtitle
+              font.bold: true
+              elide: Text.ElideRight
+            }
+            Text {
+              width: parent.width
+              text: root.connected
+                ? ((root.peerName || "OhmLauncher") + " · " + root.peerIp)
+                : i18n.t("notConnected")
+              color: root.connected ? root.connectionColor : root.barForeground
+              opacity: root.connected ? 1 : 0.62
+              font.family: root.bar ? root.bar.fontFamily : Style.font.family
+              font.pixelSize: Style.font.caption
+              elide: Text.ElideRight
+            }
+          }
+
+          Rectangle {
+            id: statusMark
+            width: Style.space(8)
+            height: width
+            anchors.verticalCenter: parent.verticalCenter
+            radius: root.surfaceRadius
+            color: root.connected ? root.connectionColor : root.surfaceBorder
           }
         }
 
-        // Action grid (call the OhmLauncher contract). Hidden until linked;
-        // appears (with a fade) when the phone connects. Laid out as a 2-column
-        // grid (rows of 2) so it fits the panel width.
-        Column {
-          visible: root.connected
-          opacity: root.connected ? 1 : 0
-          Behavior on opacity { NumberAnimation { duration: 200 } }
-          spacing: Style.space(6)
-          Row {
-            spacing: Style.space(6)
-            WidgetButton { text: i18n.t("files"); bar: root.bar
+        PanelSeparator { foreground: root.barForeground }
+
+        // Pairing is a single, bounded surface and disappears after linking.
+        Rectangle {
+          visible: (!root.connected && !root.pairingDismissed) || root.showPairing
+          width: parent.width
+          implicitHeight: pairingContent.implicitHeight + Style.spacing.xl * 2
+          radius: root.surfaceRadius
+          color: root.surfaceColor
+          border.width: Style.normalBorderWidth
+          border.color: root.surfaceBorder
+
+          Column {
+            id: pairingContent
+            x: Style.spacing.xl
+            y: Style.spacing.xl
+            width: parent.width - Style.spacing.xl * 2
+            spacing: Style.spacing.sm
+
+            Image {
+              id: qrImage
+              width: Style.space(148)
+              height: width
+              fillMode: Image.PreserveAspectFit
+              source: "file:///tmp/omarchy-link-qr.png"
+              anchors.horizontalCenter: parent.horizontalCenter
+            }
+            Text {
+              width: parent.width
+              text: i18n.t("discoverHint")
+              color: root.barForeground
+              opacity: 0.72
+              horizontalAlignment: Text.AlignHCenter
+              wrapMode: Text.WordWrap
+              font.family: root.bar ? root.bar.fontFamily : Style.font.family
+              font.pixelSize: Style.font.bodySmall
+            }
+            Text {
+              width: parent.width
+              text: i18n.t("useGoogleLens")
+              color: root.accentColor
+              horizontalAlignment: Text.AlignHCenter
+              font.family: root.bar ? root.bar.fontFamily : Style.font.family
+              font.pixelSize: Style.font.caption
+            }
+            WidgetButton {
+              width: parent.width
+              text: i18n.t("hideQr")
+              bar: root.bar
               onPressed: function (b) {
                 if (b === 1) {
-                  root.showFiles = !root.showFiles
-                  if (root.showFiles) root.loadFiles(root.filesPath)
+                  root.showPairing = false
+                  root.pairingDismissed = true
                 }
               }
             }
-            WidgetButton { text: i18n.t("copyToPhone"); bar: root.bar
-              onPressed: function (b) { if (b === 1) root.pushClipboard("hello from Omarchy") } }
-          }
-          Row {
-            spacing: Style.space(6)
-            WidgetButton { text: i18n.t("copyFromPhone"); bar: root.bar; enabled: root.connected
-              onPressed: function (b) { if (b === 1) root.pullClipboard() } }
-            WidgetButton { text: root.screenSharing ? i18n.t("stopScreen") : i18n.t("startScreen"); bar: root.bar
-              onPressed: function (b) { if (b === 1) { root.screenSharing ? root.stopScreen() : root.startScreen() } } }
-          }
-          Row {
-            spacing: Style.space(6)
-            WidgetButton { text: i18n.t("backupPhotos"); bar: root.bar
-              onPressed: function (b) { if (b === 1) root.backupPhotos() } }
-            WidgetButton { text: i18n.t("themes"); bar: root.bar
-              onPressed: function (b) { if (b === 1) root.applyTheme() } }
           }
         }
 
-        // File browser (browse the phone's shared storage; tap a file to
-        // download it to ~/Downloads on this pc).
-        Column {
-          visible: root.showFiles
-          opacity: root.showFiles ? 1 : 0
-          Behavior on opacity { NumberAnimation { duration: 200 } }
-          spacing: Style.space(4)
+        // Connected actions share one visual rhythm and fixed two-column grid.
+        Rectangle {
+          visible: root.connected
           width: parent.width
+          implicitHeight: actionLayout.implicitHeight + Style.spacing.lg * 2
+          radius: root.surfaceRadius
+          color: root.surfaceColor
+          border.width: Style.normalBorderWidth
+          border.color: root.surfaceBorder
 
-          ListModel { id: filesModel }
+          Column {
+            id: actionLayout
+            x: Style.spacing.lg
+            y: Style.spacing.lg
+            width: parent.width - Style.spacing.lg * 2
+            spacing: Style.spacing.sm
 
-          Text {
-            width: parent.width
-            text: root.filesPath
-            color: root.barForeground
-            opacity: 0.7
-            elide: Text.ElideLeft
-            font.family: "monospace"
-            font.pixelSize: Style.font.caption
+            Row {
+              width: parent.width
+              spacing: Style.spacing.sm
+              WidgetButton {
+                fixedWidth: (parent.width - Style.spacing.sm) / 2
+                text: i18n.t("files")
+                bar: root.bar
+                active: root.showFiles
+                activeColor: root.accentColor
+                onPressed: function (b) {
+                  if (b === 1) {
+                    root.showFiles = !root.showFiles
+                    if (root.showFiles) root.loadFiles(root.filesPath)
+                  }
+                }
+              }
+              WidgetButton {
+                fixedWidth: (parent.width - Style.spacing.sm) / 2
+                text: i18n.t("backupPhotos")
+                bar: root.bar
+                onPressed: function (b) { if (b === 1) root.backupPhotos() }
+              }
+            }
+            PanelSeparator { foreground: root.barForeground; strength: 0.08 }
+            Row {
+              width: parent.width
+              spacing: Style.spacing.sm
+              WidgetButton {
+                fixedWidth: (parent.width - Style.spacing.sm) / 2
+                text: i18n.t("copyToPhone")
+                bar: root.bar
+                onPressed: function (b) { if (b === 1) root.pushClipboard("hello from Omarchy") }
+              }
+              WidgetButton {
+                fixedWidth: (parent.width - Style.spacing.sm) / 2
+                text: i18n.t("copyFromPhone")
+                bar: root.bar
+                enabled: root.connected
+                onPressed: function (b) { if (b === 1) root.pullClipboard() }
+              }
+            }
+            PanelSeparator { foreground: root.barForeground; strength: 0.08 }
+            Row {
+              width: parent.width
+              spacing: Style.spacing.sm
+              WidgetButton {
+                fixedWidth: (parent.width - Style.spacing.sm) / 2
+                text: root.screenSharing ? i18n.t("stopScreen") : i18n.t("startScreen")
+                bar: root.bar
+                active: root.screenSharing
+                activeColor: root.accentColor
+                onPressed: function (b) {
+                  if (b === 1) root.screenSharing ? root.stopScreen() : root.startScreen()
+                }
+              }
+              WidgetButton {
+                fixedWidth: (parent.width - Style.spacing.sm) / 2
+                text: i18n.t("themes")
+                bar: root.bar
+                onPressed: function (b) { if (b === 1) root.applyTheme() }
+              }
+            }
           }
-          WidgetButton {
-            visible: root.filesParent !== ""
-            text: ".."
-            bar: root.bar
-            onPressed: function (b) { if (b === 1) root.loadFiles(root.filesParent) }
-          }
-          ListView {
-            width: parent.width
-            height: 160
-            clip: true
-            model: filesModel
-            delegate: Rectangle {
-              width: ListView.view.width
-              height: 22
-              color: fileArea.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
-              radius: 4
+        }
+
+        // Phone file browser.
+        Rectangle {
+          visible: root.showFiles
+          width: parent.width
+          implicitHeight: filesContent.implicitHeight + Style.spacing.lg * 2
+          radius: root.surfaceRadius
+          color: root.surfaceColor
+          border.width: Style.normalBorderWidth
+          border.color: root.surfaceBorder
+
+          Column {
+            id: filesContent
+            x: Style.spacing.lg
+            y: Style.spacing.lg
+            width: parent.width - Style.spacing.lg * 2
+            spacing: Style.spacing.sm
+
+            ListModel { id: filesModel }
+
+            Row {
+              width: parent.width
+              spacing: Style.spacing.sm
+              WidgetButton {
+                visible: root.filesParent !== ""
+                text: ".."
+                bar: root.bar
+                fixedWidth: Style.space(28)
+                onPressed: function (b) { if (b === 1) root.loadFiles(root.filesParent) }
+              }
               Text {
+                width: parent.width - (root.filesParent !== "" ? Style.space(28) + Style.spacing.sm : 0)
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.left: parent.left
-                anchors.leftMargin: 6
-                width: parent.width - 12
-                text: (model.isDir ? "📁 " : "📄 ") + model.name
+                text: root.filesPath
                 color: root.barForeground
-                elide: Text.ElideRight
+                opacity: 0.68
+                elide: Text.ElideLeft
                 font.family: root.bar ? root.bar.fontFamily : Style.font.family
                 font.pixelSize: Style.font.caption
               }
-              MouseArea {
-                id: fileArea
-                anchors.fill: parent
-                hoverEnabled: true
-                onClicked: {
-                  if (model.isDir) root.loadFiles(model.path)
-                  else root.downloadFile(model.path, model.name)
+            }
+            ListView {
+              width: parent.width
+              height: Style.space(156)
+              clip: true
+              model: filesModel
+              spacing: Style.spacing.xxs
+              delegate: Rectangle {
+                width: ListView.view.width
+                height: Style.spacing.controlHeight
+                radius: root.surfaceRadius
+                color: fileArea.containsMouse
+                  ? Style.hoverFillFor(root.barForeground, root.accentColor)
+                  : "transparent"
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  anchors.left: parent.left
+                  anchors.leftMargin: Style.spacing.sm
+                  width: parent.width - Style.spacing.lg
+                  text: (model.isDir ? "▸ " : "· ") + model.name
+                  color: model.isDir ? root.accentColor : root.barForeground
+                  elide: Text.ElideRight
+                  font.family: root.bar ? root.bar.fontFamily : Style.font.family
+                  font.pixelSize: Style.font.bodySmall
+                }
+                MouseArea {
+                  id: fileArea
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: {
+                    if (model.isDir) root.loadFiles(model.path)
+                    else root.downloadFile(model.path, model.name)
+                  }
                 }
               }
             }
           }
         }
 
-        // Screen-share viewer (phone -> pc) + REMOTE CONTROL (pc -> phone).
-        // Tap on the image = tap on the phone; drag = swipe. Coordinates are
-        // mapped through PreserveAspectFit using the phone pixel size reported
-        // in /omarchy/screen/status.
-        Item {
-          id: screenImage
+        // Live screen remains fully interactive, now framed as a theme surface.
+        Rectangle {
           visible: root.screenSharing
-          width: root.screenExpanded ? 560 : 220
-          height: root.screenExpanded ? 700 : 140
+          width: root.screenExpanded ? Style.space(576) : parent.width
+          implicitHeight: screenColumn.implicitHeight + Style.spacing.lg * 2
           anchors.horizontalCenter: parent.horizontalCenter
+          radius: root.surfaceRadius
+          color: root.surfaceColor
+          border.width: Style.normalBorderWidth
+          border.color: root.surfaceBorder
 
-          // Double buffer: the incoming frame loads in the HIDDEN image and
-          // only becomes visible once fully decoded, so the screen always
-          // shows the latest complete frame — never a blank flash.
-          property bool frontA: true
-          Image {
-            id: frameA
-            anchors.fill: parent
-            visible: parent.frontA
-            cache: false // unique ?sequence= URLs would flood the cache at 15fps
-            fillMode: Image.PreserveAspectFit
-            onStatusChanged: if (status === Image.Ready && !parent.frontA) parent.frontA = true
-          }
-          Image {
-            id: frameB
-            anchors.fill: parent
-            visible: !parent.frontA
-            cache: false
-            fillMode: Image.PreserveAspectFit
-            onStatusChanged: if (status === Image.Ready && parent.frontA) parent.frontA = false
-          }
-          MouseArea {
-            anchors.fill: parent
-            property real pressX: 0
-            property real pressY: 0
-            onPressed: function (m) { pressX = m.x; pressY = m.y }
-            onReleased: function (m) {
-              const p1 = root.mapToPhone(pressX, pressY)
-              const p2 = root.mapToPhone(m.x, m.y)
-              if (!p1 || !p2) return
-              const dx = p2.x - p1.x, dy = p2.y - p1.y
-              if (Math.sqrt(dx * dx + dy * dy) < 30)
-                root.sendInput({ action: "tap", x: p2.x, y: p2.y })
-              else
-                root.sendInput({ action: "swipe", x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, durationMs: 300 })
+          Column {
+            id: screenColumn
+            x: Style.spacing.lg
+            y: Style.spacing.lg
+            width: parent.width - Style.spacing.lg * 2
+            spacing: Style.spacing.sm
+
+            Item {
+              id: screenImage
+              width: root.screenExpanded ? 560 : 220
+              height: root.screenExpanded ? 700 : 140
+              anchors.horizontalCenter: parent.horizontalCenter
+              property bool frontA: true
+
+              Rectangle { anchors.fill: parent; color: Color.background; radius: root.surfaceRadius }
+              Image {
+                id: frameA
+                anchors.fill: parent
+                visible: parent.frontA
+                cache: false
+                fillMode: Image.PreserveAspectFit
+                onStatusChanged: if (status === Image.Ready && !parent.frontA) parent.frontA = true
+              }
+              Image {
+                id: frameB
+                anchors.fill: parent
+                visible: !parent.frontA
+                cache: false
+                fillMode: Image.PreserveAspectFit
+                onStatusChanged: if (status === Image.Ready && parent.frontA) parent.frontA = false
+              }
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                property real pressX: 0
+                property real pressY: 0
+                onPressed: function (m) { pressX = m.x; pressY = m.y }
+                onReleased: function (m) {
+                  const p1 = root.mapToPhone(pressX, pressY)
+                  const p2 = root.mapToPhone(m.x, m.y)
+                  if (!p1 || !p2) return
+                  const dx = p2.x - p1.x, dy = p2.y - p1.y
+                  if (Math.sqrt(dx * dx + dy * dy) < 30)
+                    root.sendInput({ action: "tap", x: p2.x, y: p2.y })
+                  else
+                    root.sendInput({ action: "swipe", x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, durationMs: 300 })
+                }
+              }
+            }
+
+            Row {
+              spacing: Style.spacing.sm
+              anchors.horizontalCenter: parent.horizontalCenter
+              WidgetButton { text: "◀"; bar: root.bar; fixedWidth: Style.space(32)
+                onPressed: function (b) { if (b === 1) root.sendInput({ action: "key", key: "back" }) } }
+              WidgetButton { text: "●"; bar: root.bar; fixedWidth: Style.space(32)
+                onPressed: function (b) { if (b === 1) root.sendInput({ action: "key", key: "home" }) } }
+              WidgetButton { text: "■"; bar: root.bar; fixedWidth: Style.space(32)
+                onPressed: function (b) { if (b === 1) root.sendInput({ action: "key", key: "recents" }) } }
+              WidgetButton {
+                text: i18n.t(root.screenExpanded ? "screenReduce" : "screenExpand")
+                bar: root.bar
+                onPressed: function (b) { if (b === 1) root.screenExpanded = !root.screenExpanded }
+              }
+            }
+            Text {
+              width: parent.width
+              text: "Receiving frames · " + root.frameCount
+              color: root.barForeground
+              opacity: 0.56
+              horizontalAlignment: Text.AlignHCenter
+              font.family: root.bar ? root.bar.fontFamily : Style.font.family
+              font.pixelSize: Style.font.caption
             }
           }
         }
 
-        // Navigation keys for remote control (global actions on the phone).
-        Row {
-          visible: root.screenSharing
-          spacing: Style.space(6)
-          anchors.horizontalCenter: parent.horizontalCenter
-          WidgetButton { text: "◀"; bar: root.bar
-            onPressed: function (b) { if (b === 1) root.sendInput({ action: "key", key: "back" }) } }
-          WidgetButton { text: "●"; bar: root.bar
-            onPressed: function (b) { if (b === 1) root.sendInput({ action: "key", key: "home" }) } }
-          WidgetButton { text: "■"; bar: root.bar
-            onPressed: function (b) { if (b === 1) root.sendInput({ action: "key", key: "recents" }) } }
-          WidgetButton {
-            text: i18n.t(root.screenExpanded ? "screenReduce" : "screenExpand")
-            bar: root.bar
-            onPressed: function (b) { if (b === 1) root.screenExpanded = !root.screenExpanded }
+        // Diagnostics stay one line high until explicitly expanded.
+        Rectangle {
+          width: parent.width
+          implicitHeight: diagnostics.implicitHeight + Style.spacing.md * 2
+          radius: root.surfaceRadius
+          color: root.surfaceColor
+          border.width: Style.normalBorderWidth
+          border.color: root.surfaceBorder
+
+          Column {
+            id: diagnostics
+            x: Style.spacing.lg
+            y: Style.spacing.md
+            width: parent.width - Style.spacing.lg * 2
+            spacing: Style.spacing.sm
+
+            Row {
+              width: parent.width
+              Text {
+                width: parent.width - logButton.width
+                anchors.verticalCenter: parent.verticalCenter
+                text: i18n.t("logHeader")
+                color: root.barForeground
+                opacity: 0.62
+                font.family: root.bar ? root.bar.fontFamily : Style.font.family
+                font.pixelSize: Style.font.caption
+              }
+              WidgetButton {
+                id: logButton
+                text: root.showLog ? i18n.t("logHide") : i18n.t("logShow")
+                bar: root.bar
+                enabled: true
+                onPressed: function (b) { if (b === 1) root.showLog = !root.showLog }
+              }
+            }
+            Text {
+              visible: root.showLog
+              width: parent.width
+              text: root.logText
+              color: root.barForeground
+              opacity: 0.78
+              font.family: root.bar ? root.bar.fontFamily : Style.font.family
+              font.pixelSize: Style.font.caption
+              wrapMode: Text.WordWrap
+            }
           }
         }
 
-        // Pull status and JPEGs from the phone. The reverse phone -> PC route
-        // may be blocked by the desktop firewall even though PC -> phone works.
-        Text {
-          visible: root.screenSharing
-          text: "Receiving frames: " + root.frameCount
-          color: root.barForeground
-          font.family: "monospace"
-          font.pixelSize: Style.font.caption
-          anchors.horizontalCenter: parent.horizontalCenter
-        }
-
-        // Push-over-HTTP frame pull (RedmiCam MjpegServer pattern, adapted to
-        // QML): each request blocks on the phone until a frame NEWER than the
-        // last one lands (~15fps capture speed, no fixed polling interval,
-        // no white flash between frames). 204/error -> short retry timer.
-        Timer {
-          id: screenRetry
-          interval: 400
-          repeat: false
-          onTriggered: pullScreenFrame()
-        }
-
-        // Toggle to reveal the internal log (verification surface for an agent/user).
         WidgetButton {
-          text: root.showLog ? i18n.t("logHide") : i18n.t("logShow")
-          bar: root.bar
-          enabled: true
-          onPressed: function (b) { if (b === 1) root.showLog = !root.showLog }
-        }
-
-        // Live log (hidden unless the Log toggle is on).
-        Text {
-          visible: root.showLog
+          visible: root.connected || root.pairingDismissed
           width: parent.width
-          text: root.logText
-          color: root.barForeground
-          font.family: "monospace"
-          font.pixelSize: Style.font.caption
-          wrapMode: Text.WordWrap
+          text: root.connected ? i18n.t("linkMore") : i18n.t("showQr")
+          bar: root.bar
+          foreground: root.accentColor
+          onPressed: function (b) {
+            if (b === 1) {
+              root.showPairing = !root.showPairing
+              root.pairingDismissed = false
+              if (root.showPairing) regenerateQr()
+            }
+          }
         }
       }
     }
+  }
+
+  // Chained push-over-HTTP retry; no fixed frame-rate polling.
+  Timer {
+    id: screenRetry
+    interval: 400
+    repeat: false
+    onTriggered: pullScreenFrame()
   }
 }

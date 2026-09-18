@@ -28,7 +28,7 @@ The native project does not depend on the Flutter checkout at runtime; it remain
 - Multiple desktops with animated horizontal transitions.
 - Direct widget editing with drag, four-corner resize handles, and grid-aware persistence.
 - Android `AppWidgetHost` integration for real system widgets.
-- Orbital action menu with categorized submenus.
+- Unified Omarchy menu with searchable nested sections and native application icons.
 - Gesture arbitration between desktops, app drawer, and Quake terminal.
 
 ### TTFX
@@ -37,7 +37,7 @@ The native project does not depend on the Flutter checkout at runtime; it remain
 - Official Omarchy 81×19 wordmark and five-band final gradient.
 - Live effect, text, size, resolution, speed, position, audio intensity, and reactivity controls.
 - Full-screen live editing plus an embedded preview using the same runtime as the desktop.
-- Compact floating TTFX editor for cycling effects and adjusting X/Y without opening settings.
+- Compact floating TTFX editor for cycling effects and adjusting size and X/Y without opening settings.
 - Changes to X/Y and audio parameters update without restarting the process; engine-input changes are restarted and coalesced safely.
 - Audio-reactive coloring through Android's audio spectrum APIs.
 
@@ -149,6 +149,46 @@ adb shell cmd package set-home-activity \
 adb shell input keyevent HOME
 ```
 
+## Install the test APK
+
+Download `OhmLauncher-0.0.1-test-release.apk` from the
+[0.0.1 GitHub release](https://github.com/avillagran/ohm-launcher/releases/tag/0.0.1).
+This testing artifact uses the Android release build type but is signed with the
+project's debug signing configuration. It is intended for evaluation, not Play
+Store distribution.
+
+Install or update it with ADB:
+
+```bash
+adb install -r OhmLauncher-0.0.1-test-release.apk
+```
+
+Alternatively, copy the APK to the phone, open it, allow installation from that
+file manager when Android requests it, and complete the installer. Then select
+OhmLauncher under **Settings → Apps → Default apps → Home app**.
+
+## Install Omarchy Link on Omarchy
+
+Omarchy Link is the desktop companion used for theme/background synchronization,
+clipboard exchange, notifications, files, and screen sharing. Install it in the
+canonical Omarchy plugin directory:
+
+```bash
+git clone https://github.com/avillagran/omarchy-link.git \
+  ~/.config/omarchy/plugins/cl.villagranquiroz.omarchy-link
+omarchy-restart-shell
+```
+
+Enable **Omarchy Link** from Omarchy's plugin manager and add its widget to the
+bar. Open the widget and scan its QR code from the phone to link both devices.
+
+Update an existing installation with:
+
+```bash
+git -C ~/.config/omarchy/plugins/cl.villagranquiroz.omarchy-link pull --ff-only
+omarchy-restart-shell
+```
+
 ## Verification
 
 Run the JVM suite:
@@ -177,7 +217,7 @@ The desktop-side companion is maintained separately at:
 
 [github.com/avillagran/omarchy-link](https://github.com/avillagran/omarchy-link)
 
-The copy under `omarchy-link/` documents and implements the desktop side of discovery, linking, theme synchronization, clipboard exchange, and remote launcher operations.
+The copy under `omarchy-link/` documents and implements the desktop side of discovery, linking, theme synchronization, clipboard exchange, and remote launcher operations. See [Install Omarchy Link on Omarchy](#install-omarchy-link-on-omarchy) for installation and update commands.
 
 ## License
 

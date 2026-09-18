@@ -10,8 +10,6 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 /**
  * Foreground service required by Android 14+ (API 34) to allow MediaProjection:
@@ -28,18 +26,14 @@ class ScreenCaptureService : Service() {
         } else {
             startForeground(NOTIF_ID, notif)
         }
-        // Signal the activity that the FGS is up so it can create the projection.
-        foregroundLatch.countDown()
+        val requestId = intent?.getLongExtra(ScreenCaptureForegroundRequests.EXTRA_REQUEST_ID, -1L) ?: -1L
+        if (requestId >= 0L) ScreenCaptureForegroundRequests.signal(requestId)
         if (intent?.getBooleanExtra("stop", false) == true) {
             stopSelf()
         }
         return START_STICKY
     }
 
-    override fun onDestroy() {
-        foregroundLatch = CountDownLatch(1)
-        super.onDestroy()
-    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -63,13 +57,5 @@ class ScreenCaptureService : Service() {
 
     companion object {
         const val NOTIF_ID = 9002
-
-        /** Latch that opens once the service reached the foreground state. */
-        @Volatile var foregroundLatch = CountDownLatch(1)
-
-        /** Await the foreground state (max [timeoutMs]); true when reached. */
-        fun awaitForeground(timeoutMs: Long): Boolean =
-            try { foregroundLatch.await(timeoutMs, TimeUnit.MILLISECONDS) }
-            catch (_: InterruptedException) { false }
     }
 }

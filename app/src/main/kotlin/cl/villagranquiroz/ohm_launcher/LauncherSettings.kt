@@ -176,7 +176,8 @@ data class LauncherSettings(
             val host = json.string("ip") ?: return null
             val port = json.integer("port") ?: 8753
             val id = json.string("id") ?: "omarchy-pc"
-            return runCatching { OmarchyPeer(host, port, id) }.getOrNull()
+            val token = json.string("token") ?: ""
+            return runCatching { OmarchyPeer(host, port, id, token) }.getOrNull()
         }
 
         private fun JSONObject.string(key: String): String? = opt(key) as? String

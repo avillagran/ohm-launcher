@@ -212,7 +212,9 @@ class NativeTtfxView @JvmOverloads constructor(
     }
 
     fun submitTheme(palette: OmarchyThemePalette?) {
-        themeAccent = palette?.color("accent")?.let { runCatching { Color.parseColor(it) }.getOrNull() }
+        themeAccent = palette
+            ?.let { OmarchyDesktopTextPolicy.preferredColor(it.colors) }
+            ?.let { runCatching { Color.parseColor(it) }.getOrNull() }
         invalidate()
     }
 

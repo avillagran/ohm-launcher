@@ -44,6 +44,102 @@ class OmarchyThemeTest {
     }
 
     @Test
+    fun squareThemeForcesEveryRequestedSurfaceRadiusToZero() {
+        val palette = OmarchyThemePalette.parse(
+            JSONObject("""{"name":"Square","geometry":{"cornerRadius":0},"colors":{"accent":"#ffffff"}}"""),
+        )
+
+        assertTrue(palette.hasSquareCorners)
+        assertEquals(0f, OmarchyThemeShapePolicy.surfaceRadius(24f, palette), 0f)
+        assertEquals(palette, OmarchyThemePalette.parse(palette.toJson()))
+    }
+
+    @Test
+    fun roundedThemeCapsSurfaceRadiusToCanonicalThemeRadius() {
+        val palette = OmarchyThemePalette.parse(
+            JSONObject("""{"name":"Rounded","geometry":{"cornerRadius":7},"colors":{"accent":"#ffffff"}}"""),
+        )
+
+        assertFalse(palette.hasSquareCorners)
+        assertEquals(7f, OmarchyThemeShapePolicy.surfaceRadius(24f, palette), 0f)
+        assertEquals(4f, OmarchyThemeShapePolicy.surfaceRadius(4f, palette), 0f)
+    }
+
+    @Test
+    fun roundTripsCanonicalOmarchyBackgroundMetadata() {
+        val palette = OmarchyThemePalette.parse(
+            JSONObject(
+                """{"name":"Nord","colors":{"accent":"#81a1c1"},"background":{"name":"lake.mp4","mime":"video/mp4","sha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}}""",
+            ),
+        )
+
+        assertEquals("lake.mp4", palette.background?.name)
+        assertEquals("video/mp4", palette.background?.mime)
+        assertEquals(palette, OmarchyThemePalette.parse(palette.toJson()))
+    }
+
+    @Test
+    fun parsesAndRoundTripsAudioDesktopBackgroundTtfxSettings() {
+        val palette = OmarchyThemePalette.parse(
+            JSONObject(
+                """{
+                  "name":"Audio","colors":{"accent":"#81a1c1"},
+                  "desktopBackground":{"type":"audio","path":"bars","ttfx":{"enabled":true,"effect":"matrix","text":"Omarchy","textSize":7,"audio":true,"intensity":4,"speed":1.75,"resolution":3,"reactivity":5}}
+                }""",
+            ),
+        )
+
+        val background = palette.desktopBackground!!
+        assertEquals("audio", background.type)
+        assertEquals("bars", background.path)
+        assertEquals("matrix", background.ttfx?.effect)
+        assertEquals(7, background.ttfx?.textSize)
+        assertEquals(1.75, background.ttfx?.speed)
+        assertEquals(palette, OmarchyThemePalette.parse(palette.toJson()))
+    }
+
+    @Test
+    fun audioDesktopBackgroundEnablesTtfxButPreservesLocalTextGeometry() {
+        val desktop = JSONObject()
+            .put("ttfxTextSize", 9)
+            .put("ttfxTextX", 0.25)
+            .put("ttfxTextY", 0.75)
+        val background = OmarchyDesktopBackground.parse(
+            JSONObject(
+                """{"type":"audio","path":"crumble","ttfx":{"enabled":true,"effect":"matrix","text":"Hello","textSize":6,"audio":false,"intensity":8,"speed":2.5,"resolution":4,"reactivity":3}}""",
+            ),
+        )!!
+
+        OmarchyDesktopBackgroundApplier.apply(desktop, background, "/tmp/fallback.png")
+
+        assertEquals("/tmp/fallback.png", desktop.getString("backgroundImage"))
+        assertTrue(desktop.getBoolean("ttfxBackground"))
+        assertEquals("crumble", desktop.getString("ttfxEffect"))
+        assertEquals("Hello", desktop.getString("ttfxText"))
+        assertEquals(9, desktop.getInt("ttfxTextSize"))
+        assertFalse(desktop.getBoolean("ttfxAudio"))
+        assertEquals(8, desktop.getInt("ttfxIntensity"))
+        assertEquals(2.5, desktop.getDouble("ttfxSpeed"), 0.0)
+        assertEquals(4, desktop.getInt("ttfxResolution"))
+        assertEquals(3, desktop.getInt("ttfxReactivity"))
+        assertEquals(0.25, desktop.getDouble("ttfxTextX"), 0.0)
+        assertEquals(0.75, desktop.getDouble("ttfxTextY"), 0.0)
+    }
+
+    @Test
+    fun imageAndVideoDesktopBackgroundDisableTtfx() {
+        listOf("image", "video").forEach { type ->
+            val desktop = JSONObject().put("ttfxBackground", true)
+            val background = OmarchyDesktopBackground(type, "/desktop/background")
+
+            OmarchyDesktopBackgroundApplier.apply(desktop, background, "/tmp/fallback")
+
+            assertFalse(desktop.getBoolean("ttfxBackground"))
+            assertEquals("/tmp/fallback", desktop.getString("backgroundImage"))
+        }
+    }
+
+    @Test
     fun readsThemeFromLauncherSettingsWithoutConfusingLegacyFields() {
         val settings = JSONObject()
             .put("accent", "legacy")
@@ -69,5 +165,32 @@ class OmarchyThemeTest {
         assertTrue(OmarchyThemeTransitionPolicy.shouldAnimate(null, nord, 1080, 2400))
         assertFalse(OmarchyThemeTransitionPolicy.shouldAnimate(nord, nord, 1080, 2400))
         assertFalse(OmarchyThemeTransitionPolicy.shouldAnimate(null, nord, 0, 2400))
+    }
+
+    @Test
+    fun usesSecondaryDesktopTextWhenBackgroundIsMostlyPrimary() {
+        val primary = 0xFFE68E0D.toInt()
+        val nearPrimary = 0xFFDC8612.toInt()
+        val unrelated = 0xFF102030.toInt()
+
+        assertTrue(OmarchyDesktopTextPolicy.shouldUseSecondary(IntArray(80) { nearPrimary } + IntArray(20) { unrelated }, primary))
+        assertFalse(OmarchyDesktopTextPolicy.shouldUseSecondary(IntArray(10) { nearPrimary } + IntArray(90) { unrelated }, primary))
+        assertFalse(OmarchyDesktopTextPolicy.shouldUseSecondary(intArrayOf(), primary))
+    }
+
+    @Test
+    fun desktopClockAndTtfxPreferTheSecondaryThemeColor() {
+        assertEquals(
+            "#d8dee9",
+            OmarchyDesktopTextPolicy.preferredColor(
+                mapOf("accent" to "#81a1c1", "foreground" to "#d8dee9"),
+            ),
+        )
+        assertEquals(
+            "#eceff4",
+            OmarchyDesktopTextPolicy.preferredColor(
+                mapOf("accent" to "#81a1c1", "bright_foreground" to "#eceff4"),
+            ),
+        )
     }
 }

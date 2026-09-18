@@ -12,17 +12,25 @@ exposes the contract) lives at https://github.com/avillagran/ohm-launcher.
 
 ## Install in Omarchy
 
-Install it like any other Omarchy plugin — clone it into your Quickshell
+Install it like any other Omarchy plugin — clone it into your Omarchy
 plugins directory and enable it from the Omarchy plugin list:
 
 ```bash
 git clone https://github.com/avillagran/omarchy-link \
-      ~/.config/quickshell/plugins/cl.villagranquiroz.omarchy-link
+      ~/.config/omarchy/plugins/cl.villagranquiroz.omarchy-link
+omarchy-restart-shell
 ```
 
 (The folder name `cl.villagranquiroz.omarchy-link` matches the plugin `id` in
 `manifest.json`.) After enabling `cl.villagranquiroz.omarchy-link`, the bar
 widget appears in the Omarchy bar and the panel opens from the widget button.
+
+Update it later with:
+
+```bash
+git -C ~/.config/omarchy/plugins/cl.villagranquiroz.omarchy-link pull --ff-only
+omarchy-restart-shell
+```
 
 ---
 
@@ -45,7 +53,7 @@ examples/minimal/  # minimal BarWidget+Panel starter
   "schemaVersion": 1,
   "id": "cl.villagranquiroz.omarchy-link",
   "name": "Omarchy Link",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "author": "Ohm Launcher",
   "license": "MIT",
   "kinds": ["bar-widget"],

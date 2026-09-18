@@ -46,7 +46,10 @@ object SettingsDialogSurface {
         val resolved = spec(dialog.context, opacity)
         val background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            cornerRadius = 22f * dialog.context.resources.displayMetrics.density
+            cornerRadius = OmarchyThemeShapeState.surfaceRadiusPx(
+                22f * dialog.context.resources.displayMetrics.density,
+                dialog.context.resources.displayMetrics.density,
+            )
             setColor(Color.argb((resolved.opacity * 255).roundToInt(), 9, 13, 18))
             setStroke(
                 (dialog.context.resources.displayMetrics.density).roundToInt().coerceAtLeast(1),

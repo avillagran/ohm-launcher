@@ -5,41 +5,49 @@ import org.junit.Test
 
 class EdgeBoxInteractionTest {
     @Test
-    fun boxMovementStartsImmediatelyAfterSixteenPixels() {
+    fun boxMovementRequiresTwoSecondHoldBeforeDragging() {
         val state = EdgeBoxInteractionState(isItem = false, downAtMillis = 0)
 
-        assertEquals(EdgeInteractionDecision.NONE, state.sample(100, 15f))
-        assertEquals(EdgeInteractionDecision.START_BOX_DRAG, state.sample(110, 16f))
+        assertEquals(EdgeInteractionDecision.NONE, state.sample(1_999, 0f))
+        assertEquals(EdgeInteractionDecision.ACCEPT_ITEM, state.sample(2_000, 0f))
+        assertEquals(EdgeInteractionDecision.START_BOX_DRAG, state.sample(2_010, 9f))
     }
 
     @Test
-    fun itemAcceptsAtTwoSecondsAndSettingsAtThreePointFiveSecondsStill() {
+    fun itemAcceptsAtTwoSecondsWithoutOpeningSettingsOnContinuedHold() {
         val state = EdgeBoxInteractionState(isItem = true, downAtMillis = 0)
 
         assertEquals(EdgeInteractionDecision.NONE, state.sample(1_999, 0f))
         assertEquals(EdgeInteractionDecision.ACCEPT_ITEM, state.sample(2_000, 0f))
-        assertEquals(EdgeInteractionDecision.NONE, state.sample(3_499, 0f))
-        assertEquals(EdgeInteractionDecision.OPEN_SETTINGS, state.sample(3_500, 0f))
+        assertEquals(EdgeInteractionDecision.NONE, state.sample(3_500, 0f))
     }
 
     @Test
-    fun movementAboveEightPixelsRestartsTheSettingsStillnessTimer() {
+    fun movementAboveEightPixelsRestartsTheHoldTimer() {
         val state = EdgeBoxInteractionState(isItem = true, downAtMillis = 0)
 
         assertEquals(EdgeInteractionDecision.NONE, state.sample(500, 9f))
         assertEquals(EdgeInteractionDecision.NONE, state.sample(2_499, 0f))
         assertEquals(EdgeInteractionDecision.ACCEPT_ITEM, state.sample(2_500, 0f))
-        assertEquals(EdgeInteractionDecision.NONE, state.sample(3_999, 0f))
-        assertEquals(EdgeInteractionDecision.OPEN_SETTINGS, state.sample(4_000, 0f))
+        assertEquals(EdgeInteractionDecision.NONE, state.sample(4_000, 0f))
     }
 
     @Test
-    fun movingAnAcceptedItemPreventsTheSettingsPhase() {
+    fun movingAnAcceptedItemStartsItsDrag() {
         val state = EdgeBoxInteractionState(isItem = true, downAtMillis = 0)
 
         assertEquals(EdgeInteractionDecision.ACCEPT_ITEM, state.sample(2_000, 0f))
-        assertEquals(EdgeInteractionDecision.NONE, state.sample(2_050, 20f))
+        assertEquals(EdgeInteractionDecision.START_BOX_DRAG, state.sample(2_050, 20f))
         assertEquals(EdgeInteractionDecision.NONE, state.sample(8_000, 0f))
+    }
+
+    @Test
+    fun secondTapWithinTimeoutOpensBoxMenu() {
+        val taps = EdgeBoxDoubleTapState()
+
+        assertEquals(false, taps.registerTap(100L))
+        assertEquals(true, taps.registerTap(350L))
+        assertEquals(false, taps.registerTap(900L))
     }
 
     @Test

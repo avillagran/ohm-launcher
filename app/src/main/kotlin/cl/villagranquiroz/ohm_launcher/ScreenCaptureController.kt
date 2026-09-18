@@ -12,6 +12,7 @@ import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Handler
 import android.os.HandlerThread
+import android.util.Log
 import androidx.core.content.ContextCompat
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.atomic.AtomicBoolean
@@ -33,16 +34,46 @@ class ScreenCaptureController(
     private var reader: ImageReader? = null
     private var display: VirtualDisplay? = null
     private var thread: HandlerThread? = null
+    private var foregroundRequestId: Long? = null
     @Volatile private var lastFrameAt = 0L
 
     fun createConsentIntent(): Intent = projectionManager.createScreenCaptureIntent()
 
-    fun start(resultCode: Int, data: Intent): Boolean {
+    fun start(resultCode: Int, data: Intent, onStarted: (Boolean) -> Unit): Boolean {
         if (resultCode != Activity.RESULT_OK || running.get()) return false
-        ContextCompat.startForegroundService(context, Intent(context, ScreenCaptureService::class.java))
-        if (!ScreenCaptureService.awaitForeground(3_000)) return false
+        var requestId = 0L
+        val foregroundRequest = ScreenCaptureForegroundRequests.createRequest {
+            if (foregroundRequestId != requestId) return@createRequest
+            foregroundRequestId = null
+            onStarted(startProjection(resultCode, data))
+        }
+        requestId = foregroundRequest.id
+        foregroundRequestId = requestId
         return runCatching {
-            val metrics = context.resources.displayMetrics
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, ScreenCaptureService::class.java)
+                    .putExtra(ScreenCaptureForegroundRequests.EXTRA_REQUEST_ID, foregroundRequest.id),
+            )
+            Handler(context.mainLooper).postDelayed({
+                if (foregroundRequestId == requestId && ScreenCaptureForegroundRequests.cancel(requestId)) {
+                    foregroundRequestId = null
+                    Log.e(TAG, "Screen capture foreground service did not start")
+                    onStarted(false)
+                }
+            }, FOREGROUND_START_TIMEOUT_MS)
+            true
+        }.getOrElse { error ->
+            ScreenCaptureForegroundRequests.cancel(requestId)
+            foregroundRequestId = null
+            Log.e(TAG, "Unable to request screen capture foreground service", error)
+            onStarted(false)
+            false
+        }
+    }
+
+    private fun startProjection(resultCode: Int, data: Intent): Boolean = runCatching {
+        val metrics = context.resources.displayMetrics
             // The viewer renders at most ~560px wide: capture at half resolution
             // (VirtualDisplay scales, layout kept via halved dpi). That makes
             // the JPEG encode ~4x cheaper so 15fps is actually sustainable,
@@ -102,13 +133,17 @@ class ScreenCaptureController(
             display = virtualDisplay
             running.set(true)
             true
-        }.getOrElse {
-            stop()
-            false
-        }
+    }.getOrElse { error ->
+        Log.e(TAG, "Unable to start screen capture", error)
+        stop()
+        false
     }
 
-    fun stop() = stop(releaseProjection = true)
+    fun stop() {
+        foregroundRequestId?.let(ScreenCaptureForegroundRequests::cancel)
+        foregroundRequestId = null
+        stop(releaseProjection = true)
+    }
 
     fun isRunning(): Boolean = running.get()
 
@@ -132,6 +167,8 @@ class ScreenCaptureController(
     }
 
     companion object {
+        private const val TAG = "OhmScreenCapture"
+        private const val FOREGROUND_START_TIMEOUT_MS = 3_000L
         private const val JPEG_QUALITY = 60
         private const val FRAME_INTERVAL_MS = 66L
     }

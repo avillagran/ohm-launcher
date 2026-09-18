@@ -142,6 +142,18 @@ class DesktopConfigEditorTest {
     }
 
     @Test
+    fun movesEdgeBoxToRequestedPositionAmongBoxesOnTargetEdge() {
+        val source = """{"edgeBoxes":[{"id":"a","edge":"left"},{"id":"b","edge":"right"},{"id":"c","edge":"right"}],"desktops":[{"widgets":[]}]}"""
+
+        val updated = DesktopConfigEditor.moveEdgeBox(source, "a", EdgePosition.RIGHT, 1)
+        val boxes = JSONObject(updated).getJSONArray("edgeBoxes")
+
+        assertEquals(listOf("b", "a", "c"), (0 until boxes.length()).map { boxes.getJSONObject(it).getString("id") })
+        assertEquals("right", boxes.getJSONObject(1).getString("edge"))
+        assertEquals("vertical", boxes.getJSONObject(1).getString("direction"))
+    }
+
+    @Test
     fun updatesTtfxFieldsWithoutDroppingUnknownDesktopData() {
         val source = """{"futureRoot":{"keep":true},"desktops":[{"name":"Inicio","custom":"keep","widgets":[{"type":"clock"}]}]}"""
         val settings = TtfxConfig.parse(

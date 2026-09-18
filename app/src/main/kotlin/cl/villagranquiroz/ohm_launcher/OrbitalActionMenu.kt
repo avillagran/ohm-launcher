@@ -42,6 +42,13 @@ internal object NerdGlyph {
     const val EYE_SLASH = "\uF070"
     const val BELL = "\uF0F3"
     const val CLOSE = "\uF00D"
+    const val MENU = "\uF0C9"
+    const val PALETTE = "\uF53F"
+    const val STYLE = "\uEBCF"
+    const val THEME = "\uDB83\uDE0C"
+    const val IMAGE = "\uF03E"
+    const val SYNC = "\uF021"
+    const val APPS = "\uDB80\uDC3B"
 }
 
 internal object NerdFont {
@@ -63,10 +70,18 @@ internal class OrbitalActionMenu(
     private val accent: Int,
     backgroundAlpha: Int = 0xD9,
     dismissOnBackgroundTap: Boolean = true,
+    private val anchorX: Float? = null,
+    private val anchorY: Float? = null,
+    private val closeAtRelease: Boolean = false,
     private val onDismissed: () -> Unit,
 ) : FrameLayout(context) {
     private val actionViews = mutableListOf<View>()
     private val nerdFont = NerdFont.load(context)
+    private val closeButton = TextView(context)
+    private var closeRevealScheduled = false
+
+    val awaitsCloseRelease: Boolean
+        get() = closeAtRelease && !closeRevealScheduled
 
     init {
         isClickable = true
@@ -107,7 +122,7 @@ internal class OrbitalActionMenu(
             addView(button, LayoutParams(dp(if (index < 8) 104 else 94), dp(84)))
         }
 
-        addView(TextView(context).apply {
+        closeButton.apply {
             text = NerdGlyph.CLOSE
             contentDescription = context.getString(R.string.action_close)
             gravity = Gravity.CENTER
@@ -117,12 +132,26 @@ internal class OrbitalActionMenu(
             background = circle(0xFF101820.toInt())
             elevation = dp(18).toFloat()
             setOnClickListener { dismiss() }
-        }, LayoutParams(dp(74), dp(74), Gravity.CENTER))
+            if (closeAtRelease) {
+                alpha = 0f
+                scaleX = .25f
+                scaleY = .25f
+            }
+        }
+        addView(closeButton, LayoutParams(dp(74), dp(74), Gravity.CENTER))
     }
 
     override fun onSizeChanged(width: Int, height: Int, oldWidth: Int, oldHeight: Int) {
         super.onSizeChanged(width, height, oldWidth, oldHeight)
-        val points = OrbitalMenuGeometry.positions(actionViews.size, width, height)
+        val points = OrbitalMenuGeometry.positions(
+            count = actionViews.size,
+            width = width,
+            height = height,
+            anchorX = anchorX,
+            anchorY = anchorY,
+            itemWidth = dp(104),
+            itemHeight = dp(84),
+        )
         actionViews.zip(points).forEachIndexed { index, (view, point) ->
             view.x = point.x - view.layoutParams.width / 2f
             view.y = point.y - view.layoutParams.height / 2f
@@ -130,8 +159,33 @@ internal class OrbitalActionMenu(
                 .alpha(1f)
                 .scaleX(1f)
                 .scaleY(1f)
-                .setStartDelay((index * 16L).coerceAtMost(160L))
-                .setDuration(170)
+                .setStartDelay(OrbitalMenuMotion.actionDelayMillis(index))
+                .setDuration(240)
+                .start()
+        }
+    }
+
+    fun revealCloseAtAnchor() {
+        if (!closeAtRelease || closeRevealScheduled) return
+        closeRevealScheduled = true
+        post {
+            val point = OrbitalMenuMotion.closeCenter(
+                anchorX ?: width / 2f,
+                anchorY ?: height / 2f,
+                width,
+                height,
+                dp(74),
+                dp(74),
+            )
+            closeButton.layoutParams = LayoutParams(dp(74), dp(74))
+            closeButton.x = point.x - dp(37)
+            closeButton.y = point.y - dp(37)
+            closeButton.animate()
+                .alpha(1f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setStartDelay(OrbitalMenuMotion.CLOSE_REVEAL_DELAY_MILLIS)
+                .setDuration(260)
                 .start()
         }
     }
@@ -149,7 +203,10 @@ internal class OrbitalActionMenu(
     private fun circle(fill: Int) = GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
         setColor(fill)
-        cornerRadius = dp(100).toFloat()
+        cornerRadius = OmarchyThemeShapeState.surfaceRadiusPx(
+            dp(100).toFloat(),
+            resources.displayMetrics.density,
+        )
         setStroke(dp(1), (accent and 0x00FFFFFF) or 0x77000000)
     }
 

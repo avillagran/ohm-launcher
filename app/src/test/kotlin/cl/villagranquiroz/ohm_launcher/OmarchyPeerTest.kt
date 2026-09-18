@@ -10,9 +10,9 @@ import org.junit.Test
 class OmarchyPeerTest {
     @Test
     fun parsesOmarchyQrUriAndDecodesPeerId() {
-        val peer = OmarchyPeerUri.parse("omarchy://192.168.1.44:8753?id=Living%20Room")
+        val peer = OmarchyPeerUri.parse("omarchy://192.168.1.44:8753?id=Living%20Room&token=a1b2c3")
 
-        assertEquals(OmarchyPeer("192.168.1.44", 8753, "Living Room"), peer)
+        assertEquals(OmarchyPeer("192.168.1.44", 8753, "Living Room", "a1b2c3"), peer)
         assertEquals("http://192.168.1.44:8753", peer?.httpBaseUrl)
         assertEquals("ws://192.168.1.44:8753/omarchy/ws", peer?.webSocketUrl)
     }
@@ -42,10 +42,11 @@ class OmarchyPeerTest {
 
     @Test
     fun roundTripsPersistedPeerStateAndRejectsInvalidValues() {
-        val peer = OmarchyPeer("192.168.1.44", 8753, "Living Room")
+        val peer = OmarchyPeer("192.168.1.44", 8753, "Living Room", "a1b2c3")
 
         assertEquals(peer, OmarchyPeer.fromJson(peer.toJson()))
         assertEquals("192.168.1.44", peer.toJson().getString("ip"))
+        assertEquals("a1b2c3", peer.toJson().getString("token"))
         assertNull(OmarchyPeer.fromJson(JSONObject("""{"ip":"host","port":0,"id":"pc"}""")))
         assertNull(OmarchyPeer.fromJson(JSONObject("""{"ip":"host","port":8753,"id":""}""")))
     }

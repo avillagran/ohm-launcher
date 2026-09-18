@@ -21,6 +21,9 @@ object TtfxMiniEditorLogic {
         textY = y.coerceIn(0.0, 1.0),
     )
 
+    fun textSize(current: TtfxConfig, size: Int): TtfxConfig =
+        current.copy(textSize = size.coerceIn(1, 12))
+
     private fun cycle(current: TtfxConfig, effects: List<String>, delta: Int): TtfxConfig {
         if (effects.isEmpty()) return current
         val index = effects.indexOf(current.effect).takeIf { it >= 0 } ?: 0
@@ -37,8 +40,10 @@ class TtfxMiniControlsView(context: Context) : LinearLayout(context) {
     private val collapsedButton = button("✦", "Abrir editor TTFX en miniatura") { setExpanded(true) }
     private val panel = LinearLayout(context)
     private val effectLabel = TextView(context)
+    private val sizeLabel = TextView(context)
     private val xLabel = TextView(context)
     private val yLabel = TextView(context)
+    private val sizeBar = SeekBar(context)
     private val xBar = SeekBar(context)
     private val yBar = SeekBar(context)
 
@@ -55,9 +60,10 @@ class TtfxMiniControlsView(context: Context) : LinearLayout(context) {
     fun submit(value: TtfxConfig) {
         current = value
         effectLabel.text = value.effect
+        sizeBar.progress = (value.textSize - 1).coerceIn(0, 11)
         xBar.progress = (value.textX * 20).roundToInt().coerceIn(0, 20)
         yBar.progress = (value.textY * 20).roundToInt().coerceIn(0, 20)
-        updatePositionLabels()
+        updateLabels()
         visibility = if (value.enabled) View.VISIBLE else View.GONE
     }
 
@@ -86,13 +92,18 @@ class TtfxMiniControlsView(context: Context) : LinearLayout(context) {
         })
         header.addView(button("×", "Cerrar editor TTFX en miniatura") { setExpanded(false) })
         panel.addView(header, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(38)))
-        panel.addView(positionRow("X", xLabel, xBar))
-        panel.addView(positionRow("Y", yLabel, yBar))
+        panel.addView(controlRow(sizeLabel, sizeBar, 11, context.getString(R.string.ttfx_size)))
+        panel.addView(controlRow(xLabel, xBar, 20, context.getString(R.string.ttfx_position_accessibility, "X")))
+        panel.addView(controlRow(yLabel, yBar, 20, context.getString(R.string.ttfx_position_accessibility, "Y")))
         val listener = object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) {
                 if (!fromUser) return
-                current = TtfxMiniEditorLogic.position(current, xBar.progress / 20.0, yBar.progress / 20.0)
-                updatePositionLabels()
+                current = if (bar === sizeBar) {
+                    TtfxMiniEditorLogic.textSize(current, sizeBar.progress + 1)
+                } else {
+                    TtfxMiniEditorLogic.position(current, xBar.progress / 20.0, yBar.progress / 20.0)
+                }
+                updateLabels()
                 publish(commit = false)
             }
             override fun onStartTrackingTouch(bar: SeekBar) = Unit
@@ -100,11 +111,12 @@ class TtfxMiniControlsView(context: Context) : LinearLayout(context) {
                 onCommit?.invoke(current)
             }
         }
+        sizeBar.setOnSeekBarChangeListener(listener)
         xBar.setOnSeekBarChangeListener(listener)
         yBar.setOnSeekBarChangeListener(listener)
     }
 
-    private fun positionRow(axis: String, valueLabel: TextView, bar: SeekBar): LinearLayout =
+    private fun controlRow(valueLabel: TextView, bar: SeekBar, maximum: Int, description: String): LinearLayout =
         LinearLayout(context).apply {
             gravity = Gravity.CENTER_VERTICAL
             valueLabel.apply {
@@ -113,12 +125,13 @@ class TtfxMiniControlsView(context: Context) : LinearLayout(context) {
                 typeface = Typeface.MONOSPACE
             }
             addView(valueLabel, LayoutParams(dp(42), dp(34)))
-            bar.max = 20
-            contentDescription = context.getString(R.string.ttfx_position_accessibility, axis)
+            bar.max = maximum
+            bar.contentDescription = description
             addView(bar, LayoutParams(0, dp(34), 1f))
         }
 
-    private fun updatePositionLabels() {
+    private fun updateLabels() {
+        sizeLabel.text = "S ${current.textSize}"
         xLabel.text = "X ${(current.textX * 100).roundToInt()}"
         yLabel.text = "Y ${(current.textY * 100).roundToInt()}"
     }
@@ -150,7 +163,7 @@ class TtfxMiniControlsView(context: Context) : LinearLayout(context) {
     private fun rounded(fill: Int, radius: Float, stroke: Int) = GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
         setColor(fill)
-        cornerRadius = radius
+        cornerRadius = OmarchyThemeShapeState.surfaceRadiusPx(radius, resources.displayMetrics.density)
         setStroke(dp(1), stroke)
     }
 

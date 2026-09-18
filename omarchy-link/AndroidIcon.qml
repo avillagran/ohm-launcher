@@ -7,6 +7,9 @@ Item {
   id: root
   // Tint color (set by the button via `color`, defaults to white).
   property color color: "#ffffff"
+  property color cutoutColor: "#10161C"
+  onColorChanged: canvas.requestPaint()
+  onCutoutColorChanged: canvas.requestPaint()
 
   Canvas {
     id: canvas
@@ -41,14 +44,14 @@ Item {
       ctx.stroke()
 
       // Eyes
-      ctx.fillStyle = "#10161C"
+      ctx.fillStyle = root.cutoutColor
       ctx.beginPath()
       ctx.arc(w * 0.40, h * 0.40, w * 0.045, 0, 2 * Math.PI)
       ctx.arc(w * 0.60, h * 0.40, w * 0.045, 0, 2 * Math.PI)
       ctx.fill()
 
       // Mouth (small rounded rect in the head cutout)
-      ctx.fillStyle = "#10161C"
+      ctx.fillStyle = root.cutoutColor
       ctx.beginPath()
       const mw = w * 0.22, mh = h * 0.07
       const mx = cx - mw / 2, my = h * 0.30

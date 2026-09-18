@@ -651,6 +651,32 @@ class LocalApiServerTest {
         assertEquals(400, rejected.code)
     }
 
+    @Test
+    fun routesReverseSyncedBackgroundCatalogAndSelectionCallbacks() {
+        var catalog: JSONObject? = null
+        var acknowledged: JSONObject? = null
+        startServer(
+            onBackgroundCatalogPut = { catalog = it },
+            onBackgroundSelectionGet = { JSONObject().put("pending", true).put("id", "wallpaper/sky.png") },
+            onBackgroundSelectionAck = { acknowledged = it },
+        )
+
+        val put = request(
+            "PUT",
+            "/omarchy/backgrounds/catalog",
+            """{"current":{"id":"wallpaper/sky.png"},"backgrounds":[]}""",
+        )
+        val selection = request("GET", "/omarchy/backgrounds/selection")
+        val ack = request("PUT", "/omarchy/backgrounds/selection/ack", """{"id":"wallpaper/sky.png"}""")
+
+        assertEquals(200, put.code)
+        assertEquals("wallpaper/sky.png", catalog!!.getJSONObject("current").getString("id"))
+        assertTrue(selection.json.getBoolean("pending"))
+        assertEquals("wallpaper/sky.png", selection.json.getString("id"))
+        assertEquals(200, ack.code)
+        assertEquals("wallpaper/sky.png", acknowledged!!.getString("id"))
+    }
+
     private fun startServer(
         onCommand: CommandHandler = CommandHandler { _, _ -> ShellResult(0, "", "", "embedded") },
         onInjectWidget: WidgetHandler = WidgetHandler { _, _ -> },
@@ -663,6 +689,9 @@ class LocalApiServerTest {
         omarchyAdapter: OmarchyApiAdapter? = null,
         screenFrames: LatestScreenFrameStore? = null,
         notificationChannel: OmarchyNotificationChannel? = null,
+        onBackgroundCatalogPut: ((JSONObject) -> Unit)? = null,
+        onBackgroundSelectionGet: (() -> JSONObject)? = null,
+        onBackgroundSelectionAck: ((JSONObject) -> Unit)? = null,
     ) {
         server = LocalApiServer(
             port = 0,
@@ -677,6 +706,9 @@ class LocalApiServerTest {
             omarchyAdapter = omarchyAdapter,
             screenFrames = screenFrames,
             notificationChannel = notificationChannel,
+            onBackgroundCatalogPut = onBackgroundCatalogPut,
+            onBackgroundSelectionGet = onBackgroundSelectionGet,
+            onBackgroundSelectionAck = onBackgroundSelectionAck,
         ).also { it.start() }
     }
 

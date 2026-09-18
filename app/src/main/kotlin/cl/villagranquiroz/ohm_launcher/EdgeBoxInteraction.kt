@@ -13,7 +13,6 @@ class EdgeBoxInteractionState(
 ) {
     private var stillSinceMillis = downAtMillis
     private var itemAccepted = false
-    private var settingsOpened = false
     private var boxDragStarted = false
     private var itemDragged = false
     private var wasMoving = false
@@ -25,26 +24,31 @@ class EdgeBoxInteractionState(
         if (moving && itemAccepted) itemDragged = true
         wasMoving = moving
 
-        if (!isItem && !boxDragStarted && displacementPixels >= BOX_DRAG_SLOP_PX) {
+        if (!boxDragStarted && itemAccepted && displacementPixels > STILLNESS_SLOP_PX) {
             boxDragStarted = true
             return EdgeInteractionDecision.START_BOX_DRAG
         }
-        if (isItem && !itemAccepted && nowMillis - stillSinceMillis >= ITEM_ACCEPT_MILLIS) {
+        if (!itemAccepted && nowMillis - stillSinceMillis >= ITEM_ACCEPT_MILLIS) {
             itemAccepted = true
             return EdgeInteractionDecision.ACCEPT_ITEM
-        }
-        if (!settingsOpened && !boxDragStarted && !itemDragged && nowMillis - stillSinceMillis >= SETTINGS_MILLIS) {
-            settingsOpened = true
-            return EdgeInteractionDecision.OPEN_SETTINGS
         }
         return EdgeInteractionDecision.NONE
     }
 
     companion object {
         const val STILLNESS_SLOP_PX = 8f
-        const val BOX_DRAG_SLOP_PX = 16f
         const val ITEM_ACCEPT_MILLIS = 2_000L
-        const val SETTINGS_MILLIS = 3_500L
+    }
+}
+
+class EdgeBoxDoubleTapState(private val timeoutMillis: Long = 300L) {
+    private var previousTapMillis: Long? = null
+
+    fun registerTap(nowMillis: Long): Boolean {
+        val previous = previousTapMillis
+        val doubleTap = previous != null && nowMillis - previous in 0..timeoutMillis
+        previousTapMillis = if (doubleTap) null else nowMillis
+        return doubleTap
     }
 }
 

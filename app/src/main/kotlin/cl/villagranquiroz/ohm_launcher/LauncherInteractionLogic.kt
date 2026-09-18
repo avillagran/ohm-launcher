@@ -11,6 +11,10 @@ internal object ScreenSharePermissionPolicy {
         started && !accessibilityEnabled
 }
 
+internal object LauncherSystemBarPolicy {
+    fun navigationBarColor(): Int = 0x00000000
+}
+
 internal class LauncherBarDragState {
     private var dragging = false
 
@@ -39,7 +43,7 @@ internal object SharedEdgeLayout {
 
 enum class LauncherVerticalAction {
     NONE,
-    OPEN_DRAWER,
+    OPEN_OMARCHY_MENU,
     CLOSE_DRAWER,
     OPEN_QUAKE,
     CLOSE_QUAKE,
@@ -60,7 +64,7 @@ object LauncherGesturePolicy {
             return if (deltaY > 0f) LauncherVerticalAction.CLOSE_DRAWER else LauncherVerticalAction.NONE
         }
         return when {
-            deltaY < 0f && startedInLowerHalf -> LauncherVerticalAction.OPEN_DRAWER
+            deltaY < 0f && startedInLowerHalf -> LauncherVerticalAction.OPEN_OMARCHY_MENU
             deltaY > 0f && !startedInLowerHalf -> LauncherVerticalAction.OPEN_QUAKE
             else -> LauncherVerticalAction.NONE
         }
@@ -75,6 +79,32 @@ object DrawerTapPolicy {
 object CommandBarFocusPolicy {
     fun shouldDismiss(hasFocus: Boolean, backgroundPressed: Boolean): Boolean =
         hasFocus && backgroundPressed
+}
+
+enum class BackgroundDoubleTapAction { OPEN_OMARCHY_MENU, EXIT_EDIT_AND_OPEN_OMARCHY_MENU }
+
+object BackgroundTapPolicy {
+    fun onDoubleTap(editing: Boolean): BackgroundDoubleTapAction =
+        if (editing) BackgroundDoubleTapAction.EXIT_EDIT_AND_OPEN_OMARCHY_MENU
+        else BackgroundDoubleTapAction.OPEN_OMARCHY_MENU
+
+    fun onLongPress(editing: Boolean): BackgroundDoubleTapAction = onDoubleTap(editing)
+}
+
+object WidgetEditExitPolicy {
+    fun consumeBack(editing: Boolean): Boolean = editing
+}
+
+object LauncherGestureGate {
+    fun routeToDesktop(widgetEditing: Boolean, selectorVisible: Boolean): Boolean =
+        !widgetEditing && !selectorVisible
+}
+
+data class BarInsets(val left: Int, val top: Int, val right: Int, val bottom: Int)
+
+object OmarchyBarInsets {
+    @Suppress("UNUSED_PARAMETER")
+    fun forEdge(edge: LauncherEdge, spacing: Int): BarInsets = BarInsets(0, 0, 0, 0)
 }
 
 data class SearchableApp(
@@ -148,13 +178,53 @@ enum class OmarchyMenuAction(val label: String) {
 
 data class OrbitalMenuPoint(val x: Float, val y: Float, val ring: Int)
 
+object OrbitalMenuMotion {
+    const val CLOSE_REVEAL_DELAY_MILLIS = 1_000L
+
+    fun actionDelayMillis(index: Int): Long = index.coerceAtLeast(0) * 70L
+
+    fun closeCenter(
+        releaseX: Float,
+        releaseY: Float,
+        width: Int,
+        height: Int,
+        closeWidth: Int,
+        closeHeight: Int,
+    ): OrbitalMenuPoint {
+        val halfWidth = closeWidth.coerceAtLeast(0) / 2f
+        val halfHeight = closeHeight.coerceAtLeast(0) / 2f
+        return OrbitalMenuPoint(
+            releaseX.coerceIn(halfWidth, (width - halfWidth).coerceAtLeast(halfWidth)),
+            releaseY.coerceIn(halfHeight, (height - halfHeight).coerceAtLeast(halfHeight)),
+            0,
+        )
+    }
+}
+
 object OrbitalMenuGeometry {
-    fun positions(count: Int, width: Int, height: Int): List<OrbitalMenuPoint> {
+    fun positions(
+        count: Int,
+        width: Int,
+        height: Int,
+        anchorX: Float? = null,
+        anchorY: Float? = null,
+        itemWidth: Int = 0,
+        itemHeight: Int = 0,
+    ): List<OrbitalMenuPoint> {
         if (count <= 0 || width <= 0 || height <= 0) return emptyList()
-        val centerX = width / 2f
-        val centerY = height * .46f
         val base = min(width, height).toFloat()
         val firstRingCount = if (count <= 9) count else min(count, 8)
+        val maximumRadius = base * if (count > firstRingCount) .44f else if (count == 9) .37f else .30f
+        val halfItemWidth = itemWidth.coerceAtLeast(0) / 2f
+        val halfItemHeight = itemHeight.coerceAtLeast(0) / 2f
+        val centerX = anchorX?.coerceIn(
+            halfItemWidth + maximumRadius,
+            (width - halfItemWidth - maximumRadius).coerceAtLeast(halfItemWidth + maximumRadius),
+        ) ?: width / 2f
+        val centerY = anchorY?.coerceIn(
+            halfItemHeight + maximumRadius,
+            (height - halfItemHeight - maximumRadius).coerceAtLeast(halfItemHeight + maximumRadius),
+        ) ?: height * .46f
         return (0 until count).map { index ->
             val ring = if (index < firstRingCount) 0 else 1
             val ringIndex = if (ring == 0) index else index - firstRingCount

@@ -993,7 +993,7 @@ class QuakeTerminalView @JvmOverloads constructor(
     private fun rounded(color: Int, radius: Float, stroke: Int): GradientDrawable =
         GradientDrawable().apply {
             setColor(color)
-            cornerRadius = radius
+            cornerRadius = OmarchyThemeShapeState.surfaceRadiusPx(radius, resources.displayMetrics.density)
             setStroke(dp(1), stroke)
         }
 

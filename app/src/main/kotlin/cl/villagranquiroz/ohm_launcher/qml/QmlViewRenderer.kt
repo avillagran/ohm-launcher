@@ -13,6 +13,7 @@ import android.widget.LinearLayout
 import android.widget.Space
 import android.widget.TextView
 import androidx.core.content.res.ResourcesCompat
+import cl.villagranquiroz.ohm_launcher.OmarchyThemeShapeState
 import cl.villagranquiroz.ohm_launcher.R
 import java.io.File
 import kotlin.math.roundToInt
@@ -121,7 +122,10 @@ class QmlViewRenderer(
         view.background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             setColor(style.backgroundColor?.argb ?: 0x00000000)
-            cornerRadius = dpFloat(style.cornerRadius)
+            cornerRadius = OmarchyThemeShapeState.surfaceRadiusPx(
+                dpFloat(style.cornerRadius),
+                context.resources.displayMetrics.density,
+            )
             style.borderColor?.let { setStroke(dp(style.borderWidth).coerceAtLeast(1), it.argb) }
         }
     }

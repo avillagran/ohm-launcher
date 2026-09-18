@@ -46,7 +46,7 @@ object TtfxSettingsDialog {
         val session = TtfxEditorSession(current, onPreview)
         val preview = NativeTtfxView(context)
         val previewCard = FrameLayout(context).apply {
-            background = rounded(0xFF090D12.toInt(), dp(18).toFloat(), 0x8066E0FF.toInt(), dp(1))
+            background = rounded(0xFF090D12.toInt(), dp(18).toFloat(), 0x8066E0FF.toInt(), dp(1), density)
             clipToOutline = true
             addView(preview, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(136)))
             addView(TextView(context).apply {
@@ -55,7 +55,7 @@ object TtfxSettingsDialog {
                 textSize = 10f
                 typeface = Typeface.DEFAULT_BOLD
                 setPadding(dp(10), dp(7), dp(10), dp(7))
-                background = rounded(0xCC101820.toInt(), dp(10).toFloat(), 0x5566E0FF, dp(1))
+                background = rounded(0xCC101820.toInt(), dp(10).toFloat(), 0x5566E0FF, dp(1), density)
             }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply {
                 setMargins(dp(8), dp(8), dp(8), dp(8))
             })
@@ -81,14 +81,14 @@ object TtfxSettingsDialog {
             setHintTextColor(muted)
             setSingleLine(true)
             setPadding(dp(14), dp(10), dp(14), dp(10))
-            background = rounded(0xFF151D26.toInt(), dp(14).toFloat(), 0x5566E0FF, dp(1))
+            background = rounded(0xFF151D26.toInt(), dp(14).toFloat(), 0x5566E0FF, dp(1), density)
         }
         val effect = Spinner(context).apply {
             adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, effects).apply {
                 setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
             }
             setSelection(effects.indexOf(current.effect).coerceAtLeast(0))
-            background = rounded(0xFF151D26.toInt(), dp(14).toFloat(), 0x5566E0FF, dp(1))
+            background = rounded(0xFF151D26.toInt(), dp(14).toFloat(), 0x5566E0FF, dp(1), density)
         }
         val audio = SwitchCompat(context).apply {
             this.text = context.getString(R.string.ttfx_react_audio)
@@ -230,10 +230,10 @@ object TtfxSettingsDialog {
             addView(TextView(context).apply { text = subtitle; setTextColor(muted); textSize = 10f })
         }
 
-    private fun rounded(fill: Int, radius: Float, stroke: Int, strokeWidth: Int) = GradientDrawable().apply {
+    private fun rounded(fill: Int, radius: Float, stroke: Int, strokeWidth: Int, density: Float) = GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
         setColor(fill)
-        cornerRadius = radius
+        cornerRadius = OmarchyThemeShapeState.surfaceRadiusPx(radius, density)
         setStroke(strokeWidth, stroke)
     }
 

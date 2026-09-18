@@ -21,4 +21,11 @@ class TtfxMiniEditorLogicTest {
         assertEquals(0.0, TtfxMiniEditorLogic.position(base, -1.0, 2.0).textX, 0.0)
         assertEquals(1.0, TtfxMiniEditorLogic.position(base, -1.0, 2.0).textY, 0.0)
     }
+
+    @Test
+    fun clampsLiveTextSizeToTheSupportedRange() {
+        assertEquals(1, TtfxMiniEditorLogic.textSize(base, 0).textSize)
+        assertEquals(7, TtfxMiniEditorLogic.textSize(base, 7).textSize)
+        assertEquals(12, TtfxMiniEditorLogic.textSize(base, 99).textSize)
+    }
 }
