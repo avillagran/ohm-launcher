@@ -79,9 +79,9 @@ class MainActivity : AppCompatActivity() {
         if (started) {
             connectionState.setScreenSharing(true)
         }
-        if (ScreenSharePermissionPolicy.shouldPrompt(started, OhmGestureAccessibilityService.instance != null)) {
-            showRemoteControlPermissionDialog()
-        }
+        // No second dialog here: the remote-control (accessibility) prompt
+        // appears lazily on the first input attempt, so starting the share
+        // takes exactly ONE confirmation.
     }
     private val appWidgetBinding = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val pending = pendingAppWidget ?: return@registerForActivityResult
@@ -307,6 +307,23 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton(R.string.enable) { _, _ -> openAccessibilitySettings() }
             .setNegativeButton(R.string.view_only, null)
             .show()
+    }
+
+    @Volatile private var lastRemoteControlPromptAt = 0L
+
+    /** Lazy remote-control prompt: fired by the API when a remote input
+     *  arrives but the accessibility service is off. Throttled so a swipe
+     *  burst never stacks dialogs. */
+    private fun onRemoteInputBlocked() {
+        val now = System.currentTimeMillis()
+        if (now - lastRemoteControlPromptAt < REMOTE_CONTROL_PROMPT_THROTTLE_MS) return
+        lastRemoteControlPromptAt = now
+        if (isDestroyed) return
+        runOnUiThread {
+            if (!isDestroyed && OhmGestureAccessibilityService.instance == null) {
+                showRemoteControlPermissionDialog()
+            }
+        }
     }
 
     fun showOmarchyQr() {
@@ -871,6 +888,7 @@ class MainActivity : AppCompatActivity() {
             onScreenStop = ::stopScreenShare,
             onThemeGet = settingsStore::themeSnapshot,
             onThemePut = ::applyOmarchyTheme,
+            onInputAccessibilityBlocked = ::onRemoteInputBlocked,
         )
         apiServer = LocalApiServer(
             port = port,
@@ -1211,6 +1229,7 @@ class MainActivity : AppCompatActivity() {
         private const val REQUEST_STORAGE = 4001
         private const val API_PORT = 8753
         private const val PEER_PROBE_INTERVAL_MS = 15_000L
+        private const val REMOTE_CONTROL_PROMPT_THROTTLE_MS = 10_000L
         private const val PLUGIN_RELOAD_DEBOUNCE_MS = 400L
         private val BUILT_IN_PLUGINS = mapOf(
             "io.github.ohm.demo.clock" to listOf("manifest.json", "BarWidget.json", "Panel.json"),

@@ -107,6 +107,10 @@ class AndroidOmarchyApiAdapter(
     private val onScreenStop: () -> Unit,
     private val onThemeGet: (() -> JSONObject)? = null,
     private val onThemePut: ((JSONObject) -> Unit)? = null,
+    /** Fired when a remote input arrives but the accessibility service that
+     *  performs gestures is disabled — the UI prompts from there (lazily),
+     *  so starting screen share only takes ONE confirmation. */
+    private val onInputAccessibilityBlocked: (() -> Unit)? = null,
 ) : OmarchyApiAdapter {
     private val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
 
@@ -175,7 +179,10 @@ class AndroidOmarchyApiAdapter(
 
     private fun input(body: JSONObject): OmarchyApiResponse {
         val service = OhmGestureAccessibilityService.instance
-            ?: return OmarchyApiResponse.ok(JSONObject().put("ok", false).put("error", "accessibility_disabled"))
+            ?: return OmarchyApiResponse.ok(
+                JSONObject().put("ok", false).put("error", "accessibility_disabled")
+                    .also { onInputAccessibilityBlocked?.invoke() },
+            )
         val accepted = when (val action = body.optString("action")) {
             "tap" -> {
                 var value = false
