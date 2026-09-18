@@ -1204,7 +1204,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 start()
             }
         }
-        source.setOnTouchListener { _, event ->
+        val listener = OnTouchListener { touched, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downRawX = event.rawX
@@ -1242,13 +1242,20 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                     if (!armed && !dragStarted && !cancelledBeforeArm &&
                         event.actionMasked == MotionEvent.ACTION_UP
                     ) {
-                        source.performClick()
+                        touched.performClick()
                     }
                     true
                 }
                 else -> true
             }
         }
+        fun attach(view: View) {
+            view.setOnTouchListener(listener)
+            if (view is ViewGroup) {
+                for (index in 0 until view.childCount) attach(view.getChildAt(index))
+            }
+        }
+        attach(source)
     }
 
     private fun handleEdgeItemDrag(target: ViewGroup, box: EdgeBoxConfig, event: DragEvent): Boolean {
@@ -1316,7 +1323,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             showTrashDropTarget()
             showEdgeDropTargets(box.edge)
         }
-        val listener = OnTouchListener { _, event ->
+        val listener = OnTouchListener { touched, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downRawX = event.rawX
@@ -1326,7 +1333,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                     cancelledBeforeArm = false
                     clockHandler.removeCallbacks(arm)
                     clockHandler.postDelayed(arm, EdgeBoxInteractionState.ITEM_ACCEPT_MILLIS)
-                    false
+                    true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val displacement = kotlin.math.hypot(
@@ -1375,9 +1382,12 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                     val openMenu = event.actionMasked == MotionEvent.ACTION_UP &&
                         !armed && !cancelledBeforeArm && taps.registerTap(event.eventTime)
                     if (openMenu) (context as? MainActivity)?.showEdgeBoxMenu(box.id)
-                    dragging || armed || openMenu
+                    if (event.actionMasked == MotionEvent.ACTION_UP && !armed && !cancelledBeforeArm && !openMenu) {
+                        touched.performClick()
+                    }
+                    true
                 }
-                else -> dragging
+                else -> true
             }
         }
         fun attach(view: View) {
@@ -1973,63 +1983,57 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     }
 
     fun showEdgeBoxSettingsMenu(id: String) {
-        if (orbitalMenu != null) return
+        if (orbitalMenu != null || omarchyMenu != null) return
         val box = config.edgeBoxes.firstOrNull { it.id == id } ?: return
         val activity = context as? MainActivity ?: return
+        dismissCommandInput()
         edgeBoxSettingsMenuId = id
-        val actions = listOf(
-            OrbitalAction(NerdGlyph.UP, context.getString(R.string.move_to, edgeLabel(EdgePosition.TOP)), false) {
-                activity.moveEdgeBox(id, EdgePosition.TOP)
-            },
-            OrbitalAction(NerdGlyph.DOWN, context.getString(R.string.move_to, edgeLabel(EdgePosition.BOTTOM)), false) {
-                activity.moveEdgeBox(id, EdgePosition.BOTTOM)
-            },
-            OrbitalAction(NerdGlyph.LEFT, context.getString(R.string.move_to, edgeLabel(EdgePosition.LEFT)), false) {
-                activity.moveEdgeBox(id, EdgePosition.LEFT)
-            },
-            OrbitalAction(NerdGlyph.RIGHT, context.getString(R.string.move_to, edgeLabel(EdgePosition.RIGHT)), false) {
-                activity.moveEdgeBox(id, EdgePosition.RIGHT)
-            },
-            OrbitalAction(NerdGlyph.ADD, context.getString(R.string.add_application), false) {
-                orbitalMenu?.close()
-                activity.showEdgeBoxAppPicker(id)
-            },
-            OrbitalAction(
-                if (box.compact) NerdGlyph.EXPAND else NerdGlyph.COMPRESS,
-                context.getString(if (box.compact) R.string.expand else R.string.collapse),
-                false,
-            ) { activity.toggleEdgeBoxCompact(id) },
-            OrbitalAction(
-                if (box.showTitle) NerdGlyph.EYE_SLASH else NerdGlyph.EYE,
-                context.getString(if (box.showTitle) R.string.hide_title else R.string.show_title),
-                false,
-            ) { activity.toggleEdgeBoxTitle(id) },
-            OrbitalAction(
-                if (box.showExpandButton) NerdGlyph.EYE_SLASH else NerdGlyph.EYE,
-                context.getString(if (box.showExpandButton) R.string.hide_expand_button else R.string.show_expand_button),
-                false,
-            ) { activity.toggleEdgeBoxExpandButton(id) },
-            OrbitalAction(NerdGlyph.TRASH, context.getString(R.string.remove_box), false) {
-                activity.confirmRemoveEdgeBox(id, box.name)
+        val entries = EdgeBoxMenuPolicy.actions(box).map { action ->
+            when (action) {
+                EdgeBoxMenuAction.MOVE_TOP -> OmarchyMenuEntry(NerdGlyph.UP, context.getString(R.string.move_to, edgeLabel(EdgePosition.TOP)), action = { activity.moveEdgeBox(id, EdgePosition.TOP) })
+                EdgeBoxMenuAction.MOVE_BOTTOM -> OmarchyMenuEntry(NerdGlyph.DOWN, context.getString(R.string.move_to, edgeLabel(EdgePosition.BOTTOM)), action = { activity.moveEdgeBox(id, EdgePosition.BOTTOM) })
+                EdgeBoxMenuAction.MOVE_LEFT -> OmarchyMenuEntry(NerdGlyph.LEFT, context.getString(R.string.move_to, edgeLabel(EdgePosition.LEFT)), action = { activity.moveEdgeBox(id, EdgePosition.LEFT) })
+                EdgeBoxMenuAction.MOVE_RIGHT -> OmarchyMenuEntry(NerdGlyph.RIGHT, context.getString(R.string.move_to, edgeLabel(EdgePosition.RIGHT)), action = { activity.moveEdgeBox(id, EdgePosition.RIGHT) })
+                EdgeBoxMenuAction.ADD_APPLICATION -> OmarchyMenuEntry(NerdGlyph.ADD, context.getString(R.string.add_application), action = { activity.showEdgeBoxAppPicker(id) })
+                EdgeBoxMenuAction.EXPAND -> OmarchyMenuEntry(NerdGlyph.EXPAND, context.getString(R.string.expand), action = { activity.toggleEdgeBoxCompact(id) })
+                EdgeBoxMenuAction.COLLAPSE -> OmarchyMenuEntry(NerdGlyph.COMPRESS, context.getString(R.string.collapse), action = { activity.toggleEdgeBoxCompact(id) })
+                EdgeBoxMenuAction.SHOW_TITLE -> OmarchyMenuEntry(NerdGlyph.EYE, context.getString(R.string.show_title), action = { activity.toggleEdgeBoxTitle(id) })
+                EdgeBoxMenuAction.HIDE_TITLE -> OmarchyMenuEntry(NerdGlyph.EYE_SLASH, context.getString(R.string.hide_title), action = { activity.toggleEdgeBoxTitle(id) })
+                EdgeBoxMenuAction.SHOW_EXPAND_BUTTON -> OmarchyMenuEntry(NerdGlyph.EYE, context.getString(R.string.show_expand_button), action = { activity.toggleEdgeBoxExpandButton(id) })
+                EdgeBoxMenuAction.HIDE_EXPAND_BUTTON -> OmarchyMenuEntry(NerdGlyph.EYE_SLASH, context.getString(R.string.hide_expand_button), action = { activity.toggleEdgeBoxExpandButton(id) })
+                EdgeBoxMenuAction.REMOVE -> OmarchyMenuEntry(NerdGlyph.TRASH, context.getString(R.string.remove_box), action = { activity.confirmRemoveEdgeBox(id, box.name) })
+            }
+        }
+        val foreground = themeColor("foreground", 0xFFC0CAF5.toInt())
+        lateinit var overlay: OmarchyMenuOverlay
+        overlay = OmarchyMenuOverlay(
+            context = context,
+            rootEntries = entries,
+            rootTitle = box.name,
+            colors = OmarchyMenuOverlay.Colors(
+                background = themeColor("background", 0xFF1A1B26.toInt()),
+                foreground = foreground,
+                border = alphaColor(foreground, 0x66),
+                scrim = alphaColor(themeColor("dark_background", 0xFF16161E.toInt()), 0xB0),
+                selectedBackground = themeColor("lighter_background", 0xFF24283B.toInt()),
+                selectedText = themeColor("accent", 0xFF7AA2F7.toInt()),
+                muted = themeColor("muted", 0xFF565F89.toInt()),
+            ),
+            onDismissed = {
+                if (omarchyMenu === overlay) omarchyMenu = null
+                if (edgeBoxSettingsMenuId == id) edgeBoxSettingsMenuId = null
             },
         )
-        showOrbital(
-            actions = actions,
-            backgroundAlpha = 0x72,
-            dismissOnBackgroundTap = false,
-            edgeBoxMenuId = id,
-        )
+        omarchyMenu = overlay
+        addView(overlay, LayoutParams(MATCH_PARENT, MATCH_PARENT))
     }
 
     private fun refreshEdgeBoxSettingsMenu(id: String) {
         if (edgeBoxSettingsMenuId != id) return
         if (config.edgeBoxes.none { it.id == id }) {
-            orbitalMenu?.close()
+            omarchyMenu?.close()
             return
         }
-        orbitalMenu?.let(::removeView)
-        orbitalMenu = null
-        showEdgeBoxSettingsMenu(id)
     }
 
 

@@ -16,10 +16,26 @@ class LauncherInteractionParityTest {
     }
 
     @Test
-    fun edgeBoxRadialActionsCanStayOpenForLiveChanges() {
-        val action = OrbitalAction(NerdGlyph.TUNE, "toggle", closeOnInvoke = false) {}
+    fun edgeBoxSettingsUseTheOmarchyMenuActionModel() {
+        val box = EdgeBoxConfig.parse(
+            JSONObject("""{"id":"box","compact":true,"showTitle":false,"showExpandButton":true,"items":[]}"""),
+            0,
+        )
 
-        assertFalse(action.closeOnInvoke)
+        assertEquals(
+            listOf(
+                EdgeBoxMenuAction.MOVE_TOP,
+                EdgeBoxMenuAction.MOVE_BOTTOM,
+                EdgeBoxMenuAction.MOVE_LEFT,
+                EdgeBoxMenuAction.MOVE_RIGHT,
+                EdgeBoxMenuAction.ADD_APPLICATION,
+                EdgeBoxMenuAction.EXPAND,
+                EdgeBoxMenuAction.SHOW_TITLE,
+                EdgeBoxMenuAction.HIDE_EXPAND_BUTTON,
+                EdgeBoxMenuAction.REMOVE,
+            ),
+            EdgeBoxMenuPolicy.actions(box),
+        )
     }
 
     @Test

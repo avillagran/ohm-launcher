@@ -41,6 +41,35 @@ internal object SharedEdgeLayout {
     }
 }
 
+internal enum class EdgeBoxMenuAction {
+    MOVE_TOP,
+    MOVE_BOTTOM,
+    MOVE_LEFT,
+    MOVE_RIGHT,
+    ADD_APPLICATION,
+    EXPAND,
+    COLLAPSE,
+    SHOW_TITLE,
+    HIDE_TITLE,
+    SHOW_EXPAND_BUTTON,
+    HIDE_EXPAND_BUTTON,
+    REMOVE,
+}
+
+internal object EdgeBoxMenuPolicy {
+    fun actions(box: EdgeBoxConfig): List<EdgeBoxMenuAction> = listOf(
+        EdgeBoxMenuAction.MOVE_TOP,
+        EdgeBoxMenuAction.MOVE_BOTTOM,
+        EdgeBoxMenuAction.MOVE_LEFT,
+        EdgeBoxMenuAction.MOVE_RIGHT,
+        EdgeBoxMenuAction.ADD_APPLICATION,
+        if (box.compact) EdgeBoxMenuAction.EXPAND else EdgeBoxMenuAction.COLLAPSE,
+        if (box.showTitle) EdgeBoxMenuAction.HIDE_TITLE else EdgeBoxMenuAction.SHOW_TITLE,
+        if (box.showExpandButton) EdgeBoxMenuAction.HIDE_EXPAND_BUTTON else EdgeBoxMenuAction.SHOW_EXPAND_BUTTON,
+        EdgeBoxMenuAction.REMOVE,
+    )
+}
+
 enum class LauncherVerticalAction {
     NONE,
     OPEN_OMARCHY_MENU,

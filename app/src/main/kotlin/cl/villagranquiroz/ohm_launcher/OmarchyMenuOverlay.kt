@@ -115,6 +115,7 @@ internal class OmarchyMenuOverlay(
     context: Context,
     private val rootEntries: List<OmarchyMenuEntry>,
     private val searchEntries: List<OmarchyMenuEntry> = emptyList(),
+    private val rootTitle: String? = null,
     private val colors: Colors,
     private val onDismissed: () -> Unit,
 ) : FrameLayout(context) {
@@ -202,7 +203,7 @@ internal class OmarchyMenuOverlay(
             setHintTextColor(withAlpha(colors.foreground, 0x94))
             background = null
             setPadding(0, 0, 0, 0)
-            hint = context.getString(R.string.menu_go)
+            hint = rootTitle ?: context.getString(R.string.menu_go)
             addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(value: CharSequence?, start: Int, count: Int, after: Int) = Unit
                 override fun onTextChanged(value: CharSequence?, start: Int, before: Int, count: Int) {
@@ -453,7 +454,7 @@ internal class OmarchyMenuOverlay(
 
     private fun updateHeader() {
         backButton.visibility = if (OmarchyMenuHeaderPolicy.showBack(levels.size)) View.VISIBLE else View.GONE
-        header.hint = if (levels.size == 1) context.getString(R.string.menu_go) else "${levels.last().title}…"
+        header.hint = if (levels.size == 1) rootTitle ?: context.getString(R.string.menu_go) else "${levels.last().title}…"
     }
 
     private fun dismiss(after: (() -> Unit)? = null) {
