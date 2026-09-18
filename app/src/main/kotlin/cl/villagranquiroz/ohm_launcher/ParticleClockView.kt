@@ -41,6 +41,11 @@ class ParticleClockView(
         contentDescription = context.getString(R.string.sand_clock)
     }
 
+    fun setColor(color: Int) {
+        grainPaint.color = color
+        invalidate()
+    }
+
     override fun onSizeChanged(width: Int, height: Int, oldWidth: Int, oldHeight: Int) {
         super.onSizeChanged(width, height, oldWidth, oldHeight)
         displayedText = ""

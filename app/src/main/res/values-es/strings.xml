@@ -79,6 +79,8 @@
     <string name="setting_box_border_visible">Borde de cajas</string>
     <string name="setting_box_border_width">Grosor del borde de cajas</string>
     <string name="setting_box_icon_size">Tamaño de íconos de cajas</string>
+    <string name="setting_set_wallpaper">Establecer fondo TTFX</string>
+    <string name="ttfx_wallpaper_description">Fondo animado TTFX con el tema Omarchy y reloj de arena</string>
     <string name="setting_bar_radius">Radio de barras</string>
     <string name="setting_panel_transparency">Opacidad de menús de configuración</string>
     <string name="setting_show_favorites">Mostrar favoritos</string>

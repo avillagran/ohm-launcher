@@ -56,6 +56,12 @@ object LauncherSettingsDialog {
         val preferTermux = check(context, column, context.getString(R.string.setting_prefer_termux), current.shellPreferTermux)
         val quake = check(context, column, context.getString(R.string.setting_quake_terminal), current.quakeTerminal)
         val language = spinner(context, column, context.getString(R.string.setting_language), LauncherLanguage.entries.map { it.wireValue }, current.language.wireValue)
+        column.addView(
+            android.widget.Button(context).apply {
+                text = context.getString(R.string.setting_set_wallpaper)
+                setOnClickListener { TtfxWallpaper.enable(context) }
+            },
+        )
         val aiBase = input(context, column, context.getString(R.string.setting_ai_url), current.aiBaseUrl)
         val aiModel = input(context, column, context.getString(R.string.setting_ai_model), current.aiModel)
         val aiKey = input(

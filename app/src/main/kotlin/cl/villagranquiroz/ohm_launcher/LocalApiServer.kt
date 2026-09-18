@@ -55,6 +55,10 @@ fun interface QuakeHandler {
     fun handle(open: Boolean)
 }
 
+fun interface SetWallpaperHandler {
+    fun handle(): Boolean
+}
+
 /** Small dependency-free HTTP API used by local and LAN Ohm integrations. */
 class LocalApiServer(
     private val port: Int = 8753,
@@ -66,6 +70,7 @@ class LocalApiServer(
     private val onListBins: ListBinsHandler? = null,
     private val onUninstallBin: UninstallBinHandler? = null,
     private val onQuake: QuakeHandler? = null,
+    private val onSetWallpaper: SetWallpaperHandler? = null,
     private val omarchyAdapter: OmarchyApiAdapter? = null,
     private val screenFrames: LatestScreenFrameStore? = null,
     private val notificationChannel: OmarchyNotificationChannel? = null,
@@ -384,6 +389,15 @@ class LocalApiServer(
                 val open = if (body.opt("open") is Boolean) body.getBoolean("open") else true
                 handler.handle(open)
                 writeJson(output, 200, mapOf("ok" to true, "open" to open))
+            }
+            "/wallpaper" -> {
+                val handler = onSetWallpaper
+                if (handler == null) {
+                    writeJson(output, 501, mapOf("error" to "wallpaper_not_supported"))
+                    return
+                }
+                val ok = handler.handle()
+                writeJson(output, if (ok) 200 else 500, mapOf("ok" to ok))
             }
             else -> writeJson(output, 404, mapOf("error" to "not_found"))
         }

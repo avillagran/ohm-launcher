@@ -240,6 +240,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun setTtfxWallpaper(): Boolean = TtfxWallpaper.enable(this)
+
     fun requestDefaultLauncher() {
         // MIUI ignores both the RoleManager request and the component-reset
         // resolver trick, so on Xiaomi devices open the Default apps page
@@ -888,6 +890,7 @@ class MainActivity : AppCompatActivity() {
             onListBins = ListBinsHandler(binStore::list),
             onUninstallBin = UninstallBinHandler(binStore::remove),
             onQuake = QuakeHandler(::showQuake),
+            onSetWallpaper = SetWallpaperHandler(::setTtfxWallpaper),
             omarchyAdapter = omarchy,
             screenFrames = screenFrames,
             notificationChannel = object : OmarchyNotificationChannel {

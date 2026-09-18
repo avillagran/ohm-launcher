@@ -185,6 +185,8 @@ class NativeTtfxView @JvmOverloads constructor(
     @Volatile private var spectrum = AudioSpectrum.SILENCE
     @Volatile private var themeAccent: Int? = null
     private var config = TtfxConfig.parse(org.json.JSONObject())
+    /** Engines that draw the view manually (live wallpaper) get every new frame here. */
+    var onNewFrame: (() -> Unit)? = null
     private val audioController = AudioSpectrumController(context) {
         spectrum = it
         postInvalidateOnAnimation()
@@ -226,9 +228,24 @@ class NativeTtfxView @JvmOverloads constructor(
 
     override fun onDetachedFromWindow() {
         audioController.stop()
+        release()
+        super.onDetachedFromWindow()
+    }
+
+    /** Detiene o reanuda el render sin cambiar la config (visibilidad del wallpaper). */
+    fun setRenderActive(active: Boolean) {
+        if (active) restart()
+        else {
+            generation.incrementAndGet()
+            stopProcess()
+        }
+    }
+
+    /** Libera proceso y executor; obligatorio en vistas que nunca se adjuntan (wallpaper). */
+    fun release() {
+        generation.incrementAndGet()
         stopProcess()
         executor.shutdownNow()
-        super.onDetachedFromWindow()
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -363,6 +380,7 @@ class NativeTtfxView @JvmOverloads constructor(
                     previous = raw
                     val parsed = TtfxFrameParser.parse(raw)
                     frame = parsed
+                    onNewFrame?.invoke()
                     postInvalidateOnAnimation()
                 }
                 val exit = child.waitFor()

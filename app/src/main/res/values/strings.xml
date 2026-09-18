@@ -79,6 +79,8 @@
     <string name="setting_box_border_visible">Box border</string>
     <string name="setting_box_border_width">Box border width</string>
     <string name="setting_box_icon_size">Box icon size</string>
+    <string name="setting_set_wallpaper">Set TTFX wallpaper</string>
+    <string name="ttfx_wallpaper_description">Animated TTFX background with the Omarchy theme and sand clock</string>
     <string name="setting_bar_radius">Bar radius</string>
     <string name="setting_panel_transparency">Settings panel opacity</string>
     <string name="setting_show_favorites">Show favorites</string>
