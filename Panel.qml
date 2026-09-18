@@ -133,14 +133,16 @@ Panel {
   function startScreen() {
     root.screenSharing = true
     root.frameCount = 0
-    screenImage.source = ""
+    frameA.source = ""
+    frameB.source = ""
     postOnly("/omarchy/screen/start")
     screenRetry.start()
   }
   function stopScreen() {
     root.screenSharing = false
     screenRetry.stop()
-    screenImage.source = ""
+    frameA.source = ""
+    frameB.source = ""
     postOnly("/omarchy/screen/stop")
   }
   // Chained long-poll: the phone answers only when a frame newer than
@@ -160,8 +162,10 @@ Panel {
           if (j.h) root.screenH = j.h
           if (j.frames && j.frames !== root.frameCount) {
             root.frameCount = j.frames
-            // Old frame stays visible until the new one is decoded: no flash.
-            screenImage.source = base() + "/omarchy/screen/frame?sequence=" + j.frames
+            // Load into the hidden buffer; it flips visible when decoded.
+            const url = base() + "/omarchy/screen/frame?sequence=" + j.frames
+            if (screenImage.frontA) frameB.source = url
+            else frameA.source = url
             advanced = true
           }
         } catch (e) {}
@@ -485,14 +489,33 @@ Panel {
         // Tap on the image = tap on the phone; drag = swipe. Coordinates are
         // mapped through PreserveAspectFit using the phone pixel size reported
         // in /omarchy/screen/status.
-        Image {
+        Item {
           id: screenImage
           visible: root.screenSharing
           width: root.screenExpanded ? 560 : 220
           height: root.screenExpanded ? 700 : 140
-          fillMode: Image.PreserveAspectFit
-          source: ""
           anchors.horizontalCenter: parent.horizontalCenter
+
+          // Double buffer: the incoming frame loads in the HIDDEN image and
+          // only becomes visible once fully decoded, so the screen always
+          // shows the latest complete frame — never a blank flash.
+          property bool frontA: true
+          Image {
+            id: frameA
+            anchors.fill: parent
+            visible: parent.frontA
+            cache: false // unique ?sequence= URLs would flood the cache at 15fps
+            fillMode: Image.PreserveAspectFit
+            onStatusChanged: if (status === Image.Ready && !parent.frontA) parent.frontA = true
+          }
+          Image {
+            id: frameB
+            anchors.fill: parent
+            visible: !parent.frontA
+            cache: false
+            fillMode: Image.PreserveAspectFit
+            onStatusChanged: if (status === Image.Ready && parent.frontA) parent.frontA = false
+          }
           MouseArea {
             anchors.fill: parent
             property real pressX: 0
