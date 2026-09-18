@@ -233,7 +233,11 @@ class LocalApiServer(
             }
             route(method, target, headers, body, output)
         } catch (error: Exception) {
-            writeJson(output, 500, mapOf("error" to "server_error", "detail" to error.toString()))
+            // The client may already be gone (broken pipe): never let the
+            // error response itself escape and kill the api-worker thread.
+            runCatching {
+                writeJson(output, 500, mapOf("error" to "server_error", "detail" to error.toString()))
+            }
         }
     }
 
