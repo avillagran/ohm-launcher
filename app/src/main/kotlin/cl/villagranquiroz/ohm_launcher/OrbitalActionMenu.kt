@@ -49,6 +49,9 @@ internal object NerdGlyph {
     const val IMAGE = "\uF03E"
     const val SYNC = "\uF021"
     const val APPS = "\uDB80\uDC3B"
+    const val SEARCH = "\uF002"
+    const val STAR = "\uF005"
+    const val STAR_EMPTY = "\uF006"
 }
 
 internal object NerdFont {

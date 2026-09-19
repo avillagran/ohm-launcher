@@ -43,12 +43,6 @@ object LauncherSettingsDialog {
             100,
             (current.settingsPanelOpacity * 100).toInt(),
         )
-        val favoritesVisible = check(context, column, context.getString(R.string.setting_show_favorites), current.favoritesBarVisible)
-        val favoritePosition = spinner(context, column, context.getString(R.string.setting_favorites_position), LauncherEdge.entries.map { it.wireValue }, current.favoritesBarPosition.wireValue)
-        val modeValues = listOf("auto") + FavoritesBarMode.entries.map { it.wireValue }
-        val favoriteMode = spinner(context, column, context.getString(R.string.setting_favorites_layout), modeValues, current.favoritesBarMode?.wireValue ?: "auto")
-        val bottomVisible = check(context, column, context.getString(R.string.setting_show_commands), current.bottomBarVisible)
-        val bottomPosition = spinner(context, column, context.getString(R.string.setting_commands_position), LauncherEdge.entries.map { it.wireValue }, current.bottomBarPosition.wireValue)
         val gestureNavigation = check(context, column, context.getString(R.string.setting_gesture_navigation), current.gestureNavigationEnabled)
         val tapBoxes = check(context, column, context.getString(R.string.setting_show_touch_areas), current.showTapBoxes)
         val apiEnabled = check(context, column, context.getString(R.string.setting_local_api), current.apiServerEnabled)
@@ -83,12 +77,6 @@ object LauncherSettingsDialog {
             boxItemSize = boxIconSize.progress.toDouble(),
             barRadius = barRadius.progress.toDouble(),
             settingsPanelOpacity = panelOpacity.progress / 100.0,
-            favoritesBarVisible = favoritesVisible.isChecked,
-            favoritesBarPosition = LauncherEdge.entries[favoritePosition.selectedItemPosition],
-            favoritesBarMode = favoriteMode.selectedItemPosition.takeIf { it > 0 }
-                ?.let { FavoritesBarMode.entries[it - 1] },
-            bottomBarVisible = bottomVisible.isChecked,
-            bottomBarPosition = LauncherEdge.entries[bottomPosition.selectedItemPosition],
             gestureNavigationEnabled = gestureNavigation.isChecked,
             showTapBoxes = tapBoxes.isChecked,
             apiServerEnabled = apiEnabled.isChecked,
@@ -118,9 +106,9 @@ object LauncherSettingsDialog {
                 override fun onStopTrackingTouch(bar: SeekBar?) = Unit
             })
         }
-        listOf(favoritesVisible, bottomVisible, gestureNavigation, tapBoxes, apiEnabled, preferTermux, quake, boxBorderVisible)
+        listOf(gestureNavigation, tapBoxes, apiEnabled, preferTermux, quake, boxBorderVisible)
             .forEach { it.setOnCheckedChangeListener { _, _ -> updateLive() } }
-        listOf(favoritePosition, favoriteMode, bottomPosition, language).forEach { spinner ->
+        listOf(language).forEach { spinner ->
             spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, position: Int, id: Long) = updateLive()
                 override fun onNothingSelected(parent: AdapterView<*>?) = Unit

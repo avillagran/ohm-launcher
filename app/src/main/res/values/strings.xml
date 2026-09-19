@@ -40,6 +40,10 @@
     <string name="background_selector_apply_failed">Could not apply the Omarchy background</string>
     <string name="menu_not_synced">Not synchronized</string>
     <string name="menu_omarchy_launcher">Open Omarchy menu</string>
+    <string name="bar_fav_apps">Fav apps</string>
+    <string name="bar_expand">Expand bar</string>
+    <string name="bar_compress">Compress bar</string>
+    <string name="bar_recents">Recent apps</string>
     <string name="menu_go">Go…</string>
     <string name="menu_back">Back</string>
     <string name="search_app">Search app</string>

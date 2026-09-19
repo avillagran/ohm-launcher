@@ -1,6 +1,37 @@
 # OhmLauncher
 
-OhmLauncher is a native Android home-screen launcher written in Kotlin. It keeps the public configuration and package identity of the original Flutter application while replacing Flutter's rendering, gestures, terminal, widgets, and platform bridge with Android Views, Canvas, Kotlin, JNI, and the Android framework.
+OhmLauncher is a native Android home-screen launcher inspired by Omarchy, with synchronized themes, TTFX backgrounds, widgets, a Quake terminal, configurable edge boxes, and direct integration with Omarchy Linux.
+
+[Watch OhmLauncher videos on X](https://x.com/avillagran/status/2101107848898044190).
+
+## Download and install
+
+- [Download OhmLauncher 0.0.1 test APK](https://github.com/avillagran/ohm-launcher/releases/download/0.0.1/OhmLauncher-0.0.1-test-release.apk)
+- [View the 0.0.1 release and notes](https://github.com/avillagran/ohm-launcher/releases/tag/0.0.1)
+
+Install or update the downloaded APK with ADB:
+
+```bash
+adb install -r OhmLauncher-0.0.1-test-release.apk
+```
+
+Install Omarchy Link on Omarchy Linux, then restart the shell:
+
+```bash
+git clone https://github.com/avillagran/omarchy-link.git \
+  ~/.config/omarchy/plugins/cl.villagranquiroz.omarchy-link
+omarchy-restart-shell
+```
+
+Update an existing Omarchy Link installation:
+
+```bash
+git -C ~/.config/omarchy/plugins/cl.villagranquiroz.omarchy-link pull --ff-only
+omarchy-restart-shell
+```
+
+After installation, enable **Omarchy Link** in Omarchy's plugin manager, add its
+widget to the bar, and scan its QR code from the phone.
 
 - Android package: `cl.villagranquiroz.ohm_launcher`
 - Minimum Android version: Android 7.0 / API 24
@@ -8,15 +39,6 @@ OhmLauncher is a native Android home-screen launcher written in Kotlin. It keeps
 - UI: native Android Views and Canvas
 - Native terminal backend: Kotlin + JNI PTY
 - TTFX backend: the real Rust TTFX binaries, using framed `--parity-dump --pace-dump` output
-
-## Flutter version
-
-The previous Flutter implementation is preserved separately:
-
-- Local checkout: [`../ohm-launcher-flutter`](../ohm-launcher-flutter)
-- Flutter repository: [github.com/avillagran/ohm-launcher-flutter](https://github.com/avillagran/ohm-launcher-flutter)
-
-The native project does not depend on the Flutter checkout at runtime; it remains available as the migration reference and historical implementation.
 
 ## Highlights
 
@@ -43,7 +65,7 @@ The native project does not depend on the Flutter checkout at runtime; it remain
 
 ### Widgets and plugins
 
-- Lossless parsing of the Flutter-compatible widget configuration.
+- Lossless parsing of the public widget configuration.
 - Native clock, particle/hourglass clock, text, battery, app grid, container, tiling, plugin, runtime, and Android system widgets.
 - The particle clock keeps stable per-character particle pools, so only changed digits reorganize.
 - Omarchy plugin discovery, validation, enable/disable, deletion, installation, and desktop insertion.
@@ -69,9 +91,9 @@ The native project does not depend on the Flutter checkout at runtime; it remain
 - Canonical Omarchy theme palette support, including live application to launcher chrome, TTFX, widgets, and allowed Android system-bar appearance.
 - Companion desktop plugin under [`omarchy-link/`](omarchy-link/).
 
-## Public data compatibility
+## Public data
 
-The native rewrite preserves the existing public data root:
+OhmLauncher uses this public data root:
 
 ```text
 /sdcard/OhmLauncher/
@@ -88,7 +110,7 @@ plugins/
 plugins.disabled/
 ```
 
-Legacy data under `/sdcard/OmarchyLauncher` is still recognized by the migration layer. Unknown JSON fields are preserved when configuration is edited.
+Unknown JSON fields are preserved when configuration is edited.
 
 ## Project layout
 
@@ -111,7 +133,7 @@ app/src/main/cpp/
 app/src/test/                 JVM unit tests
 app/src/androidTest/          Android instrumentation tests
 omarchy-link/                 Omarchy desktop companion plugin
-docs/                         Migration and compatibility documentation
+docs/                         Project documentation
 ```
 
 ## Build
@@ -149,46 +171,6 @@ adb shell cmd package set-home-activity \
 adb shell input keyevent HOME
 ```
 
-## Install the test APK
-
-Download `OhmLauncher-0.0.1-test-release.apk` from the
-[0.0.1 GitHub release](https://github.com/avillagran/ohm-launcher/releases/tag/0.0.1).
-This testing artifact uses the Android release build type but is signed with the
-project's debug signing configuration. It is intended for evaluation, not Play
-Store distribution.
-
-Install or update it with ADB:
-
-```bash
-adb install -r OhmLauncher-0.0.1-test-release.apk
-```
-
-Alternatively, copy the APK to the phone, open it, allow installation from that
-file manager when Android requests it, and complete the installer. Then select
-OhmLauncher under **Settings → Apps → Default apps → Home app**.
-
-## Install Omarchy Link on Omarchy
-
-Omarchy Link is the desktop companion used for theme/background synchronization,
-clipboard exchange, notifications, files, and screen sharing. Install it in the
-canonical Omarchy plugin directory:
-
-```bash
-git clone https://github.com/avillagran/omarchy-link.git \
-  ~/.config/omarchy/plugins/cl.villagranquiroz.omarchy-link
-omarchy-restart-shell
-```
-
-Enable **Omarchy Link** from Omarchy's plugin manager and add its widget to the
-bar. Open the widget and scan its QR code from the phone to link both devices.
-
-Update an existing installation with:
-
-```bash
-git -C ~/.config/omarchy/plugins/cl.villagranquiroz.omarchy-link pull --ff-only
-omarchy-restart-shell
-```
-
 ## Verification
 
 Run the JVM suite:
@@ -209,7 +191,7 @@ Run connected instrumentation tests when an emulator or device is available:
 ./gradlew connectedDebugAndroidTest
 ```
 
-The rewrite has been exercised on both an Android emulator and a physical Xiaomi device. Features that affect touch routing, AppWidgets, the soft keyboard, TTFX rendering, and launcher behavior should still be validated on a real device before release.
+OhmLauncher has been exercised on both an Android emulator and a physical Xiaomi device. Features that affect touch routing, AppWidgets, the soft keyboard, TTFX rendering, and launcher behavior should still be validated on a real device before release.
 
 ## Companion Omarchy plugin
 

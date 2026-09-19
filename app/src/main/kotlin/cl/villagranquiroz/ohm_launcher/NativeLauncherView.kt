@@ -24,6 +24,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Space
@@ -32,9 +33,12 @@ import android.widget.Toast
 import android.widget.VideoView
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.ViewCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.transition.AutoTransition
+import androidx.transition.TransitionManager
 import cl.villagranquiroz.ohm_launcher.qml.QmlViewRenderer
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -46,7 +50,7 @@ import kotlin.math.roundToInt
 class NativeLauncherView(context: Context) : FrameLayout(context) {
     private data class WidgetDrag(val widgetIndex: Int)
     private data class EdgeBoxDrag(val id: String, val source: View)
-    private data class EdgeItemDrag(val boxId: String, val itemIndex: Int, val source: View)
+    private data class EdgeItemDrag(val boxId: String, val itemKey: String, val source: View)
     private data class EdgeItemViewTag(val itemIndex: Int)
     private data class EdgeBoxViewTag(val id: String)
 
@@ -60,12 +64,26 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     private val ttfxMini = TtfxMiniControlsView(context)
     private val content = WidgetGridLayout(context)
     private val favorites = LinearLayout(context)
+    private val favoritesScroll = HorizontalScrollView(context)
     private val edgeLayer = FrameLayout(context)
     private val commandContainer = FrameLayout(context)
     private val commandBar = LinearLayout(context)
     private val commandInput = EditText(context)
     private val commandMenu = ImageView(context)
+    private val commandApps = LinearLayout(context)
+    private val commandAppsIcon = TextView(context)
+    private val commandAppsLabel = TextView(context)
     private val commandToggle = TextView(context)
+    private val commandToggleSlot = Space(context)
+    private val commandFavApps = TextView(context)
+    private val commandSpacer = Space(context)
+    private val commandRecents = TextView(context)
+    private var lastNavigationBottomInset: Int? = null
+    private var animateNextNavigationInset = false
+    private var edgeModeAnimationGeneration = 0
+    private var edgeModeAnimationRunning = false
+    var onOmarchyBarModeChanged: ((Boolean) -> Unit)? = null
+    var onCompactNavigationRequested: ((String) -> Unit)? = null
     private val commandResults = LinearLayout(context)
     private val drawer = FrameLayout(context)
     private val drawerApps = RecyclerView(context)
@@ -249,12 +267,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         desktopLayer.addView(title, titleParams)
 
         favorites.orientation = LinearLayout.HORIZONTAL
-        favorites.gravity = Gravity.CENTER
-        favorites.background = rounded(0xD9141B22.toInt(), dp(22).toFloat(), 0x5566E0FF)
-        favorites.setPadding(dp(10), dp(7), dp(10), dp(7))
-        val favoriteParams = LayoutParams(WRAP_CONTENT, dp(66), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL)
-        favoriteParams.bottomMargin = dp(22)
-        desktopLayer.addView(favorites, favoriteParams)
+        favorites.gravity = Gravity.CENTER_VERTICAL
         edgeLayer.setOnDragListener { _, event -> handleEdgeBoxDrag(event) }
         desktopLayer.addView(edgeLayer, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         ttfxMini.apply {
@@ -296,7 +309,6 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             widgetEditing = widgetEditing,
             selectorVisible = themeSelector != null,
         )
-        if (routeLauncherGestures && !drawerVisible && !quakeVisible && updateLauncherBarDrag(event)) return true
         if (routeLauncherGestures) {
             if (!quakeVisible && (drawerVisible || edgeBoxAppSelection != null)) updateDrawerDrag(event)
             gestures.onTouchEvent(event)
@@ -315,7 +327,6 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 val candidate = when {
-                    pointInside(favorites, event.rawX, event.rawY) -> LauncherBarKind.FAVORITES to favorites
                     pointInside(commandContainer, event.rawX, event.rawY) -> LauncherBarKind.SEARCH to commandContainer
                     else -> null
                 }
@@ -497,14 +508,15 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         edgeBoxSettingsMenuId?.let { id -> post { refreshEdgeBoxSettingsMenu(id) } }
     }
 
-    fun submitSettings(value: LauncherSettings) {
+    fun submitSettings(value: LauncherSettings, animateTheme: Boolean = true) {
         val previousTheme = omarchyTheme
         val nextTheme = OmarchyThemePalette.fromSettings(value.raw)
+        android.util.Log.e("OHM-DEBUG-theme", "submit animate=$animateTheme previous=${previousTheme?.name} next=${nextTheme?.name} target=${themeTransitionTarget?.name}")
         if (themeTransitionTarget == nextTheme) {
             pendingThemeSettings = value
             return
         }
-        if (OmarchyThemeTransitionPolicy.shouldAnimate(previousTheme, nextTheme, width, height)) {
+        if (animateTheme && OmarchyThemeTransitionPolicy.shouldAnimate(previousTheme, nextTheme, width, height)) {
             startThemeTransition(value, nextTheme)
             return
         }
@@ -512,6 +524,8 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     }
 
     private fun applySettingsNow(value: LauncherSettings, theme: OmarchyThemePalette?) {
+        android.util.Log.e("OHM-DEBUG-theme", "apply now theme=${theme?.name}")
+        val barModeChanged = settings.omarchyBarMode != value.omarchyBarMode
         settings = value
         omarchyTheme = theme
         OmarchyThemeShapeState.apply(theme)
@@ -521,6 +535,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         applyCommandBarSettings(forceFromSetting = true)
         renderFavorites()
         renderEdgeBoxes()
+        applyOmarchyBarMode(animate = barModeChanged)
         renderDesktop()
         if (theme?.hasSquareCorners == true) post { enforceSquareCorners(this) }
     }
@@ -602,6 +617,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             commandContainer.visibility = VISIBLE
             applyFavoriteBarSettings()
             applyCommandBarSettings()
+            applyOmarchyBarMode()
         }
     }
 
@@ -1020,41 +1036,34 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
 
     private fun renderFavorites() {
         favorites.removeAllViews()
-        FavoritesConfigEditor.resolve(favoriteKeys, apps).take(7).forEach { app ->
+        val resolved = FavoritesConfigEditor.resolve(favoriteKeys, apps)
+        val availableWidth = commandContainer.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
+        val fixedButtonsWidth = dp(146)
+        val iconSize = UnifiedLauncherBarPolicy.favoriteIconSize(availableWidth, fixedButtonsWidth, resolved.size)
+        resolved.forEach { app ->
             val icon = ImageView(context).apply {
                 setImageDrawable(context.packageManager.getActivityIcon(android.content.ComponentName(app.packageName, app.activityName)))
-                setPadding(dp(7), dp(7), dp(7), dp(7))
+                val padding = (iconSize * .14f).roundToInt()
+                setPadding(padding, padding, padding, padding)
                 contentDescription = app.label
                 setOnClickListener { AppCatalog.launch(context, app) }
                 setOnLongClickListener { showAppMenu(app, this) }
             }
-            val badged = AppIconWithBadge.wrap(context, icon, app.packageName, iconSizeDp = 50)
-            favorites.addView(badged.root, LinearLayout.LayoutParams(dp(50), dp(50)))
+            val badged = AppIconWithBadge.wrap(context, icon, app.packageName, iconSizeDp = iconSize)
+            favorites.addView(badged.root, LinearLayout.LayoutParams(dp(iconSize), dp(iconSize)))
         }
-        favorites.visibility = if (settings.favoritesBarVisible && favorites.childCount > 0) VISIBLE else GONE
+        favoritesScroll.isFillViewport = !UnifiedLauncherBarPolicy.favoritesScrollable(
+            availableWidth,
+            fixedButtonsWidth,
+            resolved.size,
+        )
+        favoritesScroll.visibility = if (
+            favorites.childCount > 0 && OmarchyBarModePolicy.favoritesInBar(settings.omarchyBarMode)
+        ) VISIBLE else GONE
     }
 
     private fun applyFavoriteBarSettings() {
-        val vertical = settings.effectiveFavoritesBarMode in setOf(FavoritesBarMode.VERTICAL, FavoritesBarMode.LIST)
-        favorites.orientation = if (vertical) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
-        favorites.background = rounded(
-            alphaColor(themeColor("dark_background", 0xFF141B22.toInt()), 0xD9),
-            dp(settings.barRadius.toInt()).toFloat(),
-            alphaColor(themeColor("accent", 0xFF66E0FF.toInt()), 0x55),
-        )
-        favorites.layoutParams = LayoutParams(
-            if (vertical) dp(66) else WRAP_CONTENT,
-            if (vertical) WRAP_CONTENT else dp(66),
-            when (settings.favoritesBarPosition) {
-                LauncherEdge.TOP -> Gravity.TOP or Gravity.CENTER_HORIZONTAL
-                LauncherEdge.BOTTOM -> Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-                LauncherEdge.LEFT -> Gravity.START or Gravity.CENTER_VERTICAL
-                LauncherEdge.RIGHT -> Gravity.END or Gravity.CENTER_VERTICAL
-            },
-        ).apply {
-            val margin = dp(22)
-            setMargins(margin, margin, margin, margin)
-        }
+        favorites.orientation = LinearLayout.HORIZONTAL
     }
 
     private fun renderEdgeBoxes() {
@@ -1097,23 +1106,12 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     }
 
     private fun arrangeSharedEdgeItems() {
-        val all = buildList {
-            addAll(edgeGroups.values)
-            add(favorites)
-            add(commandContainer)
-        }
+        if (edgeModeAnimationRunning) return
+        val all = edgeGroups.values
         all.forEach { it.translationX = 0f; it.translationY = 0f }
         EdgePosition.entries.forEach { edge ->
             val items = buildList {
                 edgeGroups[edge]?.takeIf { it.visibility == VISIBLE }?.let(::add)
-                if (settings.favoritesBarVisible &&
-                    EdgePosition.parse(settings.favoritesBarPosition.wireValue) == edge &&
-                    favorites.visibility == VISIBLE
-                ) add(favorites)
-                if (settings.bottomBarVisible &&
-                    EdgePosition.parse(settings.bottomBarPosition.wireValue) == edge &&
-                    commandContainer.visibility == VISIBLE
-                ) add(commandContainer)
             }
             if (items.size < 2) return@forEach
             val verticalEdge = edge == EdgePosition.LEFT || edge == EdgePosition.RIGHT
@@ -1186,17 +1184,40 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         }
         installEdgeBoxGesture(this, box)
         setOnDragListener { target, event -> handleEdgeItemDrag(target as ViewGroup, box, event) }
-        draggableItems.forEach { (view, itemIndex) -> installEdgeItemGesture(view, box, itemIndex) }
+        draggableItems.forEach { (view, itemIndex) ->
+            installEdgeItemGesture(view, this, box, itemIndex, box.items[itemIndex].dragKey())
+        }
     }
 
-    private fun installEdgeItemGesture(source: View, box: EdgeBoxConfig, itemIndex: Int) {
+    private fun dropTarget(rawX: Float, rawY: Float): EdgePosition? {
+        val location = IntArray(2)
+        edgeLayer.getLocationOnScreen(location)
+        return EdgeDropTarget.target(
+            edgeLayer.width,
+            edgeLayer.height,
+            rawX - location[0],
+            rawY - location[1],
+            dp(120).toFloat(),
+        )
+    }
+
+    private fun installEdgeItemGesture(
+        source: View,
+        boxView: View,
+        box: EdgeBoxConfig,
+        itemIndex: Int,
+        itemKey: String,
+    ) {
         var downRawX = 0f
         var downRawY = 0f
-        var armed = false
+        var itemArmed = false
+        var boxArmed = false
         var dragStarted = false
+        var draggingBox = false
         var cancelledBeforeArm = false
-        val arm = Runnable {
-            armed = true
+        var menuOpened = false
+        val armItem = Runnable {
+            itemArmed = true
             source.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
             showTrashDropTarget()
             ObjectAnimator.ofFloat(source, View.ROTATION, 0f, -5f, 5f, -4f, 4f, 0f).apply {
@@ -1204,15 +1225,43 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 start()
             }
         }
+        val armBox = Runnable {
+            if (!dragStarted && !cancelledBeforeArm) {
+                itemArmed = false
+                boxArmed = true
+                source.rotation = 0f
+                hideTrashDropTarget()
+                dragSourceEdge = box.edge
+                boxView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                showEdgeDropTargets(box.edge)
+            }
+        }
+        val openSettings = Runnable {
+            if (!dragStarted && !cancelledBeforeArm) {
+                menuOpened = true
+                itemArmed = false
+                boxArmed = false
+                source.rotation = 0f
+                hideTrashDropTarget()
+                clearEdgeDropTargets()
+                dragSourceEdge = null
+                (context as? MainActivity)?.showEdgeBoxMenu(box.id)
+            }
+        }
         val listener = OnTouchListener { touched, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downRawX = event.rawX
                     downRawY = event.rawY
-                    armed = false
+                    itemArmed = false
+                    boxArmed = false
                     dragStarted = false
+                    draggingBox = false
                     cancelledBeforeArm = false
-                    clockHandler.postDelayed(arm, EdgeBoxInteractionState.ITEM_ACCEPT_MILLIS)
+                    menuOpened = false
+                    clockHandler.postDelayed(armItem, EdgeBoxInteractionState.ITEM_ACCEPT_MILLIS)
+                    clockHandler.postDelayed(armBox, EdgeBoxInteractionState.BOX_ACCEPT_MILLIS)
+                    clockHandler.postDelayed(openSettings, EdgeBoxInteractionState.SETTINGS_MILLIS)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -1220,26 +1269,71 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                         (event.rawX - downRawX).toDouble(),
                         (event.rawY - downRawY).toDouble(),
                     ).toFloat()
-                    if (!armed && displacement > EdgeBoxInteractionState.STILLNESS_SLOP_PX) {
+                    if (!itemArmed && !boxArmed && !dragStarted &&
+                        displacement > EdgeBoxInteractionState.PREARM_SLOP_PX
+                    ) {
                         cancelledBeforeArm = true
-                        clockHandler.removeCallbacks(arm)
+                        clockHandler.removeCallbacks(armItem)
+                        clockHandler.removeCallbacks(armBox)
+                        clockHandler.removeCallbacks(openSettings)
                     }
-                    if (armed && !dragStarted && displacement > EdgeBoxInteractionState.STILLNESS_SLOP_PX) {
-                        dragStarted = source.startDragAndDrop(
-                            ClipData.newPlainText("ohm-edge-item", "$itemIndex"),
-                            View.DragShadowBuilder(source),
-                            EdgeItemDrag(box.id, itemIndex, source),
-                            0,
-                        )
-                        if (dragStarted) source.alpha = .25f
+                    if (!dragStarted && displacement > EdgeBoxInteractionState.STILLNESS_SLOP_PX) {
+                        when {
+                            boxArmed -> {
+                                clockHandler.removeCallbacks(openSettings)
+                                dragStarted = true
+                                draggingBox = true
+                                edgeBoxDragging = true
+                                showTrashDropTarget()
+                                boxView.animate().alpha(.25f).scaleX(1.06f).scaleY(1.06f).setDuration(120).start()
+                            }
+                            itemArmed -> {
+                                clockHandler.removeCallbacks(armBox)
+                                clockHandler.removeCallbacks(openSettings)
+                                dragStarted = source.startDragAndDrop(
+                                    ClipData.newPlainText("ohm-edge-item", "$itemIndex"),
+                                    View.DragShadowBuilder(source),
+                                    EdgeItemDrag(box.id, itemKey, source),
+                                    0,
+                                )
+                                if (dragStarted) source.alpha = .25f
+                            }
+                        }
                     }
+                    if (draggingBox) showEdgeDropTargets(dropTarget(event.rawX, event.rawY))
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    clockHandler.removeCallbacks(arm)
+                    clockHandler.removeCallbacks(armItem)
+                    clockHandler.removeCallbacks(armBox)
+                    clockHandler.removeCallbacks(openSettings)
                     source.rotation = 0f
-                    if (!dragStarted) hideTrashDropTarget()
-                    if (!armed && !dragStarted && !cancelledBeforeArm &&
+                    if (draggingBox) {
+                        if (event.actionMasked == MotionEvent.ACTION_UP) {
+                            val delete = trashDropTarget?.let { pointInside(it, event.rawX, event.rawY) } == true
+                            if (delete) {
+                                (context as? MainActivity)?.confirmRemoveEdgeBox(box.id, box.name)
+                            } else {
+                                dropTarget(event.rawX, event.rawY)?.let { target ->
+                                    (context as? MainActivity)?.moveEdgeBox(
+                                        box.id,
+                                        target,
+                                        edgeBoxInsertionIndex(target, box.id, event.rawX, event.rawY),
+                                    )
+                                }
+                            }
+                        }
+                        hideTrashDropTarget()
+                        clearEdgeDropTargets()
+                        boxView.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(120).start()
+                        edgeBoxDragging = false
+                        dragSourceEdge = null
+                    } else if (!dragStarted) {
+                        hideTrashDropTarget()
+                        clearEdgeDropTargets()
+                        dragSourceEdge = null
+                    }
+                    if (!itemArmed && !boxArmed && !dragStarted && !cancelledBeforeArm && !menuOpened &&
                         event.actionMasked == MotionEvent.ACTION_UP
                     ) {
                         touched.performClick()
@@ -1283,7 +1377,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                     }
                     insertion = index + 1
                 }
-                (context as? MainActivity)?.moveEdgeBoxItem(drag.boxId, drag.itemIndex, box.id, insertion)
+                (context as? MainActivity)?.moveEdgeBoxItem(drag.boxId, drag.itemKey, box.id, insertion)
                 true
             }
             DragEvent.ACTION_DRAG_ENDED -> {
@@ -1302,7 +1396,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         var armed = false
         var dragging = false
         var cancelledBeforeArm = false
-        val taps = EdgeBoxDoubleTapState()
+        var menuOpened = false
         fun dropTarget(rawX: Float, rawY: Float): EdgePosition? {
             val location = IntArray(2)
             edgeLayer.getLocationOnScreen(location)
@@ -1323,6 +1417,16 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             showTrashDropTarget()
             showEdgeDropTargets(box.edge)
         }
+        val openSettings = Runnable {
+            if (!dragging && !cancelledBeforeArm) {
+                menuOpened = true
+                armed = false
+                clearEdgeDropTargets()
+                hideTrashDropTarget()
+                dragSourceEdge = null
+                (context as? MainActivity)?.showEdgeBoxMenu(box.id)
+            }
+        }
         val listener = OnTouchListener { touched, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
@@ -1331,8 +1435,11 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                     armed = false
                     dragging = false
                     cancelledBeforeArm = false
+                    menuOpened = false
                     clockHandler.removeCallbacks(arm)
-                    clockHandler.postDelayed(arm, EdgeBoxInteractionState.ITEM_ACCEPT_MILLIS)
+                    clockHandler.removeCallbacks(openSettings)
+                    clockHandler.postDelayed(arm, EdgeBoxInteractionState.BOX_ACCEPT_MILLIS)
+                    clockHandler.postDelayed(openSettings, EdgeBoxInteractionState.SETTINGS_MILLIS)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -1340,11 +1447,13 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                         (event.rawX - downRawX).toDouble(),
                         (event.rawY - downRawY).toDouble(),
                     ).toFloat()
-                    if (!armed && displacement > EdgeBoxInteractionState.STILLNESS_SLOP_PX) {
+                    if (!armed && !menuOpened && displacement > EdgeBoxInteractionState.PREARM_SLOP_PX) {
                         cancelledBeforeArm = true
                         clockHandler.removeCallbacks(arm)
+                        clockHandler.removeCallbacks(openSettings)
                     }
                     if (armed && !dragging && displacement > EdgeBoxInteractionState.STILLNESS_SLOP_PX) {
+                        clockHandler.removeCallbacks(openSettings)
                         dragging = true
                         edgeBoxDragging = true
                         source.animate().alpha(.25f).scaleX(.92f).scaleY(.92f).setDuration(90).start()
@@ -1355,6 +1464,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     clockHandler.removeCallbacks(arm)
+                    clockHandler.removeCallbacks(openSettings)
                     if (dragging) {
                         if (event.actionMasked == MotionEvent.ACTION_UP) {
                             val delete = trashDropTarget?.let { pointInside(it, event.rawX, event.rawY) } == true
@@ -1379,10 +1489,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                         clearEdgeDropTargets()
                         hideTrashDropTarget()
                     }
-                    val openMenu = event.actionMasked == MotionEvent.ACTION_UP &&
-                        !armed && !cancelledBeforeArm && taps.registerTap(event.eventTime)
-                    if (openMenu) (context as? MainActivity)?.showEdgeBoxMenu(box.id)
-                    if (event.actionMasked == MotionEvent.ACTION_UP && !armed && !cancelledBeforeArm && !openMenu) {
+                    if (event.actionMasked == MotionEvent.ACTION_UP && !armed && !cancelledBeforeArm && !menuOpened) {
                         touched.performClick()
                     }
                     true
@@ -1455,11 +1562,23 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                     event.y,
                     dp(120).toFloat(),
                 )
-                if (target != null) (context as? MainActivity)?.moveEdgeBox(drag.id, target)
+                if (target != null) {
+                    val location = IntArray(2)
+                    edgeLayer.getLocationOnScreen(location)
+                    val rawX = location[0] + event.x
+                    val rawY = location[1] + event.y
+                    (context as? MainActivity)?.moveEdgeBox(
+                        drag.id,
+                        target,
+                        edgeBoxInsertionIndex(target, drag.id, rawX, rawY),
+                    )
+                }
                 target != null
             }
             DragEvent.ACTION_DRAG_ENDED -> {
                 clearEdgeDropTargets()
+                hideTrashDropTarget()
+                dragSourceEdge = null
                 drag.source.animate().alpha(1f).setDuration(120).start()
                 true
             }
@@ -1530,11 +1649,12 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                         view.animate().scaleX(1f).scaleY(1f).setDuration(90).start()
                     }
                     DragEvent.ACTION_DROP -> true.also {
-                        val item = config.edgeBoxes.firstOrNull { it.id == drag.boxId }
-                            ?.items?.getOrNull(drag.itemIndex)
+                        val sourceBox = config.edgeBoxes.firstOrNull { it.id == drag.boxId }
+                        val itemIndex = sourceBox?.items?.indexOfFirst { it.dragKey() == drag.itemKey } ?: -1
+                        val item = sourceBox?.items?.getOrNull(itemIndex)
                         (context as? MainActivity)?.confirmRemoveEdgeBoxItem(
                             drag.boxId,
-                            drag.itemIndex,
+                            itemIndex,
                             item?.label.orEmpty(),
                         )
                     }
@@ -1589,14 +1709,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         val menu = android.widget.PopupMenu(context, anchor)
         val label = if (favoriteKeys.contains(key)) R.string.favorite_remove else R.string.favorite_add
         menu.menu.add(label).setOnMenuItemClickListener {
-            favoriteKeys = FavoritesConfigEditor.toggle(favoriteKeys, key)
-            appAdapter.submit(apps, favoriteKeys)
-            renderFavorites()
-            val snapshot = favoriteKeys
-            favoritesWriter.execute {
-                runCatching { ConfigStorage.writeActiveFavorites(snapshot) }
-                    .onFailure { error -> post { showConfigError(error.message.orEmpty()) } }
-            }
+            toggleFavorite(key)
             true
         }
         menu.show()
@@ -1617,10 +1730,11 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     }
 
     private fun buildCommandBar() {
+        commandContainer.setBackgroundColor(0xF21A1B26.toInt())
         commandBar.apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 0, dp(42), 0)
+            setPadding(0, 0, 0, 0)
             background = rounded(0xF21A1B26.toInt(), 0f, 0x331A1B26)
         }
         commandMenu.apply {
@@ -1630,39 +1744,93 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             contentDescription = context.getString(R.string.menu_omarchy_launcher)
             setOnClickListener { showOmarchyLauncherMenu() }
         }
-        commandInput.apply {
-            hint = context.getString(R.string.search_app)
-            setSingleLine(true)
-            setTextColor(Color.WHITE)
-            setHintTextColor(0xFF74869A.toInt())
-            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_GO
-            background = null
-            addTextChangedListener(SimpleTextWatcher(::updateCommandSearch))
-            setOnEditorActionListener { _, _, _ ->
-                val query = text.toString().trim()
-                when {
-                    query.equals("terminal", ignoreCase = true) -> onQuakeRequested?.invoke()
-                    query.equals("plugins", ignoreCase = true) -> (context as? MainActivity)?.showPluginManager()
-                    else -> firstCommandApp(query)?.let { AppCatalog.launch(context, it) }
-                }
-                if (query.isNotEmpty()) text.clear()
+        commandApps.apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            contentDescription = context.getString(R.string.search_apps)
+            setOnClickListener { showAppsSearchMenu() }
+        }
+        commandAppsIcon.apply {
+            text = NerdGlyph.SEARCH
+            typeface = NerdFont.load(context)
+            textSize = 18f
+            gravity = Gravity.CENTER
+        }
+        commandAppsLabel.apply {
+            text = context.getString(R.string.menu_apps)
+            textSize = 11f
+            maxLines = 1
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        commandApps.addView(commandAppsIcon, LinearLayout.LayoutParams(dp(28), MATCH_PARENT))
+        commandApps.addView(commandAppsLabel, LinearLayout.LayoutParams(WRAP_CONTENT, MATCH_PARENT))
+        commandFavApps.apply {
+            text = NerdGlyph.APPS
+            typeface = NerdFont.load(context)
+            textSize = 18f
+            gravity = Gravity.CENTER
+            contentDescription = context.getString(R.string.bar_fav_apps)
+            setOnClickListener { showFavoriteAppsMenu(focusInput = false) }
+            setOnLongClickListener {
+                showFavoriteAppsMenu(focusInput = true)
                 true
             }
         }
-        commandBar.addView(commandMenu, LinearLayout.LayoutParams(dp(46), dp(46)))
-        commandBar.addView(commandInput, LinearLayout.LayoutParams(0, dp(44), 1f))
         commandToggle.apply {
-            gravity = Gravity.CENTER
-            setTextColor(0xFF66E0FF.toInt())
+            typeface = NerdFont.load(context)
             textSize = 18f
-            background = rounded(0xFF151D26.toInt(), dp(18).toFloat(), 0x8866E0FF.toInt())
-            setOnClickListener {
-                commandCollapsed = !commandCollapsed
-                applyCommandBarSettings()
-            }
+            gravity = Gravity.CENTER
+            setOnClickListener { onOmarchyBarModeChanged?.invoke(!settings.omarchyBarMode) }
         }
+        commandRecents.apply {
+            text = NerdGlyph.SQUARE
+            typeface = NerdFont.load(context)
+            textSize = 16f
+            gravity = Gravity.CENTER
+            contentDescription = context.getString(R.string.bar_recents)
+            setOnClickListener { onCompactNavigationRequested?.invoke("recents") }
+        }
+        favoritesScroll.apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+            addView(favorites, ViewGroup.LayoutParams(WRAP_CONTENT, MATCH_PARENT))
+        }
+        commandBar.addView(commandMenu, LinearLayout.LayoutParams(dp(46), dp(46)))
+        commandBar.addView(commandFavApps, LinearLayout.LayoutParams(dp(46), dp(46)))
+        commandBar.addView(commandSpacer, LinearLayout.LayoutParams(0, dp(46), 1f))
+        commandBar.addView(commandApps, LinearLayout.LayoutParams(dp(100), dp(46)))
+        commandBar.addView(favoritesScroll, LinearLayout.LayoutParams(0, dp(50), 1f))
+        commandBar.addView(commandToggleSlot, LinearLayout.LayoutParams(dp(46), dp(46)))
         commandContainer.addView(commandBar, LayoutParams(MATCH_PARENT, MATCH_PARENT))
-        commandContainer.addView(commandToggle, LayoutParams(dp(42), dp(42), Gravity.END or Gravity.CENTER_VERTICAL))
+        commandContainer.addView(
+            commandToggle,
+            LayoutParams(dp(46), dp(46), Gravity.END or Gravity.CENTER_VERTICAL),
+        )
+        commandContainer.addView(
+            commandRecents,
+            LayoutParams(dp(46), dp(46), Gravity.CENTER),
+        )
+        commandContainer.addOnLayoutChangeListener { _, left, _, right, _, oldLeft, _, oldRight, _ ->
+            if (right - left != oldRight - oldLeft) renderFavorites()
+        }
+        ViewCompat.setOnApplyWindowInsetsListener(commandContainer) { view, insets ->
+            val navigationBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            view.setPadding(0, 0, 0, navigationBottom)
+            view.layoutParams = LayoutParams(MATCH_PARENT, dp(52) + navigationBottom, Gravity.BOTTOM)
+            val previousBottom = lastNavigationBottomInset
+            lastNavigationBottomInset = navigationBottom
+            if (animateNextNavigationInset && previousBottom != null && previousBottom != navigationBottom) {
+                animateNextNavigationInset = false
+                val distance = kotlin.math.abs(previousBottom - navigationBottom).toFloat()
+                view.translationY = if (settings.omarchyBarMode) -distance else distance
+                view.animate()
+                    .translationY(0f)
+                    .setDuration(220)
+                    .setInterpolator(android.view.animation.AccelerateDecelerateInterpolator())
+                    .start()
+            }
+            insets
+        }
         applyCommandBarSettings(forceFromSetting = true)
     }
 
@@ -1764,42 +1932,118 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     }
 
     private fun applyCommandBarSettings(forceFromSetting: Boolean = false) {
-        if (forceFromSetting) commandCollapsed = !settings.bottomBarVisible
-        commandBar.visibility = if (commandCollapsed) GONE else VISIBLE
-        commandToggle.text = if (commandCollapsed) "+" else "−"
-        val vertical = settings.bottomBarPosition == LauncherEdge.LEFT || settings.bottomBarPosition == LauncherEdge.RIGHT
-        val commandEdge = EdgePosition.parse(settings.bottomBarPosition.wireValue)
-        val sharesEdge = config.edgeBoxes.any { it.visible && it.edge == commandEdge } ||
-            (settings.favoritesBarVisible && settings.favoritesBarPosition == settings.bottomBarPosition)
-        commandBar.orientation = if (vertical) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+        commandCollapsed = false
+        commandBar.visibility = VISIBLE
+        commandBar.orientation = LinearLayout.HORIZONTAL
         commandMenu.layoutParams = LinearLayout.LayoutParams(dp(46), dp(46))
-        commandInput.layoutParams = if (vertical) {
-            LinearLayout.LayoutParams(dp(150), dp(48))
+        commandAppsLabel.visibility = if (settings.omarchyBarMode) GONE else VISIBLE
+        commandApps.layoutParams = LinearLayout.LayoutParams(
+            dp(if (settings.omarchyBarMode) 28 else 100),
+            dp(46),
+        )
+        commandContainer.layoutParams = LayoutParams(MATCH_PARENT, dp(52) + commandContainer.paddingBottom, Gravity.BOTTOM)
+        commandContainer.visibility = VISIBLE
+        ViewCompat.requestApplyInsets(commandContainer)
+        if (forceFromSetting) post(::renderFavorites)
+    }
+
+    /** Omarchy mode: compact bar without edge boxes/favorites; activador restores the full layout. */
+    private fun applyOmarchyBarMode(animate: Boolean = false) {
+        val mode = settings.omarchyBarMode
+        if (animate) animateNextNavigationInset = true
+        // The settings file observer can submit the same mode while its visual
+        // transition is still running. Do not snap the edge groups to their end state.
+        if (!animate && edgeModeAnimationRunning) return
+        val edgeAnimationGeneration = ++edgeModeAnimationGeneration
+        val edgesVisible = OmarchyBarModePolicy.edgeBoxesVisible(mode, widgetEditing)
+        if (animate && !widgetEditing) {
+            edgeModeAnimationRunning = true
+            TransitionManager.beginDelayedTransition(commandBar, AutoTransition().apply { duration = 180 })
+            if (edgesVisible) {
+                edgeLayer.visibility = VISIBLE
+                edgeLayer.alpha = 1f
+                edgeGroups.forEach { (edge, group) ->
+                    group.animate().cancel()
+                    group.alpha = 0f
+                    group.post {
+                        if (edgeModeAnimationGeneration != edgeAnimationGeneration) return@post
+                        setEdgeGroupOutsideTranslation(edge, group)
+                        group.postOnAnimation {
+                            group.animate()
+                                .translationX(0f)
+                                .translationY(0f)
+                                .alpha(1f)
+                                .setDuration(320)
+                                .setInterpolator(android.view.animation.AccelerateInterpolator())
+                                .start()
+                        }
+                    }
+                }
+                edgeLayer.postDelayed({
+                    if (edgeModeAnimationGeneration == edgeAnimationGeneration) {
+                        edgeModeAnimationRunning = false
+                    }
+                }, 360)
+            } else {
+                edgeGroups.forEach { (edge, group) ->
+                    group.animate().cancel()
+                    val (targetX, targetY) = edgeGroupOutsideTranslation(edge, group)
+                    group.animate()
+                        .translationX(targetX)
+                        .translationY(targetY)
+                        .alpha(0f)
+                        .setDuration(320)
+                        .setInterpolator(android.view.animation.DecelerateInterpolator())
+                        .start()
+                }
+                edgeLayer.postDelayed({
+                    if (edgeModeAnimationGeneration == edgeAnimationGeneration && settings.omarchyBarMode) {
+                        edgeLayer.visibility = GONE
+                        edgeModeAnimationRunning = false
+                    }
+                }, 320)
+            }
         } else {
-            LinearLayout.LayoutParams(0, dp(44), 1f)
+            edgeModeAnimationRunning = false
+            edgeLayer.alpha = 1f
+            edgeLayer.visibility = if (edgesVisible) VISIBLE else GONE
+            edgeGroups.forEach { (_, group) ->
+                group.animate().cancel()
+                group.translationX = 0f
+                group.translationY = 0f
+                group.alpha = 1f
+            }
         }
-        commandContainer.layoutParams = LayoutParams(
-            if (commandCollapsed) dp(42) else if (vertical) dp(190)
-            else if (sharesEdge) (resources.displayMetrics.widthPixels * .48f).toInt()
-            else MATCH_PARENT,
-            if (commandCollapsed) dp(42) else if (vertical) WRAP_CONTENT else dp(48),
-            when (settings.bottomBarPosition) {
-                LauncherEdge.TOP -> Gravity.TOP or Gravity.CENTER_HORIZONTAL
-                LauncherEdge.BOTTOM -> Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-                LauncherEdge.LEFT -> Gravity.START or Gravity.CENTER_VERTICAL
-                LauncherEdge.RIGHT -> Gravity.END or Gravity.CENTER_VERTICAL
-            },
-        ).apply {
-            val inset = OmarchyBarInsets.forEdge(settings.bottomBarPosition, dp(14))
-            setMargins(
-                inset.left,
-                inset.top + if (settings.bottomBarPosition == LauncherEdge.TOP) dp(28) else 0,
-                inset.right,
-                inset.bottom + if (settings.bottomBarPosition == LauncherEdge.BOTTOM) dp(28) else 0,
-            )
+        commandFavApps.visibility =
+            if (OmarchyBarModePolicy.favAppsButtonVisible(mode)) VISIBLE else GONE
+        commandSpacer.visibility =
+            if (OmarchyBarModePolicy.spacerVisible(mode)) VISIBLE else GONE
+        commandRecents.visibility = if (mode) VISIBLE else GONE
+        commandAppsLabel.visibility = if (mode) GONE else VISIBLE
+        commandApps.layoutParams = LinearLayout.LayoutParams(dp(if (mode) 28 else 100), dp(46))
+        favoritesScroll.visibility =
+            if (OmarchyBarModePolicy.favoritesInBar(mode)) VISIBLE else GONE
+        commandToggle.text = OmarchyBarModePolicy.toggleGlyph(mode)
+        commandToggle.contentDescription = context.getString(
+            if (mode) R.string.bar_expand else R.string.bar_compress,
+        )
+    }
+
+    private fun edgeGroupOutsideTranslation(edge: EdgePosition, group: View): Pair<Float, Float> {
+        val horizontalDistance = (group.width.takeIf { it > 0 } ?: dp(96)) + dp(16)
+        val verticalDistance = (group.height.takeIf { it > 0 } ?: dp(96)) + dp(16)
+        return when (edge) {
+            EdgePosition.LEFT -> -horizontalDistance.toFloat() to 0f
+            EdgePosition.RIGHT -> horizontalDistance.toFloat() to 0f
+            EdgePosition.TOP -> 0f to -verticalDistance.toFloat()
+            EdgePosition.BOTTOM -> 0f to verticalDistance.toFloat()
         }
-        positionCommandResults()
-        post(::arrangeSharedEdgeItems)
+    }
+
+    private fun setEdgeGroupOutsideTranslation(edge: EdgePosition, group: View) {
+        val (translationX, translationY) = edgeGroupOutsideTranslation(edge, group)
+        group.translationX = translationX
+        group.translationY = translationY
     }
 
     private fun applyThemeChrome() {
@@ -1810,15 +2054,18 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         val surface = themeColor("lighter_background", 0xFF151D26.toInt())
         val dark = themeColor("dark_background", 0xFF0B0F14.toInt())
         title.setTextColor(desktopText)
-        commandBar.background = rounded(alphaColor(dark, 0xF2), 0f, alphaColor(dark, 0xF2))
+        commandBar.background = rounded(dark, 0f, dark)
+        commandContainer.setBackgroundColor(dark)
         commandInput.setTextColor(foreground)
         commandInput.setHintTextColor(muted)
+        commandAppsIcon.setTextColor(foreground)
+        commandAppsLabel.setTextColor(foreground)
         commandToggle.setTextColor(accent)
-        commandToggle.background = rounded(surface, dp(18).toFloat(), alphaColor(accent, 0x88))
+        commandToggle.background = null
         for (index in 1 until commandBar.childCount) {
             (commandBar.getChildAt(index) as? TextView)?.apply {
                 setTextColor(foreground)
-                background = rounded(alphaColor(surface, 0x44), dp(12).toFloat(), alphaColor(accent, 0x44))
+                background = null
             }
         }
         drawer.setBackgroundColor(alphaColor(dark, 0xF2))
@@ -2043,16 +2290,15 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         dismissCommandInput()
         val activity = context as? MainActivity ?: return
         val menuApps = apps.ifEmpty { AppCatalog.query(context) }
-        val appEntries = menuApps.map { app ->
-            OmarchyMenuEntry(
-                icon = NerdGlyph.APPS,
-                label = app.label,
-                detail = app.packageName,
-                action = { AppCatalog.launch(context, app) },
-                iconKey = "${app.packageName}/${app.activityName}",
-                iconLoader = { AppCatalog.icon(context, app) },
-            )
-        }
+        fun appEntry(app: InstalledApp) = OmarchyMenuEntry(
+            icon = NerdGlyph.APPS,
+            label = app.label,
+            detail = app.packageName,
+            action = { AppCatalog.launch(context, app) },
+            iconKey = "${app.packageName}/${app.activityName}",
+            iconLoader = { AppCatalog.icon(context, app) },
+        )
+        val appEntries = menuApps.map(::appEntry)
         val syncedTheme = omarchyTheme
         val notSynced = context.getString(R.string.menu_not_synced)
         val entries = listOf(
@@ -2158,6 +2404,97 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         ).also { addView(it, LayoutParams(MATCH_PARENT, MATCH_PARENT)) }
         omarchyMenu = overlay
         if (OmarchyMenuInputPolicy.focusInput(trigger)) overlay.focusInput()
+        else overlay.post { overlay.requestFocus() }
+    }
+
+    private fun showAppsSearchMenu() {
+        showAppListMenu(
+            rootTitle = context.getString(R.string.search_apps),
+            entries = apps.ifEmpty { AppCatalog.query(context) },
+            focusInput = true,
+            showFavoriteToggle = true,
+        )
+    }
+
+    private fun showFavoriteAppsMenu(focusInput: Boolean) {
+        val installedApps = apps.ifEmpty { AppCatalog.query(context) }
+        showAppListMenu(
+            rootTitle = context.getString(R.string.bar_fav_apps),
+            entries = FavoritesConfigEditor.resolve(favoriteKeys, installedApps),
+            focusInput = focusInput,
+            showFavoriteToggle = false,
+        )
+    }
+
+    private fun showAppListMenu(
+        rootTitle: String,
+        entries: List<InstalledApp>,
+        focusInput: Boolean,
+        showFavoriteToggle: Boolean,
+    ) {
+        if (widgetEditing) setWidgetEditing(false)
+        if (orbitalMenu != null || omarchyMenu != null) return
+        dismissCommandInput()
+        val appEntries = entries.map { app ->
+            val key = "${app.packageName}/${app.activityName}"
+            OmarchyMenuEntry(
+                icon = NerdGlyph.APPS,
+                label = app.label,
+                detail = app.packageName,
+                action = { AppCatalog.launch(context, app) },
+                iconKey = "${app.packageName}/${app.activityName}",
+                iconLoader = { AppCatalog.icon(context, app) },
+                trailingIcon = if (showFavoriteToggle) ({
+                    if (favoriteKeys.contains(key)) NerdGlyph.STAR else NerdGlyph.STAR_EMPTY
+                }) else null,
+                trailingContentDescription = if (showFavoriteToggle) ({
+                    context.getString(
+                        if (favoriteKeys.contains(key)) R.string.favorite_remove else R.string.favorite_add,
+                    )
+                }) else null,
+                trailingAction = if (showFavoriteToggle) ({ toggleFavorite(key) }) else null,
+            )
+        }
+        val foreground = themeColor("foreground", 0xFFC0CAF5.toInt())
+        val activity = context as? MainActivity ?: return
+        val originalSoftInputMode = activity.window.attributes.softInputMode
+        activity.window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
+        lateinit var overlay: OmarchyMenuOverlay
+        overlay = OmarchyMenuOverlay(
+            context = context,
+            rootEntries = appEntries,
+            searchEntries = appEntries,
+            rootTitle = rootTitle,
+            mode = OmarchyMenuMode.APPS_ONLY,
+            colors = OmarchyMenuOverlay.Colors(
+                background = themeColor("background", 0xFF1A1B26.toInt()),
+                foreground = foreground,
+                border = alphaColor(foreground, 0x66),
+                scrim = alphaColor(themeColor("dark_background", 0xFF16161E.toInt()), 0xB0),
+                selectedBackground = themeColor("lighter_background", 0xFF24283B.toInt()),
+                selectedText = themeColor("accent", 0xFF7AA2F7.toInt()),
+                muted = themeColor("muted", 0xFF565F89.toInt()),
+            ),
+            onDismissed = {
+                activity.window.setSoftInputMode(originalSoftInputMode)
+                if (omarchyMenu === overlay) omarchyMenu = null
+            },
+        )
+        omarchyMenu = overlay
+        addView(overlay, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        if (focusInput) overlay.focusInput()
+        else overlay.post { overlay.requestFocus() }
+    }
+
+    private fun toggleFavorite(key: String) {
+        favoriteKeys = FavoritesConfigEditor.toggle(favoriteKeys, key)
+        appAdapter.submit(apps, favoriteKeys)
+        renderFavorites()
+        val snapshot = favoriteKeys
+        favoritesWriter.execute {
+            runCatching { ConfigStorage.writeActiveFavorites(snapshot) }
+                .onFailure { error -> post { showConfigError(error.message.orEmpty()) } }
+        }
     }
 
     fun showOmarchyThemeSelector(

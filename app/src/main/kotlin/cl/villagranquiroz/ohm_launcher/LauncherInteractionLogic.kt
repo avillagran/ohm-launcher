@@ -12,7 +12,7 @@ internal object ScreenSharePermissionPolicy {
 }
 
 internal object LauncherSystemBarPolicy {
-    fun navigationBarColor(): Int = 0x00000000
+    fun navigationBarColor(): Int = 0xFF1A1B26.toInt()
 }
 
 internal class LauncherBarDragState {
@@ -134,6 +134,44 @@ data class BarInsets(val left: Int, val top: Int, val right: Int, val bottom: In
 object OmarchyBarInsets {
     @Suppress("UNUSED_PARAMETER")
     fun forEdge(edge: LauncherEdge, spacing: Int): BarInsets = BarInsets(0, 0, 0, 0)
+}
+
+object UnifiedLauncherBarPolicy {
+    private const val MIN_ICON_SIZE = 27
+    private const val MAX_ICON_SIZE = 38
+
+    fun favoriteIconSize(availableWidth: Int, fixedButtonsWidth: Int, favoriteCount: Int): Int {
+        if (favoriteCount <= 0) return MAX_ICON_SIZE
+        return ((availableWidth - fixedButtonsWidth).coerceAtLeast(0) / favoriteCount)
+            .coerceIn(MIN_ICON_SIZE, MAX_ICON_SIZE)
+    }
+
+    fun favoritesScrollable(availableWidth: Int, fixedButtonsWidth: Int, favoriteCount: Int): Boolean =
+        favoriteCount > 0 && (availableWidth - fixedButtonsWidth).coerceAtLeast(0) / favoriteCount < MIN_ICON_SIZE
+}
+
+/**
+ * "Omarchy mode" compact-bar rules.
+ *
+ * Active by default: the bottom bar stays glued to the Android navigation
+ * buttons with only [logo][fav-apps][spacer][apps search][activador]; edge
+ * boxes and the in-bar favorites strip are hidden. The fav-apps button opens
+ * the Omarchy menu with the favorite apps inside. The activador grows the bar
+ * back to the full layout (favorites strip + edge boxes) animatedly, and
+ * compressing returns to the compact mode.
+ */
+object OmarchyBarModePolicy {
+    fun edgeBoxesVisible(omarchyBarMode: Boolean, widgetEditing: Boolean): Boolean =
+        widgetEditing || !omarchyBarMode
+
+    fun favoritesInBar(omarchyBarMode: Boolean): Boolean = !omarchyBarMode
+
+    fun favAppsButtonVisible(omarchyBarMode: Boolean): Boolean = omarchyBarMode
+
+    fun spacerVisible(omarchyBarMode: Boolean): Boolean = omarchyBarMode
+
+    fun toggleGlyph(omarchyBarMode: Boolean): String =
+        if (omarchyBarMode) NerdGlyph.EXPAND else NerdGlyph.COMPRESS
 }
 
 data class SearchableApp(

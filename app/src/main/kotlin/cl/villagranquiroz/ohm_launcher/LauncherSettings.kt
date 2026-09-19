@@ -65,6 +65,7 @@ data class LauncherSettings(
     val favoritesBarMode: FavoritesBarMode?,
     val bottomBarVisible: Boolean,
     val bottomBarPosition: LauncherEdge,
+    val omarchyBarMode: Boolean,
     val gestureNavigationEnabled: Boolean,
     val showTapBoxes: Boolean,
     val apiServerEnabled: Boolean,
@@ -102,6 +103,7 @@ data class LauncherSettings(
         result.put("favoritesBarMode", favoritesBarMode?.wireValue ?: JSONObject.NULL)
         result.put("bottomBarVisible", bottomBarVisible)
         result.put("bottomBarPosition", bottomBarPosition.wireValue)
+        result.put("omarchyBarMode", omarchyBarMode)
         result.put("gestureNavigationEnabled", gestureNavigationEnabled)
         result.put("showTapBoxes", showTapBoxes)
         result.put("apiServerEnabled", apiServerEnabled)
@@ -152,6 +154,7 @@ data class LauncherSettings(
                 favoritesBarMode = FavoritesBarMode.fromWireValue(root.opt("favoritesBarMode")),
                 bottomBarVisible = root.boolean("bottomBarVisible") ?: true,
                 bottomBarPosition = LauncherEdge.fromWireValue(root.opt("bottomBarPosition")) ?: LauncherEdge.TOP,
+                omarchyBarMode = root.boolean("omarchyBarMode") ?: true,
                 gestureNavigationEnabled = root.boolean("gestureNavigationEnabled") ?: false,
                 showTapBoxes = root.boolean("showTapBoxes") ?: false,
                 apiServerEnabled = root.boolean("apiServerEnabled") ?: true,

@@ -27,7 +27,7 @@
     <string name="menu_home_launcher">Launcher HOME</string>
     <string name="menu_gestures">Gestos</string>
     <string name="menu_storage">Almacenamiento</string>
-    <string name="menu_apps">Aplicaciones</string>
+    <string name="menu_apps">Apps</string>
     <string name="menu_style">Estilo</string>
     <string name="menu_theme">Tema</string>
     <string name="menu_background">Fondo</string>
@@ -40,6 +40,10 @@
     <string name="background_selector_apply_failed">No se pudo aplicar el fondo de Omarchy</string>
     <string name="menu_not_synced">Sin sincronizar</string>
     <string name="menu_omarchy_launcher">Abrir menú Omarchy</string>
+    <string name="bar_fav_apps">Fav apps</string>
+    <string name="bar_expand">Expandir barra</string>
+    <string name="bar_compress">Contraer barra</string>
+    <string name="bar_recents">Aplicaciones recientes</string>
     <string name="menu_go">Ir…</string>
     <string name="menu_back">Volver</string>
     <string name="search_app">Buscar app</string>

@@ -230,6 +230,41 @@ object OmarchyDesktopBackgroundApplier {
     }
 }
 
+internal object OmarchyLocalStyleSelection {
+    fun apply(
+        id: String,
+        applyLocal: () -> Unit,
+        publishSelection: (String) -> Unit,
+        scheduleRemote: (String) -> Unit,
+    ) {
+        applyLocal()
+        publishSelection(id)
+        scheduleRemote(id)
+    }
+}
+
+internal object OmarchyThemeBackgroundSelection {
+    fun resolve(
+        backgrounds: List<OmarchyBackgroundChoice>,
+        backgroundId: String?,
+    ): OmarchyBackgroundChoice? {
+        val id = backgroundId?.takeIf { it.isNotBlank() } ?: return null
+        return backgrounds.firstOrNull { it.id == id && !it.previewPath.isNullOrBlank() }
+    }
+}
+
+internal object OmarchyLocalBackgroundPreview {
+    fun apply(source: LauncherConfig, previewPath: String): LauncherConfig {
+        require(previewPath.isNotBlank())
+        val document = JSONObject(source.raw.toString())
+        val desktops = document.optJSONArray("desktops") ?: return source
+        for (index in 0 until desktops.length()) {
+            desktops.optJSONObject(index)?.put("backgroundImage", previewPath)
+        }
+        return LauncherConfig.parse(document.toString())
+    }
+}
+
 private fun JSONObject.stringOrNull(key: String): String? =
     if (has(key) && !isNull(key)) optString(key) else null
 

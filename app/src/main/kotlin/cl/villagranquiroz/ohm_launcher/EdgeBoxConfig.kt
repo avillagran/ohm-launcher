@@ -46,6 +46,13 @@ data class EdgeItemConfig(
     val pluginId: String,
     val raw: JSONObject,
 ) {
+    fun dragKey(): String = when (type) {
+        EdgeItemType.APP -> "app:$packageName/$activity"
+        EdgeItemType.SYSTEM_WIDGET -> "system_widget:$provider"
+        EdgeItemType.PLUGIN -> "plugin:$pluginId"
+        EdgeItemType.UNKNOWN -> "$rawType:${raw}"
+    }
+
     companion object {
         fun parse(json: JSONObject): EdgeItemConfig {
             val rawType = json.optString("type", "")

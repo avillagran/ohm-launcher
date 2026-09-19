@@ -157,6 +157,8 @@ class MainActivity : AppCompatActivity() {
         }
         root.onQuakeRequested = { showQuake(true) }
         root.onQuakeCloseRequested = { showQuake(false) }
+        root.onOmarchyBarModeChanged = ::setOmarchyBarMode
+        root.onCompactNavigationRequested = ::performCompactNavigation
         root.addView(
             quakeTerminal,
             FrameLayout.LayoutParams(
@@ -188,6 +190,7 @@ class MainActivity : AppCompatActivity() {
         )
         currentSettings = settingsStore.read()
         root.submitSettings(currentSettings)
+        applyCompactSystemNavigation(currentSettings.omarchyBarMode)
         currentConfig = runCatching { storage.read(configRoot) }.getOrElse { currentConfig }
         root.submitConfig(currentConfig)
         applySystemTheme(currentSettings)
@@ -523,9 +526,9 @@ class MainActivity : AppCompatActivity() {
         editDesktopConfig { DesktopConfigEditor.moveEdgeBox(it, id, edge, targetIndex) }
     }
 
-    fun moveEdgeBoxItem(sourceBoxId: String, sourceIndex: Int, targetBoxId: String, targetIndex: Int) {
+    fun moveEdgeBoxItem(sourceBoxId: String, itemKey: String, targetBoxId: String, targetIndex: Int) {
         editDesktopConfig {
-            DesktopConfigEditor.moveEdgeBoxItem(it, sourceBoxId, sourceIndex, targetBoxId, targetIndex)
+            DesktopConfigEditor.moveEdgeBoxItemByKey(it, sourceBoxId, itemKey, targetBoxId, targetIndex)
         }
     }
 
@@ -560,6 +563,45 @@ class MainActivity : AppCompatActivity() {
                 }
                 .onFailure { runOnUiThread { root.showConfigError(it.message.orEmpty()) } }
         }
+    }
+
+    fun setOmarchyBarMode(enabled: Boolean) {
+        if (currentSettings.omarchyBarMode == enabled) return
+        val updated = currentSettings.copy(omarchyBarMode = enabled)
+        io.execute {
+            runCatching { settingsStore.write(updated) }
+                .onSuccess {
+                    currentSettings = updated
+                    runOnUiThread {
+                        root.submitSettings(updated)
+                        applyCompactSystemNavigation(enabled)
+                    }
+                }
+                .onFailure { runOnUiThread { root.showConfigError(it.message.orEmpty()) } }
+        }
+    }
+
+    private fun applyCompactSystemNavigation(compact: Boolean) {
+        val navigationBackground = systemNavigationBackground(currentSettings)
+        @Suppress("DEPRECATION")
+        window.navigationBarColor = navigationBackground
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
+        WindowInsetsControllerCompat(window, root).apply {
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            if (compact) hide(WindowInsetsCompat.Type.navigationBars())
+            else show(WindowInsetsCompat.Type.navigationBars())
+        }
+    }
+
+    private fun performCompactNavigation(action: String) {
+        val service = OhmGestureAccessibilityService.instance
+        if (service == null) {
+            openAccessibilitySettings()
+            return
+        }
+        service.remoteKey(action)
     }
 
     private fun editDesktopConfig(transform: (String) -> String) {
@@ -1027,6 +1069,7 @@ class MainActivity : AppCompatActivity() {
     private fun applySystemTheme(settings: LauncherSettings) {
         val palette = OmarchyThemePalette.fromSettings(settings.raw)
         val darkIcons = palette?.useDarkSystemIcons == true
+        val navigationBackground = systemNavigationBackground(settings)
         enableEdgeToEdge(
             statusBarStyle = if (darkIcons) {
                 SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
@@ -1034,15 +1077,23 @@ class MainActivity : AppCompatActivity() {
                 SystemBarStyle.dark(Color.TRANSPARENT)
             },
             navigationBarStyle = if (darkIcons) {
-                SystemBarStyle.light(
-                    LauncherSystemBarPolicy.navigationBarColor(),
-                    LauncherSystemBarPolicy.navigationBarColor(),
-                )
+                SystemBarStyle.light(navigationBackground, navigationBackground)
             } else {
-                SystemBarStyle.dark(LauncherSystemBarPolicy.navigationBarColor())
+                SystemBarStyle.dark(navigationBackground)
             },
         )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) window.isNavigationBarContrastEnforced = false
+        @Suppress("DEPRECATION")
+        window.navigationBarColor = navigationBackground
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
+    }
+
+    private fun systemNavigationBackground(settings: LauncherSettings): Int {
+        val palette = OmarchyThemePalette.fromSettings(settings.raw)
+        return runCatching {
+            Color.parseColor(palette?.color("dark_background") ?: "#1A1B26")
+        }.getOrDefault(LauncherSystemBarPolicy.navigationBarColor())
     }
 
     private fun showQuake(open: Boolean) {
@@ -1293,10 +1344,7 @@ class MainActivity : AppCompatActivity() {
         root.showOmarchyThemeSelector(
             catalog = catalog,
             previewLoader = ::loadSyncedThemePreview,
-            onApply = { choice ->
-                choice.palette?.let { applyOmarchyTheme(it.toJson()) }
-                if (currentSettings.omarchyPeer != null) pendingThemeSelection = choice.id
-            },
+            onApply = ::applyLocalThemeSelection,
         )
     }
 
@@ -1318,6 +1366,7 @@ class MainActivity : AppCompatActivity() {
                 return@execute
             }
             val backgroundsById = catalog.backgrounds.associateBy { it.id }
+            val localPreviewPaths = java.util.concurrent.ConcurrentHashMap<String, String>()
             val pickerCatalog = OmarchyThemeCatalog(
                 current = catalog.current.id,
                 themes = catalog.backgrounds.map { background ->
@@ -1331,10 +1380,22 @@ class MainActivity : AppCompatActivity() {
                     previewLoader = { choice ->
                         backgroundsById[choice.id]
                             ?.takeIf { it.hasPreview }
-                            ?.let { peerClient.fetchBackgroundPreview(peer, it) }
+                            ?.let { background ->
+                                peerClient.fetchBackgroundPreview(peer, background)?.also { bytes ->
+                                    val directory = cacheDir.resolve("omarchy-background-previews")
+                                    if (directory.mkdirs() || directory.isDirectory) {
+                                        val file = directory.resolve("${background.id.hashCode().toUInt().toString(16)}.preview")
+                                        file.writeBytes(bytes)
+                                        localPreviewPaths[background.id] = file.absolutePath
+                                    }
+                                }
+                            }
                     },
                     onApply = { choice ->
-                        pendingBackgroundSelection.select(choice.id)
+                        val background = backgroundsById.getValue(choice.id)
+                        applyLocalBackgroundSelection(
+                            background.copy(previewPath = localPreviewPaths[choice.id] ?: background.previewPath),
+                        )
                     },
                 )
             }
@@ -1354,7 +1415,76 @@ class MainActivity : AppCompatActivity() {
                 },
             ),
             previewLoader = { choice -> backgroundsById[choice.id]?.let(previewLoader) },
-            onApply = { choice -> pendingBackgroundSelection.select(choice.id) },
+            onApply = { choice -> applyLocalBackgroundSelection(backgroundsById.getValue(choice.id)) },
+        )
+    }
+
+    private fun applyLocalThemeSelection(choice: OmarchyThemeChoice) {
+        val normalized = choice.palette?.let { withDesktopTextColor(it.toJson()) }
+        android.util.Log.e("OHM-DEBUG-theme", "selected id=${choice.id} palette=${choice.palette?.name} local=${normalized != null}")
+        val peer = currentSettings.omarchyPeer
+        OmarchyLocalStyleSelection.apply(
+            id = choice.id,
+            applyLocal = {
+                normalized?.let { payload ->
+                    android.util.Log.e("OHM-DEBUG-theme", "submitting local palette=${OmarchyThemePalette.parse(payload).name}")
+                    val document = JSONObject(currentSettings.raw.toString())
+                        .put("omarchyTheme", OmarchyThemePalette.parse(payload).toJson())
+                    val preview = LauncherSettings.parse(document)
+                    currentSettings = preview
+                    root.submitSettings(preview, animateTheme = false)
+                    applySystemTheme(preview)
+                }
+                val instantBackground = OmarchyThemeBackgroundSelection
+                    .resolve(syncedBackgroundCatalog?.backgrounds.orEmpty(), choice.backgroundId)
+                android.util.Log.e("OHM-DEBUG-theme", "background choice=${choice.backgroundId} catalog=${syncedBackgroundCatalog?.backgrounds?.size} resolved=${instantBackground?.id}")
+                instantBackground
+                    ?.previewPath
+                    ?.let { path ->
+                        val backgroundPreview = OmarchyLocalBackgroundPreview.apply(currentConfig, path)
+                        currentConfig = backgroundPreview
+                        root.submitConfig(backgroundPreview)
+                        syncedBackgroundCatalog = syncedBackgroundCatalog?.withCurrent(instantBackground)
+                    }
+            },
+            publishSelection = { id -> if (peer != null) pendingThemeSelection = id },
+            scheduleRemote = { id ->
+                io.execute {
+                    normalized?.let(::applyOmarchyTheme)
+                    if (peer != null) {
+                        peerClient.selectTheme(peer, id)?.let { selected ->
+                            acknowledgeThemeSelection(JSONObject().put("id", id))
+                            applyOmarchyTheme(selected.toJson())
+                        }
+                    }
+                }
+            },
+        )
+    }
+
+    private fun applyLocalBackgroundSelection(choice: OmarchyBackgroundChoice) {
+        val peer = currentSettings.omarchyPeer
+        OmarchyLocalStyleSelection.apply(
+            id = choice.id,
+            applyLocal = {
+                choice.previewPath?.let { path ->
+                    val preview = OmarchyLocalBackgroundPreview.apply(currentConfig, path)
+                    currentConfig = preview
+                    root.submitConfig(preview)
+                }
+                syncedBackgroundCatalog = syncedBackgroundCatalog?.withCurrent(choice)
+            },
+            publishSelection = pendingBackgroundSelection::select,
+            scheduleRemote = { id ->
+                if (peer != null) {
+                    io.execute {
+                        if (peerClient.selectBackground(peer, id)) {
+                            acknowledgeBackgroundSelection(JSONObject().put("id", id))
+                            syncThemeFromPeer(peer)
+                        }
+                    }
+                }
+            },
         )
     }
 
@@ -1387,6 +1517,8 @@ class MainActivity : AppCompatActivity() {
                         item.optString("label", id),
                         preview?.absolutePath.orEmpty(),
                         item.optJSONObject("palette")?.let(OmarchyThemePalette::parse),
+                        item.optString("backgroundId").takeIf { it.isNotBlank() }
+                            ?.also { check(Regex("^[0-9a-f]{64}$").matches(it)) },
                     ),
                 )
             }

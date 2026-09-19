@@ -12,8 +12,10 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -37,6 +39,9 @@ internal data class OmarchyMenuEntry(
     val action: (() -> Unit)? = null,
     val iconKey: String? = null,
     val iconLoader: (() -> Drawable?)? = null,
+    val trailingIcon: (() -> String)? = null,
+    val trailingContentDescription: (() -> String)? = null,
+    val trailingAction: (() -> Unit)? = null,
 )
 
 internal object OmarchyMenuSearch {
@@ -44,6 +49,7 @@ internal object OmarchyMenuSearch {
         roots: List<OmarchyMenuEntry>,
         additionalEntries: List<OmarchyMenuEntry>,
         rawQuery: String,
+        mode: OmarchyMenuSearchMode = OmarchyMenuSearchMode.ALL,
     ): List<OmarchyMenuEntry> {
         val query = rawQuery.trim().lowercase()
         if (query.isEmpty()) return emptyList()
@@ -57,12 +63,74 @@ internal object OmarchyMenuSearch {
         fun matches(entry: OmarchyMenuEntry): Boolean =
             entry.label.lowercase().contains(query) || entry.detail.orEmpty().lowercase().contains(query)
         val additionalKeys = additionalEntries.mapNotNull(OmarchyMenuEntry::iconKey).toSet()
-        val menuMatches = flatten(roots).filterNot { entry ->
+        val menuMatches = if (mode == OmarchyMenuSearchMode.APPS_ONLY) emptyList() else flatten(roots).filterNot { entry ->
             entry.iconKey?.let(additionalKeys::contains) == true || additionalEntries.any { it === entry }
         }.filter(::matches)
         val applicationMatches = additionalEntries.filter(::matches)
         return menuMatches + applicationMatches
     }
+}
+
+/** Enter (hardware or IME) executes the first visible entry, dmenu-style. */
+internal object OmarchyMenuEnterPolicy {
+    fun firstVisible(visible: List<OmarchyMenuEntry>): OmarchyMenuEntry? = visible.firstOrNull()
+
+    fun shouldOpen(entry: OmarchyMenuEntry): Boolean = entry.children.isNotEmpty()
+
+    fun shouldRun(entry: OmarchyMenuEntry): Boolean = entry.action != null
+}
+
+internal enum class OmarchyMenuSearchMode { ALL, APPS_ONLY }
+
+internal enum class OmarchyMenuInputPlacement { TOP, BOTTOM }
+
+internal enum class OmarchyMenuMode(val inputPlacement: OmarchyMenuInputPlacement) {
+    FULL(OmarchyMenuInputPlacement.TOP),
+    APPS_ONLY(OmarchyMenuInputPlacement.BOTTOM),
+}
+
+internal object OmarchyMenuHeightPolicy {
+    fun maximumHeight(viewportHeight: Int, mode: OmarchyMenuMode): Int =
+        (viewportHeight * if (mode == OmarchyMenuMode.APPS_ONLY) 0.576f else 0.72f).toInt()
+}
+
+internal object OmarchyMenuDismissPolicy {
+    fun isBackgroundTap(x: Float, y: Float, left: Int, top: Int, right: Int, bottom: Int): Boolean =
+        x < left || x >= right || y < top || y >= bottom
+}
+
+internal object OmarchyMenuVerticalPlacement {
+    fun top(
+        viewportHeight: Int,
+        cardHeight: Int,
+        mode: OmarchyMenuMode,
+        searchFocused: Boolean,
+        centeredTop: Int,
+        statusBar: Int,
+        gap: Int,
+    ): Int = if (mode == OmarchyMenuMode.APPS_ONLY && searchFocused) {
+        (viewportHeight - cardHeight - gap).coerceAtLeast(statusBar + gap)
+    } else {
+        OmarchyMenuCardPlacement.top(searchFocused, centeredTop, statusBar, gap)
+    }
+}
+
+internal object OmarchyMenuCardHeightPolicy {
+    fun height(dynamicHeight: Int, maximumHeight: Int, mode: OmarchyMenuMode): Int =
+        dynamicHeight.coerceAtMost(maximumHeight)
+}
+
+internal object OmarchyMenuAvailableHeightPolicy {
+    fun bottom(fullHeight: Int, imeBottom: Int, mode: OmarchyMenuMode): Int =
+        if (mode == OmarchyMenuMode.APPS_ONLY) (fullHeight - imeBottom).coerceAtLeast(0) else fullHeight
+}
+
+internal object OmarchyMenuBottomAnchorPolicy {
+    fun anchor(existing: Int?, availableBottom: Int, gap: Int): Int =
+        existing ?: (availableBottom - gap).coerceAtLeast(0)
+
+    fun adjustForImeChange(existing: Int, oldImeBottom: Int, newImeBottom: Int): Int =
+        existing + (newImeBottom - oldImeBottom)
 }
 
 internal enum class OmarchyMenuBackAction { GO_BACK, CLOSE }
@@ -86,6 +154,27 @@ internal object OmarchyMenuInputPolicy {
 internal object OmarchyMenuFocusPolicy {
     fun shouldClearFocus(inputFocused: Boolean, imeWasVisible: Boolean, imeVisible: Boolean): Boolean =
         inputFocused && imeWasVisible && !imeVisible
+
+    fun shouldDismiss(
+        mode: OmarchyMenuMode,
+        inputFocused: Boolean,
+        imeWasVisible: Boolean,
+        imeVisible: Boolean,
+    ): Boolean =
+        mode == OmarchyMenuMode.APPS_ONLY &&
+            inputFocused &&
+            imeWasVisible &&
+            !imeVisible
+}
+
+internal class OmarchyMenuDismissGuard {
+    private var started = false
+
+    fun begin(): Boolean {
+        if (started) return false
+        started = true
+        return true
+    }
 }
 
 internal object OmarchySystemMenuPolicy {
@@ -116,6 +205,7 @@ internal class OmarchyMenuOverlay(
     private val rootEntries: List<OmarchyMenuEntry>,
     private val searchEntries: List<OmarchyMenuEntry> = emptyList(),
     private val rootTitle: String? = null,
+    private val mode: OmarchyMenuMode = OmarchyMenuMode.FULL,
     private val colors: Colors,
     private val onDismissed: () -> Unit,
 ) : FrameLayout(context) {
@@ -139,13 +229,17 @@ internal class OmarchyMenuOverlay(
     private val rows = RecyclerView(context)
     private val rowAdapter = MenuRowAdapter()
     private val nerdFont: Typeface = NerdFont.load(context)
+    private val dismissGuard = OmarchyMenuDismissGuard()
     private var imeWasVisible = false
+    private var imeBottomInset = 0
+    private var visibleEntries: List<OmarchyMenuEntry> = emptyList()
+    private var appsOnlyInputBottomOnScreen: Int? = null
     private var backDispatcher: OnBackInvokedDispatcher? = null
     private val backCallback = OnBackInvokedCallback {
         if (header.hasFocus()) {
             val keyboard = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
             keyboard.hideSoftInputFromWindow(windowToken, 0)
-            exitInputMode()
+            handleImeDismissal()
         } else {
             handleBack()
         }
@@ -167,6 +261,15 @@ internal class OmarchyMenuOverlay(
         isFocusableInTouchMode = true
         setBackgroundColor(colors.scrim)
         setOnClickListener { dismiss() }
+        // Enter runs the first visible entry even when the search input is not focused
+        // (the menu often opens without the keyboard, focus on the overlay root).
+        setOnKeyListener { _, keyCode, event ->
+            val enter = keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER
+            if (enter && event?.action == KeyEvent.ACTION_DOWN) {
+                executeFirstVisible()
+                true
+            } else false
+        }
         card.apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -195,7 +298,7 @@ internal class OmarchyMenuOverlay(
         headerRow.addView(backButton, LinearLayout.LayoutParams(dp(44), ViewGroup.LayoutParams.MATCH_PARENT))
 
         header.apply {
-            onImeBack = ::exitInputMode
+            onImeBack = ::handleImeDismissal
             setSingleLine(true)
             textSize = 17f
             typeface = nerdFont
@@ -204,6 +307,25 @@ internal class OmarchyMenuOverlay(
             background = null
             setPadding(0, 0, 0, 0)
             hint = rootTitle ?: context.getString(R.string.menu_go)
+            setOnKeyListener { _, keyCode, event ->
+                val enter = keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER
+                if (enter && event?.action == KeyEvent.ACTION_DOWN) {
+                    executeFirstVisible()
+                    true
+                } else false
+            }
+            setOnEditorActionListener { _, actionId, event ->
+                val enterKey = event?.keyCode == KeyEvent.KEYCODE_ENTER ||
+                    event?.keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER
+                val submitAction = actionId == EditorInfo.IME_ACTION_DONE ||
+                    actionId == EditorInfo.IME_ACTION_SEARCH ||
+                    actionId == EditorInfo.IME_ACTION_GO ||
+                    actionId == EditorInfo.IME_ACTION_UNSPECIFIED
+                if (enterKey || submitAction) {
+                    executeFirstVisible()
+                    true
+                } else false
+            }
             addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(value: CharSequence?, start: Int, count: Int, after: Int) = Unit
                 override fun onTextChanged(value: CharSequence?, start: Int, before: Int, count: Int) {
@@ -218,7 +340,9 @@ internal class OmarchyMenuOverlay(
             }
         }
         headerRow.addView(header, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
-        card.addView(headerRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44)))
+        if (mode.inputPlacement == OmarchyMenuInputPlacement.TOP) {
+            card.addView(headerRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44)))
+        }
 
         rows.apply {
             layoutManager = LinearLayoutManager(context)
@@ -227,6 +351,9 @@ internal class OmarchyMenuOverlay(
             overScrollMode = View.OVER_SCROLL_NEVER
         }
         card.addView(rows, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        if (mode.inputPlacement == OmarchyMenuInputPlacement.BOTTOM) {
+            card.addView(headerRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44)))
+        }
         addView(card, LayoutParams(dp(320), dp(420), Gravity.CENTER))
         renderRows("")
         post(::updateCardLayout)
@@ -239,6 +366,22 @@ internal class OmarchyMenuOverlay(
             backDispatcher = null
         }
         super.onDetachedFromWindow()
+    }
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        val backgroundTap = OmarchyMenuDismissPolicy.isBackgroundTap(
+            event.x,
+            event.y,
+            card.left,
+            card.top,
+            card.right,
+            card.bottom,
+        )
+        if (backgroundTap) {
+            if (event.actionMasked == MotionEvent.ACTION_UP) dismiss()
+            return true
+        }
+        return super.dispatchTouchEvent(event)
     }
 
     override fun onAttachedToWindow() {
@@ -261,31 +404,75 @@ internal class OmarchyMenuOverlay(
         val cardWidth = min(dp(420), (width - dp(32)).coerceAtLeast(dp(280)))
         val query = header.text?.toString().orEmpty()
         val visibleEntries = if (query.isBlank()) levels.last().entries else
-            OmarchyMenuSearch.results(rootEntries, searchEntries, query)
+            OmarchyMenuSearch.results(rootEntries, searchEntries, query, searchMode())
         val fixedHeight = dp(12 + 44 + 16)
-        val maximumHeight = (height * .72f).toInt()
+        val maximumHeight = OmarchyMenuHeightPolicy.maximumHeight(height, mode)
         var visibleRowsHeight = 0
         visibleEntries.forEach { entry ->
             val rowHeight = dp(if (entry.detail == null) 54 else 62)
             if (fixedHeight + visibleRowsHeight + rowHeight <= maximumHeight) visibleRowsHeight += rowHeight
         }
         if (visibleEntries.isEmpty()) visibleRowsHeight = dp(50)
-        val cardHeight = (fixedHeight + visibleRowsHeight).coerceAtLeast(dp(120))
-        val centeredTop = (height - cardHeight) / 2
+        val dynamicHeight = (fixedHeight + visibleRowsHeight).coerceAtLeast(dp(120))
+        val cardHeight = OmarchyMenuCardHeightPolicy.height(dynamicHeight, maximumHeight, mode)
+        val availableBottom = OmarchyMenuAvailableHeightPolicy.bottom(height, imeBottomInset, mode)
+        val centeredTop = (availableBottom - cardHeight) / 2
         val statusBar = ViewCompat.getRootWindowInsets(this)
             ?.getInsets(WindowInsetsCompat.Type.statusBars())
-            ?.top ?: 0
+            ?.top
+            ?.coerceAtLeast(dp(24)) ?: dp(24)
         card.layoutParams = LayoutParams(cardWidth, cardHeight, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
-            topMargin = OmarchyMenuCardPlacement.top(header.hasFocus(), centeredTop, statusBar, dp(16))
+            topMargin = OmarchyMenuVerticalPlacement.top(
+                viewportHeight = availableBottom,
+                cardHeight = cardHeight,
+                mode = mode,
+                searchFocused = header.hasFocus(),
+                centeredTop = centeredTop,
+                statusBar = statusBar,
+                gap = dp(16),
+            )
+        }
+        if (mode == OmarchyMenuMode.APPS_ONLY && imeBottomInset > 0) {
+            postDelayed(::stabilizeAppsOnlyInputBottom, 120)
+        }
+    }
+
+    private fun stabilizeAppsOnlyInputBottom() {
+        if (mode != OmarchyMenuMode.APPS_ONLY || imeBottomInset <= 0 || header.height <= 0) return
+        val location = IntArray(2)
+        header.getLocationOnScreen(location)
+        val currentBottom = location[1] + header.height
+        val targetBottom = appsOnlyInputBottomOnScreen
+        if (targetBottom == null) {
+            appsOnlyInputBottomOnScreen = currentBottom
+        } else {
+            card.translationY += (targetBottom - currentBottom).toFloat()
         }
     }
 
     private fun updateImeVisibility(imeVisible: Boolean, imeBottom: Int = if (imeVisible) 1 else 0) {
         val actuallyVisible = imeVisible && imeBottom > 0
+        val nextInset = if (actuallyVisible) imeBottom else 0
+        if (!actuallyVisible) {
+            appsOnlyInputBottomOnScreen = null
+            card.translationY = 0f
+        }
+        if (imeBottomInset != nextInset) {
+            imeBottomInset = nextInset
+            post(::updateCardLayout)
+        }
+        if (OmarchyMenuFocusPolicy.shouldDismiss(mode, header.hasFocus(), imeWasVisible, actuallyVisible)) {
+            dismiss()
+            return
+        }
         if (OmarchyMenuFocusPolicy.shouldClearFocus(header.hasFocus(), imeWasVisible, actuallyVisible)) {
             exitInputMode()
         }
         imeWasVisible = header.hasFocus() && actuallyVisible
+    }
+
+    private fun handleImeDismissal() {
+        if (mode == OmarchyMenuMode.APPS_ONLY) dismiss() else exitInputMode()
     }
 
     private fun exitInputMode() {
@@ -318,8 +505,23 @@ internal class OmarchyMenuOverlay(
     private fun renderRows(query: String) {
         val normalized = query.trim().lowercase()
         val visible = if (normalized.isEmpty()) levels.last().entries else
-            OmarchyMenuSearch.results(rootEntries, searchEntries, normalized)
+            OmarchyMenuSearch.results(rootEntries, searchEntries, normalized, searchMode())
+        visibleEntries = visible
         rowAdapter.submit(visible)
+    }
+
+    /** Enter runs the first visible entry (dmenu-style): submenus open, actions execute. */
+    private fun executeFirstVisible() {
+        val entry = OmarchyMenuEnterPolicy.firstVisible(visibleEntries) ?: return
+        when {
+            OmarchyMenuEnterPolicy.shouldOpen(entry) -> open(entry)
+            OmarchyMenuEnterPolicy.shouldRun(entry) -> entry.action?.let { dismiss(it) }
+        }
+    }
+
+    private fun searchMode(): OmarchyMenuSearchMode = when (mode) {
+        OmarchyMenuMode.FULL -> OmarchyMenuSearchMode.ALL
+        OmarchyMenuMode.APPS_ONLY -> OmarchyMenuSearchMode.APPS_ONLY
     }
 
     private fun row(entry: OmarchyMenuEntry): View = LinearLayout(context).apply {
@@ -383,6 +585,29 @@ internal class OmarchyMenuOverlay(
                 gravity = Gravity.CENTER
                 setTextColor(colors.muted)
             }, LinearLayout.LayoutParams(dp(24), ViewGroup.LayoutParams.MATCH_PARENT))
+        }
+
+        if (entry.trailingIcon != null && entry.trailingAction != null) {
+            addView(TextView(context).apply {
+                text = entry.trailingIcon.invoke()
+                textSize = 20f
+                typeface = nerdFont
+                gravity = Gravity.CENTER
+                setTextColor(colors.muted)
+                contentDescription = entry.trailingContentDescription?.invoke()
+                isClickable = true
+                isFocusable = false
+                elevation = dp(4).toFloat()
+                setOnTouchListener { _, event ->
+                    if (event.actionMasked == MotionEvent.ACTION_UP) {
+                        entry.trailingAction.invoke()
+                        text = entry.trailingIcon.invoke()
+                        contentDescription = entry.trailingContentDescription?.invoke()
+                        setTextColor(colors.selectedText)
+                    }
+                    true
+                }
+            }, LinearLayout.LayoutParams(dp(44), ViewGroup.LayoutParams.MATCH_PARENT))
         }
 
         setOnClickListener {
@@ -458,6 +683,7 @@ internal class OmarchyMenuOverlay(
     }
 
     private fun dismiss(after: (() -> Unit)? = null) {
+        if (!dismissGuard.begin()) return
         val keyboard = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         keyboard.hideSoftInputFromWindow(windowToken, 0)
         animate().alpha(0f).setDuration(120).withEndAction {

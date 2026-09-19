@@ -226,6 +226,63 @@ def current_omarchy_background(home=None):
         return None
 
 
+def _theme_background_files(theme_id, home=None, omarchy_path=None):
+    """List the media files Omarchy's theme-set would consider for a theme.
+
+    Mirrors choose_theme_background() in omarchy-theme-set: user backgrounds
+    under ~/.config/omarchy/backgrounds/<theme_id>/ plus the theme's own
+    backgrounds/ folder, sorted by full path.
+    """
+    if not isinstance(theme_id, str) or not _THEME_ID.fullmatch(theme_id):
+        return []
+    user_home = Path(home or Path.home())
+    theme = resolve_theme(theme_id, user_home, omarchy_path)
+    candidates = []
+    for root in (user_home / ".config/omarchy/backgrounds" / theme_id, theme / "backgrounds" if theme else None):
+        if root is None or not root.is_dir():
+            continue
+        try:
+            children = list(root.iterdir())
+        except OSError:
+            continue
+        candidates.extend(
+            child for child in children
+            if child.is_file() and child.suffix.lower() in _PREVIEW_EXTENSIONS
+        )
+    return sorted(candidates, key=lambda path: str(path))
+
+
+def chosen_theme_background_id(theme_id, entries, home=None, omarchy_path=None):
+    """Resolve the background a theme switch would pick, as a catalog id.
+
+    Matches omarchy-theme-set: keep the current background when the new theme
+    ships the same file name, otherwise fall back to the theme's first
+    background. Entries come from _background_entries(); unmatched files get
+    no id so the phone keeps its current wallpaper.
+    """
+    candidates = _theme_background_files(theme_id, home, omarchy_path)
+    if not candidates:
+        return ""
+    current = current_omarchy_background(home)
+    current_name = current.name if current else ""
+    chosen = None
+    if current_name:
+        chosen = next((candidate for candidate in candidates if candidate.name == current_name), None)
+    if chosen is None:
+        chosen = candidates[0]
+    try:
+        chosen_resolved = chosen.resolve(strict=False)
+    except OSError:
+        return ""
+    for entry in entries:
+        try:
+            if Path(entry.get("_path", "")).resolve(strict=False) == chosen_resolved:
+                return entry["id"]
+        except (OSError, ValueError, KeyError):
+            continue
+    return ""
+
+
 def _state_text(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8").strip()
@@ -709,6 +766,7 @@ def push_theme_catalog_to_phone(state: dict, opener=urllib.request.urlopen) -> b
     if not state.get("connected") or not state.get("peerIp"):
         return False
     catalog = read_omarchy_theme_catalog()
+    entries = _background_entries()
     delivered = {"current": catalog.get("current", ""), "themes": []}
     for item in catalog.get("themes", []):
         preview = servable_theme_preview(item["id"])
@@ -722,6 +780,7 @@ def push_theme_catalog_to_phone(state: dict, opener=urllib.request.urlopen) -> b
             "label": item["label"],
             "previewPath": phone_path,
             "palette": item["palette"],
+            "backgroundId": chosen_theme_background_id(item["id"], entries),
         })
     host = str(state["peerIp"])
     if ":" in host and not host.startswith("["):
@@ -860,6 +919,8 @@ def theme_catalog_signature() -> str:
         preview = theme_preview_path(item["id"])
         stat = preview.stat() if preview else None
         rows.append((item["id"], str(preview or ""), stat.st_size if stat else 0, stat.st_mtime_ns if stat else 0))
+    background = current_omarchy_background()
+    rows.append(("current-background", background.name if background else ""))
     return hashlib.sha256(json.dumps(rows, sort_keys=True).encode("utf-8")).hexdigest()
 
 

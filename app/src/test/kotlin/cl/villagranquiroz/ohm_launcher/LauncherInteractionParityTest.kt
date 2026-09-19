@@ -132,6 +132,15 @@ class LauncherInteractionParityTest {
     }
 
     @Test
+    fun unifiedBottomBarScalesFavoritesBeforeEnablingHorizontalScroll() {
+        assertEquals(38, UnifiedLauncherBarPolicy.favoriteIconSize(availableWidth = 420, fixedButtonsWidth = 96, favoriteCount = 4))
+        assertFalse(UnifiedLauncherBarPolicy.favoritesScrollable(availableWidth = 420, fixedButtonsWidth = 96, favoriteCount = 4))
+
+        assertEquals(27, UnifiedLauncherBarPolicy.favoriteIconSize(availableWidth = 360, fixedButtonsWidth = 96, favoriteCount = 12))
+        assertTrue(UnifiedLauncherBarPolicy.favoritesScrollable(availableWidth = 360, fixedButtonsWidth = 96, favoriteCount = 12))
+    }
+
+    @Test
     fun ranksPreNormalizedAppSearchWithoutRebuildingCatalog() {
         val index = AppSearchIndex(
             listOf(

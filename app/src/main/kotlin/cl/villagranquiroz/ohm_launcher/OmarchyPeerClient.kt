@@ -13,6 +13,7 @@ data class OmarchyThemeChoice(
     val label: String,
     val previewPath: String,
     val palette: OmarchyThemePalette? = null,
+    val backgroundId: String? = null,
 )
 
 data class OmarchyThemeCatalog(
@@ -34,7 +35,11 @@ data class OmarchyBackgroundChoice(
 data class OmarchyBackgroundCatalog(
     val current: OmarchyBackgroundCurrent,
     val backgrounds: List<OmarchyBackgroundChoice>,
-)
+) {
+    fun withCurrent(choice: OmarchyBackgroundChoice): OmarchyBackgroundCatalog = copy(
+        current = OmarchyBackgroundCurrent(choice.id, choice.type, choice.preview),
+    )
+}
 
 /** HTTP client for the small server shipped by the Omarchy Link desktop plugin. */
 class OmarchyPeerClient(

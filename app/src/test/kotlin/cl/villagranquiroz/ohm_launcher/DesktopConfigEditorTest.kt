@@ -67,6 +67,18 @@ class DesktopConfigEditorTest {
     }
 
     @Test
+    fun movesAnEdgeItemByStableIdentityWhenItsOldIndexIsStale() {
+        val source = """{"edgeBoxes":[{"id":"a","items":[{"type":"app","package":"alpha","activity":"Main"},{"type":"app","package":"beta","activity":"Main"}]},{"id":"b","items":[]}],"desktops":[{"widgets":[]}]}"""
+
+        val reordered = DesktopConfigEditor.moveEdgeBoxItem(source, "a", 0, "a", 2)
+        val updated = DesktopConfigEditor.moveEdgeBoxItemByKey(reordered, "a", "app:alpha/Main", "b", 0)
+        val boxes = JSONObject(updated).getJSONArray("edgeBoxes")
+
+        assertEquals(listOf("beta"), packages(boxes.getJSONObject(0).getJSONArray("items")))
+        assertEquals(listOf("alpha"), packages(boxes.getJSONObject(1).getJSONArray("items")))
+    }
+
+    @Test
     fun reordersAnEdgeItemInsideItsBox() {
         val source = """{"edgeBoxes":[{"id":"a","items":[{"label":"one"},{"label":"two"},{"label":"three"}]}],"desktops":[{"widgets":[]}]}"""
 

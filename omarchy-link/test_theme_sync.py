@@ -698,5 +698,163 @@ class ThemeSyncTest(unittest.TestCase):
         self.assertIn('i18n.t(root.screenExpanded ? "screenReduce" : "screenExpand")', panel)
 
 
+class ThemeBackgroundIdTest(unittest.TestCase):
+    def _fixture(self, directory):
+        home = Path(directory) / "home"
+        omarchy = Path(directory) / "omarchy"
+        stock = omarchy / "themes"
+        user = home / ".config/omarchy/themes"
+        for theme in ("nord", "tokyo-night"):
+            (stock / theme).mkdir(parents=True)
+            (stock / theme / "preview.png").write_bytes(b"preview-" + theme.encode())
+            (stock / theme / "colors.toml").write_text('accent = "#81a1c1"\n', encoding="utf-8")
+        (stock / "nord/backgrounds").mkdir()
+        (stock / "nord/backgrounds/lake.jpg").write_bytes(b"lake")
+        (stock / "nord/backgrounds/peak.jpg").write_bytes(b"peak")
+        (stock / "tokyo-night/backgrounds").mkdir()
+        (stock / "tokyo-night/backgrounds/bay.jpg").write_bytes(b"bay")
+        current = home / ".local/state/omarchy/current"
+        current.mkdir(parents=True)
+        (current / "theme.name").write_text("nord\n", encoding="utf-8")
+        return home, omarchy, stock
+
+    def _entries(self, stock):
+        rows = []
+        for theme, name in (("nord", "lake.jpg"), ("nord", "peak.jpg"), ("tokyo-night", "bay.jpg")):
+            path = stock / theme / "backgrounds" / name
+            rows.append({
+                "id": "%s-%s" % (theme, name),
+                "_path": str(path),
+            })
+        return rows
+
+    def test_same_name_background_wins_when_switching_theme(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home, omarchy, stock = self._fixture(directory)
+            current = home / ".local/state/omarchy/current"
+            (current / "background").symlink_to(stock / "nord/backgrounds/peak.jpg")
+
+            entries = self._entries(stock)
+
+            self.assertEqual(
+                "tokyo-night-bay.jpg",
+                link_server.chosen_theme_background_id("tokyo-night", entries, home, omarchy),
+            )
+
+    def test_first_theme_background_wins_when_current_name_is_custom(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home, omarchy, stock = self._fixture(directory)
+            current = home / ".local/state/omarchy/current"
+            outsider = home / "Pictures"
+            outsider.mkdir()
+            (outsider / "my-wall.png").write_bytes(b"custom")
+            (current / "background").symlink_to(outsider / "my-wall.png")
+
+            entries = self._entries(stock)
+
+            self.assertEqual(
+                "nord-lake.jpg",
+                link_server.chosen_theme_background_id("nord", entries, home, omarchy),
+            )
+
+    def test_current_theme_background_wins_when_current_name_matches(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home, omarchy, stock = self._fixture(directory)
+            current = home / ".local/state/omarchy/current"
+            (current / "background").symlink_to(stock / "nord/backgrounds/peak.jpg")
+
+            entries = self._entries(stock)
+
+            self.assertEqual(
+                "nord-peak.jpg",
+                link_server.chosen_theme_background_id("nord", [
+                    {"id": "nord-peak.jpg", "_path": str(stock / "nord/backgrounds/peak.jpg")},
+                ], home, omarchy),
+            )
+
+    def test_user_background_folder_participates_and_sorted_first_wins(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home, omarchy, stock = self._fixture(directory)
+            user_backgrounds = home / ".config/omarchy/backgrounds/tokyo-night"
+            user_backgrounds.mkdir(parents=True)
+            (user_backgrounds / "custom.png").write_bytes(b"custom")
+
+            entries = self._entries(stock) + [
+                {"id": "user-custom", "_path": str(user_backgrounds / "custom.png")},
+            ]
+
+            chosen = link_server.chosen_theme_background_id("tokyo-night", entries, home, omarchy)
+            self.assertEqual("user-custom", chosen)
+
+    def test_unknown_theme_or_missing_entry_yields_no_id(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home, omarchy, stock = self._fixture(directory)
+
+            self.assertEqual("", link_server.chosen_theme_background_id("nope", [], home, omarchy))
+            self.assertEqual("", link_server.chosen_theme_background_id("nord", [], home, omarchy))
+
+    def test_theme_catalog_push_includes_background_id(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home, omarchy, stock = self._fixture(directory)
+            state = {"connected": True, "peerIp": "127.0.0.1", "peerPort": 8753}
+            delivered = {}
+
+            class _Response:
+                status = 200
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *args):
+                    return False
+
+                def read(self):
+                    return b""
+
+            def _opener(request, timeout=0):
+                delivered["url"] = request.full_url
+                delivered["body"] = json.loads(request.data.decode("utf-8"))
+                return _Response()
+
+            entries = self._entries(stock)
+            with patch.object(link_server, "read_omarchy_theme_catalog") as catalog, \
+                    patch.object(link_server, "_background_entries", return_value=entries), \
+                    patch.object(link_server, "servable_theme_preview", return_value=None), \
+                    patch.object(link_server, "push_file_to_phone", return_value=""), \
+                    patch.object(link_server.Path, "home", return_value=home), \
+                    patch.dict("os.environ", {"OMARCHY_PATH": str(omarchy)}):
+                catalog.return_value = {
+                    "current": "nord",
+                    "themes": [
+                        {"id": "nord", "label": "Nord", "palette": {}},
+                        {"id": "tokyo-night", "label": "Tokyo Night", "palette": {}},
+                    ],
+                }
+                self.assertTrue(link_server.push_theme_catalog_to_phone(state, _opener))
+
+            themes = {item["id"]: item for item in delivered["body"]["themes"]}
+            self.assertEqual("nord-lake.jpg", themes["nord"]["backgroundId"])
+            self.assertEqual("tokyo-night-bay.jpg", themes["tokyo-night"]["backgroundId"])
+
+    def test_theme_catalog_signature_tracks_current_background(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            omarchy = home / "omarchy"
+            (omarchy / "themes/nord").mkdir(parents=True)
+            (omarchy / "themes/nord/preview.png").write_bytes(b"preview")
+            current = home / ".local/state/omarchy/current"
+            current.mkdir(parents=True)
+            (current / "theme.name").write_text("nord\n", encoding="utf-8")
+
+            with patch.object(link_server.Path, "home", return_value=home), \
+                    patch.object(link_server, "_DEFAULT_OMARCHY_PATH", omarchy), \
+                    patch.dict("os.environ", {"OMARCHY_PATH": str(omarchy)}):
+                before = link_server.theme_catalog_signature()
+                (current / "background").symlink_to(omarchy / "themes/nord/preview.png")
+                after = link_server.theme_catalog_signature()
+
+            self.assertNotEqual(before, after)
+
+
 if __name__ == "__main__":
     unittest.main()

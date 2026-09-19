@@ -5,49 +5,48 @@ import org.junit.Test
 
 class EdgeBoxInteractionTest {
     @Test
-    fun boxMovementRequiresTwoSecondHoldBeforeDragging() {
+    fun boxMovementRequiresOnePointFiveSecondHoldBeforeDragging() {
         val state = EdgeBoxInteractionState(isItem = false, downAtMillis = 0)
 
-        assertEquals(EdgeInteractionDecision.NONE, state.sample(1_999, 0f))
-        assertEquals(EdgeInteractionDecision.ACCEPT_ITEM, state.sample(2_000, 0f))
-        assertEquals(EdgeInteractionDecision.START_BOX_DRAG, state.sample(2_010, 9f))
+        assertEquals(EdgeInteractionDecision.NONE, state.sample(1_499, 0f))
+        assertEquals(EdgeInteractionDecision.ACCEPT_BOX, state.sample(1_500, 0f))
+        assertEquals(EdgeInteractionDecision.START_BOX_DRAG, state.sample(1_510, 9f))
     }
 
     @Test
-    fun itemAcceptsAtTwoSecondsWithoutOpeningSettingsOnContinuedHold() {
+    fun continuingToHoldAnItemAdvancesFromItemToBoxToSettings() {
         val state = EdgeBoxInteractionState(isItem = true, downAtMillis = 0)
 
-        assertEquals(EdgeInteractionDecision.NONE, state.sample(1_999, 0f))
-        assertEquals(EdgeInteractionDecision.ACCEPT_ITEM, state.sample(2_000, 0f))
-        assertEquals(EdgeInteractionDecision.NONE, state.sample(3_500, 0f))
+        assertEquals(EdgeInteractionDecision.NONE, state.sample(499, 0f))
+        assertEquals(EdgeInteractionDecision.ACCEPT_ITEM, state.sample(500, 0f))
+        assertEquals(EdgeInteractionDecision.ACCEPT_BOX, state.sample(1_500, 0f))
+        assertEquals(EdgeInteractionDecision.OPEN_SETTINGS, state.sample(2_500, 0f))
     }
 
     @Test
-    fun movementAboveEightPixelsRestartsTheHoldTimer() {
+    fun slightMovementDoesNotCancelIconActivation() {
         val state = EdgeBoxInteractionState(isItem = true, downAtMillis = 0)
 
-        assertEquals(EdgeInteractionDecision.NONE, state.sample(500, 9f))
-        assertEquals(EdgeInteractionDecision.NONE, state.sample(2_499, 0f))
-        assertEquals(EdgeInteractionDecision.ACCEPT_ITEM, state.sample(2_500, 0f))
-        assertEquals(EdgeInteractionDecision.NONE, state.sample(4_000, 0f))
+        assertEquals(EdgeInteractionDecision.NONE, state.sample(200, 20f))
+        assertEquals(EdgeInteractionDecision.ACCEPT_ITEM, state.sample(500, 20f))
     }
 
     @Test
     fun movingAnAcceptedItemStartsItsDrag() {
         val state = EdgeBoxInteractionState(isItem = true, downAtMillis = 0)
 
-        assertEquals(EdgeInteractionDecision.ACCEPT_ITEM, state.sample(2_000, 0f))
-        assertEquals(EdgeInteractionDecision.START_BOX_DRAG, state.sample(2_050, 20f))
+        assertEquals(EdgeInteractionDecision.ACCEPT_ITEM, state.sample(500, 0f))
+        assertEquals(EdgeInteractionDecision.START_BOX_DRAG, state.sample(550, 20f))
         assertEquals(EdgeInteractionDecision.NONE, state.sample(8_000, 0f))
     }
 
     @Test
-    fun secondTapWithinTimeoutOpensBoxMenu() {
-        val taps = EdgeBoxDoubleTapState()
+    fun holdingBoxForTwoPointFiveSecondsOpensItsMenu() {
+        val state = EdgeBoxInteractionState(isItem = false, downAtMillis = 0)
 
-        assertEquals(false, taps.registerTap(100L))
-        assertEquals(true, taps.registerTap(350L))
-        assertEquals(false, taps.registerTap(900L))
+        assertEquals(EdgeInteractionDecision.ACCEPT_BOX, state.sample(1_500, 0f))
+        assertEquals(EdgeInteractionDecision.NONE, state.sample(2_499, 0f))
+        assertEquals(EdgeInteractionDecision.OPEN_SETTINGS, state.sample(2_500, 0f))
     }
 
     @Test

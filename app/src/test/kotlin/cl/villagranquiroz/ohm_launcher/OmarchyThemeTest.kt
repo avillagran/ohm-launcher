@@ -168,6 +168,42 @@ class OmarchyThemeTest {
     }
 
     @Test
+    fun themeBackgroundSelectionResolvesCatalogBackgroundWithLocalPreview() {
+        val backgrounds = listOf(
+            OmarchyBackgroundChoice("a".repeat(64), "a", "image", "/preview", true, null),
+            OmarchyBackgroundChoice("b".repeat(64), "b", "image", "/preview", true, "/local/b.jpg"),
+        )
+
+        assertEquals(
+            "b".repeat(64),
+            OmarchyThemeBackgroundSelection.resolve(backgrounds, "b".repeat(64))?.id,
+        )
+        assertEquals(
+            null,
+            OmarchyThemeBackgroundSelection.resolve(backgrounds, "a".repeat(64)),
+        )
+        assertEquals(null, OmarchyThemeBackgroundSelection.resolve(backgrounds, null))
+        assertEquals(null, OmarchyThemeBackgroundSelection.resolve(backgrounds, ""))
+        assertEquals(null, OmarchyThemeBackgroundSelection.resolve(emptyList(), "b".repeat(64)))
+    }
+
+    @Test
+    fun selectedBackgroundBecomesCatalogCurrentForNextPickerOpen() {
+        val original = OmarchyBackgroundChoice("a".repeat(64), "Old", "image", "/old.jpg", true, "/old.jpg")
+        val selected = OmarchyBackgroundChoice("b".repeat(64), "New", "image", "/new.jpg", true, "/new.jpg")
+        val catalog = OmarchyBackgroundCatalog(
+            OmarchyBackgroundCurrent(original.id, original.type, original.preview),
+            listOf(original, selected),
+        )
+
+        val updated = catalog.withCurrent(selected)
+
+        assertEquals(selected.id, updated.current.id)
+        assertEquals(selected.type, updated.current.type)
+        assertEquals(selected.preview, updated.current.path)
+    }
+
+    @Test
     fun usesSecondaryDesktopTextWhenBackgroundIsMostlyPrimary() {
         val primary = 0xFFE68E0D.toInt()
         val nearPrimary = 0xFFDC8612.toInt()
@@ -192,5 +228,32 @@ class OmarchyThemeTest {
                 mapOf("accent" to "#81a1c1", "bright_foreground" to "#eceff4"),
             ),
         )
+    }
+
+    @Test
+    fun localStyleSelectionAppliesBeforeSchedulingOmarchySync() {
+        val events = mutableListOf<String>()
+
+        OmarchyLocalStyleSelection.apply(
+            id = "tokyo-night",
+            applyLocal = { events += "local" },
+            publishSelection = { events += "pending:$it" },
+            scheduleRemote = { events += "remote:$it" },
+        )
+
+        assertEquals(listOf("local", "pending:tokyo-night", "remote:tokyo-night"), events)
+    }
+
+    @Test
+    fun localBackgroundPreviewUpdatesEveryDesktopWithoutMutatingTheSource() {
+        val source = LauncherConfig.parse(
+            """{"future":true,"desktops":[{"backgroundImage":"old-a.jpg","widgets":[]},{"backgroundImage":"old-b.jpg","widgets":[]}]}""",
+        )
+
+        val preview = OmarchyLocalBackgroundPreview.apply(source, "/tmp/preview.jpg")
+
+        assertEquals(listOf("/tmp/preview.jpg", "/tmp/preview.jpg"), preview.desktops.map { it.backgroundImage })
+        assertEquals(listOf("old-a.jpg", "old-b.jpg"), source.desktops.map { it.backgroundImage })
+        assertTrue(preview.raw.getBoolean("future"))
     }
 }

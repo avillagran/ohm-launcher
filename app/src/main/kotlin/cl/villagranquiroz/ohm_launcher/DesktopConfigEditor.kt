@@ -141,6 +141,26 @@ object DesktopConfigEditor {
         return root.toString(2)
     }
 
+    fun moveEdgeBoxItemByKey(
+        source: String,
+        sourceBoxId: String,
+        itemKey: String,
+        targetBoxId: String,
+        targetIndex: Int,
+    ): String {
+        val root = JSONObject(source)
+        val boxes = root.optJSONArray("edgeBoxes") ?: error("edgeBoxes is missing")
+        val sourceBox = (0 until boxes.length())
+            .mapNotNull(boxes::optJSONObject)
+            .firstOrNull { it.optString("id") == sourceBoxId }
+            ?: return source
+        val items = sourceBox.optJSONArray("items") ?: return source
+        val currentIndex = (0 until items.length()).firstOrNull { index ->
+            items.optJSONObject(index)?.let(EdgeItemConfig::parse)?.dragKey() == itemKey
+        } ?: return source
+        return moveEdgeBoxItem(source, sourceBoxId, currentIndex, targetBoxId, targetIndex)
+    }
+
     fun removeEdgeBoxItem(source: String, boxId: String, itemIndex: Int): String {
         val root = JSONObject(source)
         val boxes = root.optJSONArray("edgeBoxes") ?: error("edgeBoxes is missing")
