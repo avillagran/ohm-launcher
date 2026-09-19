@@ -8,6 +8,14 @@ import org.junit.Test
 
 class OmarchyBarModePolicyTest {
     @Test
+    fun duplicateSettingsDoNotRebuildEdgeBoxesDuringAnimation() {
+        assertTrue(OmarchyBarAnimationPolicy.ignoreDuplicateSubmission(true, false, true))
+        assertFalse(OmarchyBarAnimationPolicy.ignoreDuplicateSubmission(false, false, true))
+        assertFalse(OmarchyBarAnimationPolicy.ignoreDuplicateSubmission(true, true, true))
+        assertFalse(OmarchyBarAnimationPolicy.ignoreDuplicateSubmission(true, false, false))
+    }
+
+    @Test
     fun omarchyBarModeDefaultsToEnabled() {
         val settings = LauncherSettings.parse("{}")
 

@@ -214,7 +214,16 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             override fun onDown(event: MotionEvent): Boolean = true
 
             override fun onDoubleTap(event: MotionEvent): Boolean {
-                return BackgroundTapPolicy.onDoubleTap() != BackgroundTapAction.NONE
+                when (BackgroundTapPolicy.onDoubleTap(widgetEditing)) {
+                    BackgroundTapAction.NONE -> Unit
+                    BackgroundTapAction.OPEN_OMARCHY_MENU ->
+                        showOmarchyLauncherMenu(OmarchyMenuOpenTrigger.DOUBLE_TAP)
+                    BackgroundTapAction.EXIT_EDIT_AND_OPEN_OMARCHY_MENU -> {
+                        setWidgetEditing(false)
+                        showOmarchyLauncherMenu(OmarchyMenuOpenTrigger.DOUBLE_TAP)
+                    }
+                }
+                return true
             }
 
             override fun onLongPress(event: MotionEvent) {
@@ -519,6 +528,13 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     private fun applySettingsNow(value: LauncherSettings, theme: OmarchyThemePalette?) {
         android.util.Log.e("OHM-DEBUG-theme", "apply now theme=${theme?.name}")
         val barModeChanged = settings.omarchyBarMode != value.omarchyBarMode
+        if (
+            OmarchyBarAnimationPolicy.ignoreDuplicateSubmission(
+                animationRunning = edgeModeAnimationRunning,
+                modeChanged = barModeChanged,
+                sameSettings = settings.toJson().toString() == value.toJson().toString(),
+            )
+        ) return
         settings = value
         omarchyTheme = theme
         OmarchyThemeShapeState.apply(theme)
@@ -1953,25 +1969,43 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             edgeModeAnimationRunning = true
             TransitionManager.beginDelayedTransition(commandBar, AutoTransition().apply { duration = 180 })
             if (edgesVisible) {
-                edgeLayer.visibility = VISIBLE
                 edgeLayer.alpha = 1f
                 edgeGroups.forEach { (edge, group) ->
                     group.animate().cancel()
+                    group.visibility = INVISIBLE
                     group.alpha = 0f
-                    group.post {
-                        if (edgeModeAnimationGeneration != edgeAnimationGeneration) return@post
-                        setEdgeGroupOutsideTranslation(edge, group)
-                        group.postOnAnimation {
-                            group.animate()
-                                .translationX(0f)
-                                .translationY(0f)
-                                .alpha(1f)
-                                .setDuration(320)
-                                .setInterpolator(android.view.animation.AccelerateInterpolator())
-                                .start()
+                    group.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
+                        override fun onLayoutChange(
+                            view: View,
+                            left: Int,
+                            top: Int,
+                            right: Int,
+                            bottom: Int,
+                            oldLeft: Int,
+                            oldTop: Int,
+                            oldRight: Int,
+                            oldBottom: Int,
+                        ) {
+                            if (right <= left || bottom <= top) return
+                            view.removeOnLayoutChangeListener(this)
+                            if (edgeModeAnimationGeneration != edgeAnimationGeneration) return
+                            setEdgeGroupOutsideTranslation(edge, group)
+                            group.visibility = VISIBLE
+                            group.postOnAnimation {
+                                if (edgeModeAnimationGeneration != edgeAnimationGeneration) return@postOnAnimation
+                                group.animate()
+                                    .translationX(0f)
+                                    .translationY(0f)
+                                    .alpha(1f)
+                                    .setDuration(320)
+                                    .setInterpolator(android.view.animation.AccelerateInterpolator())
+                                    .start()
+                            }
                         }
-                    }
+                    })
                 }
+                edgeLayer.visibility = VISIBLE
+                edgeLayer.requestLayout()
                 edgeLayer.postDelayed({
                     if (edgeModeAnimationGeneration == edgeAnimationGeneration) {
                         edgeModeAnimationRunning = false

@@ -148,7 +148,7 @@ internal enum class OmarchyMenuOpenTrigger { LONG_PRESS, SWIPE_UP, DOUBLE_TAP, L
 
 internal object OmarchyMenuInputPolicy {
     fun focusInput(trigger: OmarchyMenuOpenTrigger): Boolean =
-        trigger == OmarchyMenuOpenTrigger.LONG_PRESS || trigger == OmarchyMenuOpenTrigger.SWIPE_UP
+        trigger == OmarchyMenuOpenTrigger.DOUBLE_TAP || trigger == OmarchyMenuOpenTrigger.SWIPE_UP
 }
 
 internal object OmarchyMenuFocusPolicy {

@@ -104,8 +104,9 @@ class LauncherInteractionParityTest {
     }
 
     @Test
-    fun longPressOpensMenuAndDoubleTapDoesNothing() {
-        assertEquals(BackgroundTapAction.NONE, BackgroundTapPolicy.onDoubleTap())
+    fun doubleTapAndLongPressOpenMenuWithDistinctInputModes() {
+        assertEquals(BackgroundTapAction.OPEN_OMARCHY_MENU, BackgroundTapPolicy.onDoubleTap(editing = false))
+        assertEquals(BackgroundTapAction.EXIT_EDIT_AND_OPEN_OMARCHY_MENU, BackgroundTapPolicy.onDoubleTap(editing = true))
         assertEquals(BackgroundTapAction.OPEN_OMARCHY_MENU, BackgroundTapPolicy.onLongPress(editing = false))
         assertEquals(BackgroundTapAction.EXIT_EDIT_AND_OPEN_OMARCHY_MENU, BackgroundTapPolicy.onLongPress(editing = true))
     }

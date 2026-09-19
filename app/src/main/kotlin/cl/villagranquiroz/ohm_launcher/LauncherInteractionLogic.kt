@@ -113,7 +113,9 @@ object CommandBarFocusPolicy {
 enum class BackgroundTapAction { NONE, OPEN_OMARCHY_MENU, EXIT_EDIT_AND_OPEN_OMARCHY_MENU }
 
 object BackgroundTapPolicy {
-    fun onDoubleTap(): BackgroundTapAction = BackgroundTapAction.NONE
+    fun onDoubleTap(editing: Boolean): BackgroundTapAction =
+        if (editing) BackgroundTapAction.EXIT_EDIT_AND_OPEN_OMARCHY_MENU
+        else BackgroundTapAction.OPEN_OMARCHY_MENU
 
     fun onLongPress(editing: Boolean): BackgroundTapAction =
         if (editing) BackgroundTapAction.EXIT_EDIT_AND_OPEN_OMARCHY_MENU
@@ -172,6 +174,11 @@ object OmarchyBarModePolicy {
 
     fun toggleGlyph(omarchyBarMode: Boolean): String =
         if (omarchyBarMode) NerdGlyph.EXPAND else NerdGlyph.COMPRESS
+}
+
+object OmarchyBarAnimationPolicy {
+    fun ignoreDuplicateSubmission(animationRunning: Boolean, modeChanged: Boolean, sameSettings: Boolean): Boolean =
+        animationRunning && !modeChanged && sameSettings
 }
 
 data class SearchableApp(

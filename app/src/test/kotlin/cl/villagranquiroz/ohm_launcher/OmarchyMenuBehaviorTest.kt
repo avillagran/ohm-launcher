@@ -63,10 +63,10 @@ class OmarchyMenuBehaviorTest {
     }
 
     @Test
-    fun desktopGesturesOpenTheMenuReadyForTyping() {
-        assertTrue(OmarchyMenuInputPolicy.focusInput(OmarchyMenuOpenTrigger.LONG_PRESS))
+    fun desktopDoubleTapOpensTypingWhileLongPressOpensNormalMenu() {
+        assertFalse(OmarchyMenuInputPolicy.focusInput(OmarchyMenuOpenTrigger.LONG_PRESS))
         assertTrue(OmarchyMenuInputPolicy.focusInput(OmarchyMenuOpenTrigger.SWIPE_UP))
-        assertFalse(OmarchyMenuInputPolicy.focusInput(OmarchyMenuOpenTrigger.DOUBLE_TAP))
+        assertTrue(OmarchyMenuInputPolicy.focusInput(OmarchyMenuOpenTrigger.DOUBLE_TAP))
         assertFalse(OmarchyMenuInputPolicy.focusInput(OmarchyMenuOpenTrigger.LOGO_TAP))
     }
 
