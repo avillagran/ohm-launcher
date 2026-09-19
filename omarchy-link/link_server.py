@@ -275,11 +275,12 @@ def chosen_theme_background_id(theme_id, entries, home=None, omarchy_path=None):
     except OSError:
         return ""
     for entry in entries:
-        try:
-            if Path(entry.get("_path", "")).resolve(strict=False) == chosen_resolved:
-                return entry["id"]
-        except (OSError, ValueError, KeyError):
-            continue
+        for field in ("_path", "_applied"):
+            try:
+                if Path(entry.get(field, "")).resolve(strict=False) == chosen_resolved:
+                    return entry["id"]
+            except (OSError, ValueError, KeyError):
+                continue
     return ""
 
 

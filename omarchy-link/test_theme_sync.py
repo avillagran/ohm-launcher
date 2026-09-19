@@ -772,6 +772,20 @@ class ThemeBackgroundIdTest(unittest.TestCase):
                 ], home, omarchy),
             )
 
+    def test_theme_background_matches_the_applied_path_from_animated_catalog(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home, omarchy, stock = self._fixture(directory)
+            background = stock / "nord/backgrounds/lake.jpg"
+
+            self.assertEqual(
+                "nord-lake",
+                link_server.chosen_theme_background_id("nord", [{
+                    "id": "nord-lake",
+                    "_path": "lake",
+                    "_applied": str(background),
+                }], home, omarchy),
+            )
+
     def test_user_background_folder_participates_and_sorted_first_wins(self):
         with tempfile.TemporaryDirectory() as directory:
             home, omarchy, stock = self._fixture(directory)
