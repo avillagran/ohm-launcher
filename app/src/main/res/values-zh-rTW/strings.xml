@@ -20,6 +20,8 @@
     <string name="menu_box">方塊</string>
     <string name="menu_plugins">外掛程式</string>
     <string name="menu_omarchy">Omarchy</string>
+    <string name="menu_install_omarchy_link">安裝 Omarchy Link</string>
+    <string name="browser_unavailable">沒有可用的網頁瀏覽器</string>
     <string name="menu_bluetooth">藍牙</string>
     <string name="menu_show_qr">顯示 QR 碼</string>
     <string name="menu_read_qr">掃描 QR 碼</string>

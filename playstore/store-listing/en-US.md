@@ -15,14 +15,14 @@ Omarchy from the first launch
 • Lets you arrange apps in configurable edge boxes and find installed apps quickly with search.
 • Supports Android widgets and local plugins for a home screen that fits your workflow.
 • Includes a Quake-style terminal for fast access to supported on-device commands.
-• Offers animated TTFX backgrounds, including optional audio-reactive visuals. Microphone audio is analyzed transiently on your device and is never recorded or transmitted.
-• Can show local notification badges when you choose to grant notification access.
+• Offers animated TTFX backgrounds, including optional audio-reactive visuals. Device playback audio is analyzed transiently on-device and is never recorded, stored, uploaded, or transmitted. Android asks for microphone permission solely because it gates system audio visualization; TTFX does not use the physical microphone.
+• The Google Play edition does not request notification access or show notification badges.
 
 Private by design
 
 This secure Google Play edition has no remote LAN access, device pairing, remote control, screen sharing, clipboard sync, or file and photo transfers.
 
-No ads. No analytics. No account. No developer-operated backend. Your settings, installed-app information, widget data, and optional microphone processing stay on your device. Permissions are requested only when needed for a feature, and optional access can be disabled in Android settings.
+No ads. No analytics. No account. No developer-operated backend. Your settings, installed-app information, widget data, and optional on-device playback analysis stay on your device. Permissions are requested only when needed for a feature, and optional access can be disabled in Android settings.
 
 OhmLauncher replaces your Android home screen only after you choose it as the default launcher. It can discover installed apps because browsing and opening them is a core launcher function.
 

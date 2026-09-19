@@ -16,11 +16,11 @@ Personalize sua tela inicial
 • Crie caixas configuráveis nas bordas para agrupar apps e atalhos.
 • Adicione widgets do Android e plugins para adaptar a área de trabalho ao seu jeito.
 • Use o terminal no estilo Quake para acessar rapidamente comandos e fluxos compatíveis.
-• Crie fundos animados com o editor TTFX e aproveite efeitos visuais que reagem ao áudio. O áudio do microfone é analisado somente no dispositivo, não é gravado nem enviado.
+• Crie fundos animados com o editor TTFX e aproveite efeitos visuais que reagem ao áudio. O áudio reproduzido pelo dispositivo é analisado apenas temporariamente e no próprio aparelho; nunca é gravado, armazenado, enviado ou transmitido. O Android solicita a permissão de microfone somente porque ela controla a visualização do áudio do sistema; o TTFX não usa o microfone físico.
 
 Feito para o seu dispositivo
 
-O OhmLauncher funciona como a tela inicial do Android depois que você o escolhe como launcher padrão. O acesso aos apps instalados permite pesquisar e abrir aplicativos, e o acesso opcional às notificações pode exibir indicadores locais nos ícones.
+O OhmLauncher funciona como a tela inicial do Android depois que você o escolhe como launcher padrão. O acesso aos apps instalados permite pesquisar e abrir aplicativos. A versão do Google Play não solicita acesso às notificações nem exibe indicadores de notificação.
 
 Privacidade desde o início
 

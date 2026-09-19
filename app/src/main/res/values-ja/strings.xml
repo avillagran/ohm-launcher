@@ -20,6 +20,8 @@
     <string name="menu_box">ボックス</string>
     <string name="menu_plugins">プラグイン</string>
     <string name="menu_omarchy">Omarchy</string>
+    <string name="menu_install_omarchy_link">Omarchy Link をインストール</string>
+    <string name="browser_unavailable">利用できるウェブブラウザがありません</string>
     <string name="menu_bluetooth">Bluetooth</string>
     <string name="menu_show_qr">QR を表示</string>
     <string name="menu_read_qr">QR をスキャン</string>

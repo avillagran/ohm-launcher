@@ -20,6 +20,8 @@
     <string name="menu_box">Boîte</string>
     <string name="menu_plugins">Plugins</string>
     <string name="menu_omarchy">Omarchy</string>
+    <string name="menu_install_omarchy_link">Installer Omarchy Link</string>
+    <string name="browser_unavailable">Aucun navigateur Web n’est disponible</string>
     <string name="menu_bluetooth">Bluetooth</string>
     <string name="menu_show_qr">Afficher le QR</string>
     <string name="menu_read_qr">Scanner le QR</string>

@@ -14,11 +14,11 @@ Zrób to swoje
 • Dodaj widżety i wtyczki dla Androida, aby stworzyć układ pasujący do Twojego przepływu pracy.
 • Szybko znajduj i otwieraj zainstalowane aplikacje dzięki wyszukiwaniu, ulubionym, ostatnim aplikacjom i konfigurowalnym panelom krawędziowym.
 • Użyj terminala w stylu Quake'a, aby uzyskać szybki dostęp do obsługiwanych poleceń lokalnych.
-• Ciesz się grafiką TTFX reagującą na dźwięk. Dźwięk z mikrofonu jest analizowany na Twoim urządzeniu i nie jest nigdzie nagrywany ani wysyłany.
+• Korzystaj z wizualizacji TTFX reagujących na dźwięk. Dźwięk odtwarzany przez urządzenie jest analizowany chwilowo i wyłącznie na nim — nigdy nie jest nagrywany, zapisywany, przesyłany ani transmitowany. Android prosi o uprawnienie do mikrofonu tylko dlatego, że steruje ono wizualizacją dźwięku systemowego; TTFX nie używa fizycznego mikrofonu.
 
 Zbudowany dla Twojego urządzenia
 
-Wersja Play rozpoczyna się w trybie Omarchy i zawiera jego motywy. Wyszukiwanie w programie uruchamiającym i otwieranie aplikacji korzystają z dostępu do zainstalowanych aplikacji. Opcjonalny dostęp do powiadomień może wyświetlać plakietki. Wersja Play nie obejmuje zdalnego sterowania, usług LAN, parowania, synchronizacji ani przesyłania plików.
+Wersja Play rozpoczyna się w trybie Omarchy i zawiera jego motywy. Wyszukiwanie w programie uruchamiającym i otwieranie aplikacji korzystają z dostępu do zainstalowanych aplikacji. Wersja Play nie prosi o dostęp do powiadomień ani nie wyświetla plakietek powiadomień. Nie obejmuje też zdalnego sterowania, usług LAN, parowania, synchronizacji ani przesyłania plików.
 
 Prywatność według projektu
 
@@ -28,4 +28,4 @@ OhmLauncher zastępuje ekran główny Androida dopiero po wybraniu go jako domy�
 
 ## Informacje o wersji
 
-Pierwsza publiczna wersja Play OhmLaunchera. Zawiera ekran główny inspirowany Omarchią, dołączone motywy i tła, wyszukiwanie aplikacji, ulubione, najnowsze aplikacje, urządzenia brzegowe, widżety dla Androida, wtyczki, terminal w stylu Quake, plakietki powiadomień i lokalne wizualizacje TTFX. Żadnych zdalnych funkcji, reklam, analiz, kont, chmury ani zaplecza programisty.
+Pierwsza publiczna wersja Play OhmLaunchera. Zawiera ekran główny inspirowany Omarchią, dołączone motywy i tła, wyszukiwanie aplikacji, ulubione, ostatnie aplikacje, panele krawędziowe, widżety dla Androida, wtyczki, terminal w stylu Quake i lokalne wizualizacje TTFX. Żadnych zdalnych funkcji, reklam, analiz, kont, chmury ani zaplecza programisty.

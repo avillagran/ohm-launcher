@@ -20,6 +20,8 @@
     <string name="menu_box">Kotak</string>
     <string name="menu_plugins">Plugin</string>
     <string name="menu_omarchy">Omarchy</string>
+    <string name="menu_install_omarchy_link">Instal Omarchy Link</string>
+    <string name="browser_unavailable">Tidak ada peramban web yang tersedia</string>
     <string name="menu_bluetooth">Bluetooth</string>
     <string name="menu_show_qr">Tampilkan QR</string>
     <string name="menu_read_qr">Pindai QR</string>

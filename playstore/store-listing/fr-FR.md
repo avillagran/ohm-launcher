@@ -16,12 +16,12 @@ Personnalisez votre écran d'accueil
 • Trouvez et ouvrez rapidement vos applications installées grâce à la recherche.
 • Retrouvez vos favoris et vos applications récentes en un geste.
 • Utilisez le terminal de style Quake pour accéder rapidement aux commandes et flux de travail pris en charge.
-• Profitez d'effets visuels TTFX réactifs à l'audio. Le son du microphone est analysé uniquement sur votre appareil : il n'est ni enregistré ni envoyé.
+• Profitez d'effets visuels TTFX réactifs à l'audio. Le son lu par l'appareil est analysé brièvement et uniquement sur celui-ci ; il n'est jamais enregistré, stocké, téléversé ni transmis. Android demande l'autorisation du microphone uniquement parce qu'elle contrôle la visualisation du son système ; TTFX n'utilise pas le microphone physique.
 • Définissez un fond d'écran TTFX animé avec le thème Omarchy et le sablier.
 
 Intégrations Android utiles
 
-• L'accès facultatif aux notifications permet d'afficher les badges des applications.
+• La version Google Play ne demande pas l'accès aux notifications et n'affiche pas de badges de notification.
 • L'accès aux applications installées alimente la recherche et l'ouverture des applications.
 • OhmLauncher ne remplace votre écran d'accueil Android qu'après que vous l'avez choisi comme lanceur par défaut.
 
@@ -31,4 +31,4 @@ Sans publicité, sans analyse, sans compte obligatoire. OhmLauncher n'utilise au
 
 ## Notes de version
 
-Première version publique d'OhmLauncher : écran d'accueil de style Omarchy, thèmes et fonds d'écran intégrés, recherche d'applications, boîtes latérales, widgets, plugins, terminal Quake, effets TTFX locaux et badges de notification. Sans publicité, sans analyse ni compte.
+Première version publique d'OhmLauncher : écran d'accueil de style Omarchy, thèmes et fonds d'écran intégrés, recherche d'applications, boîtes latérales, widgets, plugins, terminal Quake et effets TTFX locaux. Sans publicité, sans analyse ni compte.

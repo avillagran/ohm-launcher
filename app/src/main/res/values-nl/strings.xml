@@ -20,6 +20,8 @@
     <string name="menu_box">Doos</string>
     <string name="menu_plugins">Plug-ins</string>
     <string name="menu_omarchy">Omarchie</string>
+    <string name="menu_install_omarchy_link">Omarchy Link installeren</string>
+    <string name="browser_unavailable">Er is geen webbrowser beschikbaar</string>
     <string name="menu_bluetooth">Bluetooth</string>
     <string name="menu_show_qr">QR tonen</string>
     <string name="menu_read_qr">QR scannen</string>

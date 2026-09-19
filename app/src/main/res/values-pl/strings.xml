@@ -20,6 +20,8 @@
     <string name="menu_box">Skrzynka</string>
     <string name="menu_plugins">Wtyczki</string>
     <string name="menu_omarchy">Omarchia</string>
+    <string name="menu_install_omarchy_link">Zainstaluj Omarchy Link</string>
+    <string name="browser_unavailable">Brak dostępnej przeglądarki internetowej</string>
     <string name="menu_bluetooth">Bluetooth</string>
     <string name="menu_show_qr">Pokaż QR</string>
     <string name="menu_read_qr">Zeskanuj kod QR</string>

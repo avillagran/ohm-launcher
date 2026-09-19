@@ -16,12 +16,12 @@ Personalizza la tua schermata Home
 • Trova e apri rapidamente le app installate con la ricerca.
 • Torna ai tuoi preferiti e alle app recenti in un attimo.
 • Usa il terminale in stile Quake per accedere rapidamente a comandi e flussi di lavoro supportati.
-• Goditi gli effetti visivi TTFX reattivi all'audio. L'audio del microfono viene analizzato solo sul dispositivo: non viene registrato né inviato.
+• Goditi gli effetti visivi TTFX reattivi all'audio. L'audio riprodotto dal dispositivo viene analizzato solo temporaneamente e in locale; non viene mai registrato, memorizzato, caricato o trasmesso. Android richiede l'autorizzazione del microfono solo perché controlla la visualizzazione dell'audio di sistema; TTFX non usa il microfono fisico.
 • Imposta uno sfondo TTFX animato con il tema Omarchy e la clessidra.
 
 Integrazioni Android utili
 
-• L'accesso facoltativo alle notifiche mostra i badge delle app.
+• La versione Google Play non richiede l'accesso alle notifiche e non mostra badge di notifica.
 • L'accesso alle app installate alimenta la ricerca e l'apertura delle app.
 • OhmLauncher sostituisce la schermata Home di Android solo dopo che lo scegli come launcher predefinito.
 
@@ -31,4 +31,4 @@ Niente pubblicità, niente analisi, nessun account obbligatorio. OhmLauncher non
 
 ## Note di rilascio
 
-Prima versione pubblica di OhmLauncher: schermata Home in stile Omarchy, temi e sfondi integrati, ricerca app, riquadri laterali, widget, plugin, terminale Quake, effetti TTFX locali e badge di notifica. Niente pubblicità, niente analisi, nessun account.
+Prima versione pubblica di OhmLauncher: schermata Home in stile Omarchy, temi e sfondi integrati, ricerca app, riquadri laterali, widget, plugin, terminale Quake ed effetti TTFX locali. Niente pubblicità, niente analisi, nessun account.

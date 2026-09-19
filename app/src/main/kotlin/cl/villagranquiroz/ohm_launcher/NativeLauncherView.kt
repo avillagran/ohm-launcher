@@ -2454,11 +2454,14 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             OmarchyMenuEntry(
                 NerdGlyph.LINK,
                 context.getString(R.string.menu_omarchy),
-                children = if (BuildConfig.PLAY_STORE_DISTRIBUTION) emptyList() else listOf(
-                    OmarchyMenuEntry(NerdGlyph.BLUETOOTH, context.getString(R.string.menu_bluetooth), action = { activity.scanOmarchyBluetooth() }),
-                    OmarchyMenuEntry(NerdGlyph.QR, context.getString(R.string.menu_show_qr), action = { activity.showOmarchyQr() }),
-                    OmarchyMenuEntry(NerdGlyph.CAMERA, context.getString(R.string.menu_read_qr), action = { activity.readOmarchyQr() }),
-                ),
+                children = buildList {
+                    add(OmarchyMenuEntry(NerdGlyph.DOWN, context.getString(R.string.menu_install_omarchy_link), action = { activity.openOmarchyLinkInstallationPage() }))
+                    if (!BuildConfig.PLAY_STORE_DISTRIBUTION) {
+                        add(OmarchyMenuEntry(NerdGlyph.BLUETOOTH, context.getString(R.string.menu_bluetooth), action = { activity.scanOmarchyBluetooth() }))
+                        add(OmarchyMenuEntry(NerdGlyph.QR, context.getString(R.string.menu_show_qr), action = { activity.showOmarchyQr() }))
+                        add(OmarchyMenuEntry(NerdGlyph.CAMERA, context.getString(R.string.menu_read_qr), action = { activity.readOmarchyQr() }))
+                    }
+                },
             ),
             OmarchyMenuEntry(
                 NerdGlyph.SETTINGS,

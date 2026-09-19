@@ -20,6 +20,8 @@
     <string name="menu_box">상자</string>
     <string name="menu_plugins">플러그인</string>
     <string name="menu_omarchy">Omarchy</string>
+    <string name="menu_install_omarchy_link">Omarchy Link 설치</string>
+    <string name="browser_unavailable">사용 가능한 웹 브라우저가 없습니다</string>
     <string name="menu_bluetooth">Bluetooth</string>
     <string name="menu_show_qr">QR 표시</string>
     <string name="menu_read_qr">QR 스캔</string>

@@ -20,6 +20,8 @@
     <string name="menu_box">Панель</string>
     <string name="menu_plugins">Плагіни</string>
     <string name="menu_omarchy">Omarchy</string>
+    <string name="menu_install_omarchy_link">Встановити Omarchy Link</string>
+    <string name="browser_unavailable">Немає доступного веббраузера</string>
     <string name="menu_bluetooth">Bluetooth</string>
     <string name="menu_show_qr">Показати QR-код</string>
     <string name="menu_read_qr">Сканувати QR-код</string>

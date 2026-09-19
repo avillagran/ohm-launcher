@@ -15,13 +15,13 @@ Omarchy sejak peluncuran pertama
 • Memungkinkan Anda menyusun aplikasi dalam kotak tepi yang dapat diatur dan menemukan aplikasi terpasang dengan cepat melalui pencarian.
 • Mendukung widget Android dan plugin lokal untuk layar utama yang sesuai dengan alur kerja Anda.
 • Menyertakan terminal ala Quake untuk akses cepat ke perintah-perintah di perangkat yang didukung.
-• Menawarkan latar belakang TTFX animasi, termasuk visual reaktif audio opsional. Audio mikrofon dianalisis sesaat di perangkat Anda dan tidak pernah direkam atau dikirim.
+• Menawarkan latar belakang TTFX animasi, termasuk visual reaktif audio opsional. Audio yang diputar perangkat dianalisis sesaat dan hanya di perangkat; audio tidak pernah direkam, disimpan, diunggah, atau dikirim. Android meminta izin mikrofon semata-mata karena izin tersebut membatasi visualisasi audio sistem; TTFX tidak menggunakan mikrofon fisik.
 
 Privasi sejak desain
 
 Edisi Google Play yang aman ini sepenuhnya lokal: tidak ada fitur jarak jauh, tanpa akses jaringan antar perangkat.
 
-Tanpa iklan. Tanpa analitik. Tanpa akun. Tanpa backend yang dikelola pengembang. Setelan Anda, informasi aplikasi terpasang, data widget, dan pemrosesan mikrofon opsional tetap berada di perangkat Anda. Izin hanya diminta saat diperlukan untuk sebuah fitur, dan akses opsional dapat dinonaktifkan di setelan Android.
+Tanpa iklan. Tanpa analitik. Tanpa akun. Tanpa backend yang dikelola pengembang. Setelan Anda, informasi aplikasi terpasang, data widget, dan analisis lokal opsional atas audio yang diputar tetap berada di perangkat Anda. Izin hanya diminta saat diperlukan untuk sebuah fitur, dan akses opsional dapat dinonaktifkan di setelan Android.
 
 OhmLauncher menggantikan layar utama Android Anda hanya setelah Anda memilihnya sebagai launcher default. Aplikasi ini dapat mendeteksi aplikasi terpasang karena menjelajah dan membukanya adalah fungsi inti sebuah launcher.
 

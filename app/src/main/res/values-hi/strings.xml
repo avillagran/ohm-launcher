@@ -20,6 +20,8 @@
     <string name="menu_box">बॉक्स</string>
     <string name="menu_plugins">प्लगइन</string>
     <string name="menu_omarchy">Omarchy</string>
+    <string name="menu_install_omarchy_link">Omarchy Link इंस्टॉल करें</string>
+    <string name="browser_unavailable">कोई वेब ब्राउज़र उपलब्ध नहीं है</string>
     <string name="menu_bluetooth">Bluetooth</string>
     <string name="menu_show_qr">QR दिखाएँ</string>
     <string name="menu_read_qr">QR स्कैन करें</string>

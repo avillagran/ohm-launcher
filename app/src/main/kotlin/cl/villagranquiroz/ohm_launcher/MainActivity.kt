@@ -332,6 +332,14 @@ class MainActivity : AppCompatActivity() {
             .onFailure { startActivity(Intent(Settings.ACTION_SETTINGS)) }
     }
 
+    fun openOmarchyLinkInstallationPage() {
+        runCatching {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/avillagran/omarchy-link")))
+        }.onFailure {
+            Toast.makeText(this, R.string.browser_unavailable, Toast.LENGTH_LONG).show()
+        }
+    }
+
     fun openAccessibilitySettings() {
         if (!distributionPolicy.allowAccessibilityControl) return
         startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))

@@ -20,6 +20,8 @@
     <string name="menu_box">Kutu</string>
     <string name="menu_plugins">Eklentiler</string>
     <string name="menu_omarchy">Omarşi</string>
+    <string name="menu_install_omarchy_link">Omarchy Link’i yükle</string>
+    <string name="browser_unavailable">Kullanılabilir web tarayıcısı yok</string>
     <string name="menu_bluetooth">Bluetooth</string>
     <string name="menu_show_qr">QR\'yi göster</string>
     <string name="menu_read_qr">QR\'yi tara</string>

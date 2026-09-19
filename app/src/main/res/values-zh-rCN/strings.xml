@@ -20,6 +20,8 @@
     <string name="menu_box">盒子</string>
     <string name="menu_plugins">插件</string>
     <string name="menu_omarchy">Omarchy</string>
+    <string name="menu_install_omarchy_link">安装 Omarchy Link</string>
+    <string name="browser_unavailable">没有可用的网页浏览器</string>
     <string name="menu_bluetooth">蓝牙</string>
     <string name="menu_show_qr">显示二维码</string>
     <string name="menu_read_qr">扫描二维码</string>

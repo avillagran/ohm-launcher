@@ -20,6 +20,8 @@
     <string name="menu_box">المربع</string>
     <string name="menu_plugins">الملحقات</string>
     <string name="menu_omarchy">Omarchy</string>
+    <string name="menu_install_omarchy_link">تثبيت Omarchy Link</string>
+    <string name="browser_unavailable">لا يتوفر متصفح ويب</string>
     <string name="menu_bluetooth">Bluetooth</string>
     <string name="menu_show_qr">إظهار رمز QR</string>
     <string name="menu_read_qr">مسح رمز QR</string>
