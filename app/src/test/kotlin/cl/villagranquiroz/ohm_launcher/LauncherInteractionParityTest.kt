@@ -104,11 +104,10 @@ class LauncherInteractionParityTest {
     }
 
     @Test
-    fun openingMenuWhileEditingFirstExitsWidgetEditMode() {
-        assertEquals(BackgroundDoubleTapAction.OPEN_OMARCHY_MENU, BackgroundTapPolicy.onDoubleTap(editing = false))
-        assertEquals(BackgroundDoubleTapAction.EXIT_EDIT_AND_OPEN_OMARCHY_MENU, BackgroundTapPolicy.onDoubleTap(editing = true))
-        assertEquals(BackgroundDoubleTapAction.OPEN_OMARCHY_MENU, BackgroundTapPolicy.onLongPress(editing = false))
-        assertEquals(BackgroundDoubleTapAction.EXIT_EDIT_AND_OPEN_OMARCHY_MENU, BackgroundTapPolicy.onLongPress(editing = true))
+    fun longPressOpensMenuAndDoubleTapDoesNothing() {
+        assertEquals(BackgroundTapAction.NONE, BackgroundTapPolicy.onDoubleTap())
+        assertEquals(BackgroundTapAction.OPEN_OMARCHY_MENU, BackgroundTapPolicy.onLongPress(editing = false))
+        assertEquals(BackgroundTapAction.EXIT_EDIT_AND_OPEN_OMARCHY_MENU, BackgroundTapPolicy.onLongPress(editing = true))
     }
 
     @Test

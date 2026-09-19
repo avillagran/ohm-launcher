@@ -214,22 +214,15 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             override fun onDown(event: MotionEvent): Boolean = true
 
             override fun onDoubleTap(event: MotionEvent): Boolean {
-                when (BackgroundTapPolicy.onDoubleTap(widgetEditing)) {
-                    BackgroundDoubleTapAction.OPEN_OMARCHY_MENU ->
-                        showOmarchyLauncherMenu(OmarchyMenuOpenTrigger.DOUBLE_TAP)
-                    BackgroundDoubleTapAction.EXIT_EDIT_AND_OPEN_OMARCHY_MENU -> {
-                        setWidgetEditing(false)
-                        showOmarchyLauncherMenu(OmarchyMenuOpenTrigger.DOUBLE_TAP)
-                    }
-                }
-                return true
+                return BackgroundTapPolicy.onDoubleTap() != BackgroundTapAction.NONE
             }
 
             override fun onLongPress(event: MotionEvent) {
                 when (BackgroundTapPolicy.onLongPress(widgetEditing)) {
-                    BackgroundDoubleTapAction.OPEN_OMARCHY_MENU ->
+                    BackgroundTapAction.NONE -> Unit
+                    BackgroundTapAction.OPEN_OMARCHY_MENU ->
                         showOmarchyLauncherMenu(OmarchyMenuOpenTrigger.LONG_PRESS)
-                    BackgroundDoubleTapAction.EXIT_EDIT_AND_OPEN_OMARCHY_MENU -> {
+                    BackgroundTapAction.EXIT_EDIT_AND_OPEN_OMARCHY_MENU -> {
                         setWidgetEditing(false)
                         showOmarchyLauncherMenu(OmarchyMenuOpenTrigger.LONG_PRESS)
                     }

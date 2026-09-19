@@ -110,14 +110,14 @@ object CommandBarFocusPolicy {
         hasFocus && backgroundPressed
 }
 
-enum class BackgroundDoubleTapAction { OPEN_OMARCHY_MENU, EXIT_EDIT_AND_OPEN_OMARCHY_MENU }
+enum class BackgroundTapAction { NONE, OPEN_OMARCHY_MENU, EXIT_EDIT_AND_OPEN_OMARCHY_MENU }
 
 object BackgroundTapPolicy {
-    fun onDoubleTap(editing: Boolean): BackgroundDoubleTapAction =
-        if (editing) BackgroundDoubleTapAction.EXIT_EDIT_AND_OPEN_OMARCHY_MENU
-        else BackgroundDoubleTapAction.OPEN_OMARCHY_MENU
+    fun onDoubleTap(): BackgroundTapAction = BackgroundTapAction.NONE
 
-    fun onLongPress(editing: Boolean): BackgroundDoubleTapAction = onDoubleTap(editing)
+    fun onLongPress(editing: Boolean): BackgroundTapAction =
+        if (editing) BackgroundTapAction.EXIT_EDIT_AND_OPEN_OMARCHY_MENU
+        else BackgroundTapAction.OPEN_OMARCHY_MENU
 }
 
 object WidgetEditExitPolicy {
