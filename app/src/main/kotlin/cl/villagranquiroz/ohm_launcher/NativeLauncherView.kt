@@ -2454,7 +2454,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             OmarchyMenuEntry(
                 NerdGlyph.LINK,
                 context.getString(R.string.menu_omarchy),
-                children = listOf(
+                children = if (BuildConfig.PLAY_STORE_DISTRIBUTION) emptyList() else listOf(
                     OmarchyMenuEntry(NerdGlyph.BLUETOOTH, context.getString(R.string.menu_bluetooth), action = { activity.scanOmarchyBluetooth() }),
                     OmarchyMenuEntry(NerdGlyph.QR, context.getString(R.string.menu_show_qr), action = { activity.showOmarchyQr() }),
                     OmarchyMenuEntry(NerdGlyph.CAMERA, context.getString(R.string.menu_read_qr), action = { activity.readOmarchyQr() }),
@@ -2467,11 +2467,13 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                     if (OmarchySystemMenuPolicy.showDefaultLauncherShortcut(activity.isDefaultLauncher())) {
                         add(OmarchyMenuEntry(NerdGlyph.HOME, context.getString(R.string.menu_home_launcher), action = { activity.requestDefaultLauncher() }))
                     }
-                    if (OmarchySystemMenuPolicy.showNotificationAccessShortcut(notificationListenerEnabled())) {
+                    if (!BuildConfig.PLAY_STORE_DISTRIBUTION && OmarchySystemMenuPolicy.showNotificationAccessShortcut(notificationListenerEnabled())) {
                         add(OmarchyMenuEntry(NerdGlyph.BELL, context.getString(R.string.menu_notification_access), action = { activity.openNotificationAccessSettings() }))
                     }
-                    add(OmarchyMenuEntry(NerdGlyph.HAND, context.getString(R.string.menu_gestures), action = { activity.openAccessibilitySettings() }))
-                    add(OmarchyMenuEntry(NerdGlyph.STORAGE, context.getString(R.string.menu_storage), action = { activity.requestPublicStorageAccess() }))
+                    if (!BuildConfig.PLAY_STORE_DISTRIBUTION) {
+                        add(OmarchyMenuEntry(NerdGlyph.HAND, context.getString(R.string.menu_gestures), action = { activity.openAccessibilitySettings() }))
+                        add(OmarchyMenuEntry(NerdGlyph.STORAGE, context.getString(R.string.menu_storage), action = { activity.requestPublicStorageAccess() }))
+                    }
                 },
             ),
         )

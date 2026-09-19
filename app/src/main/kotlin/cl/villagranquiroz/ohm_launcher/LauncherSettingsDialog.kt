@@ -2,6 +2,7 @@ package cl.villagranquiroz.ohm_launcher
 
 import android.content.Context
 import android.text.InputType
+import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
@@ -20,6 +21,7 @@ object LauncherSettingsDialog {
     fun show(
         context: Context,
         current: LauncherSettings,
+        allowLanIntegration: Boolean = true,
         onPreview: (LauncherSettings) -> Unit = {},
         onSave: (LauncherSettings) -> Unit,
     ) {
@@ -45,8 +47,12 @@ object LauncherSettingsDialog {
         )
         val gestureNavigation = check(context, column, context.getString(R.string.setting_gesture_navigation), current.gestureNavigationEnabled)
         val tapBoxes = check(context, column, context.getString(R.string.setting_show_touch_areas), current.showTapBoxes)
-        val apiEnabled = check(context, column, context.getString(R.string.setting_local_api), current.apiServerEnabled)
-        val apiPort = input(context, column, context.getString(R.string.setting_api_port), current.apiServerPort.toString(), InputType.TYPE_CLASS_NUMBER)
+        val apiEnabled = check(context, column, context.getString(R.string.setting_local_api), current.apiServerEnabled).apply {
+            visibility = if (allowLanIntegration) View.VISIBLE else View.GONE
+        }
+        val apiPort = input(context, column, context.getString(R.string.setting_api_port), current.apiServerPort.toString(), InputType.TYPE_CLASS_NUMBER).apply {
+            visibility = if (allowLanIntegration) View.VISIBLE else View.GONE
+        }
         val preferTermux = check(context, column, context.getString(R.string.setting_prefer_termux), current.shellPreferTermux)
         val quake = check(context, column, context.getString(R.string.setting_quake_terminal), current.quakeTerminal)
         val language = spinner(context, column, context.getString(R.string.setting_language), LauncherLanguage.entries.map { it.wireValue }, current.language.wireValue)
@@ -79,7 +85,7 @@ object LauncherSettingsDialog {
             settingsPanelOpacity = panelOpacity.progress / 100.0,
             gestureNavigationEnabled = gestureNavigation.isChecked,
             showTapBoxes = tapBoxes.isChecked,
-            apiServerEnabled = apiEnabled.isChecked,
+            apiServerEnabled = allowLanIntegration && apiEnabled.isChecked,
             apiServerPort = apiPort.text.toString().toIntOrNull()?.coerceIn(1, 65535) ?: current.apiServerPort,
             shellPreferTermux = preferTermux.isChecked,
             quakeTerminal = quake.isChecked,

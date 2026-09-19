@@ -18,8 +18,8 @@ android {
         applicationId = "cl.villagranquiroz.ohm_launcher"
         minSdk = 24
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.0.3"
+        versionCode = 4
+        versionName = "0.0.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -44,10 +44,24 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField("boolean", "PLAY_STORE_DISTRIBUTION", "false")
+        }
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+            buildConfigField("boolean", "PLAY_STORE_DISTRIBUTION", "false")
+            signingConfig = signingConfigs.findByName("release")
+                ?: error("Release signing requires key.properties")
         }
+        create("playRelease") {
+            initWith(getByName("release"))
+            buildConfigField("boolean", "PLAY_STORE_DISTRIBUTION", "true")
+            matchingFallbacks += listOf("release")
+        }
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     externalNativeBuild {

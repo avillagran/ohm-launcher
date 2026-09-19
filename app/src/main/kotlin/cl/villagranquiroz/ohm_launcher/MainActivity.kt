@@ -41,6 +41,7 @@ import java.util.concurrent.Executors
 import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
+    private val distributionPolicy = DistributionPolicy(BuildConfig.PLAY_STORE_DISTRIBUTION)
     private val mainHandler = Handler(Looper.getMainLooper())
     private lateinit var root: NativeLauncherView
     private lateinit var storage: ConfigStorage
@@ -188,7 +189,14 @@ class MainActivity : AppCompatActivity() {
             configRoot.resolve(LauncherSettingsStore.FILE_NAME),
             configRoot.resolve(ConfigStorage.CONFIG_NAME),
         )
-        currentSettings = settingsStore.read()
+        currentSettings = settingsStore.read().let { settings ->
+            if (distributionPolicy.allowLanIntegration && distributionPolicy.allowCompactSystemNavigation) settings
+            else settings.copy(
+                apiServerEnabled = false,
+                omarchyBarMode = false,
+                gestureNavigationEnabled = false,
+            )
+        }
         root.submitSettings(currentSettings)
         applyCompactSystemNavigation(currentSettings.omarchyBarMode)
         currentConfig = runCatching { storage.read(configRoot) }.getOrElse { currentConfig }
@@ -251,6 +259,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun requestPublicStorageAccess() {
+        if (!distributionPolicy.allowAllFilesAccess) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
             startActivity(
                 Intent(
@@ -318,11 +327,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun openNotificationAccessSettings() {
+        if (!distributionPolicy.allowNotificationAccess) return
         runCatching { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
             .onFailure { startActivity(Intent(Settings.ACTION_SETTINGS)) }
     }
 
     fun openAccessibilitySettings() {
+        if (!distributionPolicy.allowAccessibilityControl) return
         startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
     }
 
@@ -582,6 +593,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyCompactSystemNavigation(compact: Boolean) {
+        val compactAllowed = compact && distributionPolicy.allowCompactSystemNavigation
         val navigationBackground = systemNavigationBackground(currentSettings)
         @Suppress("DEPRECATION")
         window.navigationBarColor = navigationBackground
@@ -590,12 +602,13 @@ class MainActivity : AppCompatActivity() {
         }
         WindowInsetsControllerCompat(window, root).apply {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            if (compact) hide(WindowInsetsCompat.Type.navigationBars())
+            if (compactAllowed) hide(WindowInsetsCompat.Type.navigationBars())
             else show(WindowInsetsCompat.Type.navigationBars())
         }
     }
 
     private fun performCompactNavigation(action: String) {
+        if (!distributionPolicy.allowAccessibilityControl) return
         val service = OhmGestureAccessibilityService.instance
         if (service == null) {
             openAccessibilitySettings()
@@ -686,6 +699,7 @@ class MainActivity : AppCompatActivity() {
         LauncherSettingsDialog.show(
             context = this,
             current = currentSettings,
+            allowLanIntegration = distributionPolicy.allowLanIntegration,
             onPreview = { preview ->
                 root.submitSettings(preview)
                 applySystemTheme(preview)
@@ -935,6 +949,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startApiServer() {
+        if (!distributionPolicy.allowLanIntegration) return
         val settingsFile = configRoot.resolve("settings.json")
         if (!currentSettings.apiServerEnabled) return
         val port = currentSettings.apiServerPort.coerceIn(1, 65535)
@@ -1282,6 +1297,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleDeepLink(intent: Intent?) {
+        if (!distributionPolicy.allowLanIntegration) return
         val uri = intent?.data ?: return
         if (uri.scheme != "omarchy") return
         val peer = OmarchyPeerUri.parse(uri.toString())
@@ -1294,11 +1310,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun restorePeer() {
+        if (!distributionPolicy.allowLanIntegration) return
         val peer = currentSettings.omarchyPeer ?: return
         connectPeer(peer, persist = false)
     }
 
     private fun connectPeer(peer: OmarchyPeer, persist: Boolean) {
+        if (!distributionPolicy.allowLanIntegration) return
         connectionState.connect(peer, replace = true)
         ContextCompat.startForegroundService(
             this,
