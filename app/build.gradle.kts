@@ -18,8 +18,10 @@ android {
         applicationId = "cl.villagranquiroz.ohm_launcher"
         minSdk = 24
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.0.5"
+        // Google Play requires a new internal code for every uploaded bundle.
+        // The public release remains 0.0.4.
+        versionCode = 6
+        versionName = "0.0.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
