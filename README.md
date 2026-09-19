@@ -6,13 +6,13 @@ OhmLauncher is a native Android home-screen launcher inspired by Omarchy, with s
 
 ## Download and install
 
-- [Download OhmLauncher 0.0.1 test APK](https://github.com/avillagran/ohm-launcher/releases/download/0.0.1/OhmLauncher-0.0.1-test-release.apk)
-- [View the 0.0.1 release and notes](https://github.com/avillagran/ohm-launcher/releases/tag/0.0.1)
+- [Download OhmLauncher 0.0.2 release APK](https://github.com/avillagran/ohm-launcher/releases/download/0.0.2/OhmLauncher-0.0.2-release.apk)
+- [View the 0.0.2 release and notes](https://github.com/avillagran/ohm-launcher/releases/tag/0.0.2)
 
 Install or update the downloaded APK with ADB:
 
 ```bash
-adb install -r OhmLauncher-0.0.1-test-release.apk
+adb install -r OhmLauncher-0.0.2-release.apk
 ```
 
 Install Omarchy Link on Omarchy Linux, then restart the shell:
