@@ -42,8 +42,9 @@ class RuntimeWidgetStore(private val file: File) {
     }
 
     private fun write(nodes: List<JSONObject>) {
-        file.parentFile?.mkdirs()
-        val temporary = file.parentFile.resolve("${file.name}.tmp")
+        val parent = requireNotNull(file.parentFile)
+        parent.mkdirs()
+        val temporary = parent.resolve("${file.name}.tmp")
         temporary.writeText(JSONArray(nodes).toString(2))
         check(temporary.renameTo(file) || temporary.copyTo(file, overwrite = true).let { temporary.delete() })
     }

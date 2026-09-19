@@ -27,6 +27,7 @@ import android.window.OnBackInvokedDispatcher
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import java.util.concurrent.Executors
 import kotlin.math.min
@@ -207,6 +208,7 @@ internal class OmarchyMenuOverlay(
     private val rootTitle: String? = null,
     private val mode: OmarchyMenuMode = OmarchyMenuMode.FULL,
     private val colors: Colors,
+    private val onEntriesReordered: ((List<OmarchyMenuEntry>) -> Unit)? = null,
     private val onDismissed: () -> Unit,
 ) : FrameLayout(context) {
     data class Colors(
@@ -228,6 +230,7 @@ internal class OmarchyMenuOverlay(
     private val header = MenuSearchEditText(context)
     private val rows = RecyclerView(context)
     private val rowAdapter = MenuRowAdapter()
+    private var rowsMoved = false
     private val nerdFont: Typeface = NerdFont.load(context)
     private val dismissGuard = OmarchyMenuDismissGuard()
     private var imeWasVisible = false
@@ -349,6 +352,36 @@ internal class OmarchyMenuOverlay(
             adapter = rowAdapter
             itemAnimator = null
             overScrollMode = View.OVER_SCROLL_NEVER
+        }
+        if (onEntriesReordered != null) {
+            ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(ItemTouchHelper.UP or ItemTouchHelper.DOWN, 0) {
+                override fun isLongPressDragEnabled(): Boolean =
+                    levels.size == 1 && header.text.isNullOrBlank() && rowAdapter.reorderableItemCount > 1
+
+                override fun onMove(
+                    recyclerView: RecyclerView,
+                    viewHolder: RecyclerView.ViewHolder,
+                    target: RecyclerView.ViewHolder,
+                ): Boolean {
+                    if (!isLongPressDragEnabled()) return false
+                    val moved = rowAdapter.move(viewHolder.adapterPosition, target.adapterPosition)
+                    if (moved) {
+                        rowsMoved = true
+                        visibleEntries = rowAdapter.snapshot()
+                    }
+                    return moved
+                }
+
+                override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
+                    super.clearView(recyclerView, viewHolder)
+                    if (rowsMoved) {
+                        rowsMoved = false
+                        onEntriesReordered?.invoke(rowAdapter.snapshot())
+                    }
+                }
+
+                override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) = Unit
+            }).attachToRecyclerView(rows)
         }
         card.addView(rows, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         if (mode.inputPlacement == OmarchyMenuInputPlacement.BOTTOM) {
@@ -622,11 +655,21 @@ internal class OmarchyMenuOverlay(
 
     private inner class MenuRowAdapter : RecyclerView.Adapter<MenuRowHolder>() {
         private var entries: List<OmarchyMenuEntry> = emptyList()
+        val reorderableItemCount: Int get() = entries.size
 
         fun submit(newEntries: List<OmarchyMenuEntry>) {
             entries = newEntries
             notifyDataSetChanged()
         }
+
+        fun move(from: Int, to: Int): Boolean {
+            if (from !in entries.indices || to !in entries.indices || from == to) return false
+            entries = entries.toMutableList().apply { add(to, removeAt(from)) }
+            notifyItemMoved(from, to)
+            return true
+        }
+
+        fun snapshot(): List<OmarchyMenuEntry> = entries.toList()
 
         override fun getItemCount(): Int = entries.size.coerceAtLeast(1)
 

@@ -605,11 +605,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun editDesktopConfig(transform: (String) -> String) {
+        val updatedSource = runCatching { transform(currentConfig.raw.toString()) }
+            .getOrElse {
+                root.showConfigError(it.message.orEmpty())
+                return
+            }
+        val updatedConfig = runCatching { LauncherConfig.parse(updatedSource) }
+            .getOrElse {
+                root.showConfigError(it.message.orEmpty())
+                return
+            }
+        currentConfig = updatedConfig
+        root.submitConfig(updatedConfig, preserveFavorites = true)
         io.execute {
-            runCatching {
-                val file = configRoot.resolve(ConfigStorage.CONFIG_NAME)
-                storage.write(configRoot, transform(file.readText()))
-            }.onFailure { runOnUiThread { root.showConfigError(it.message.orEmpty()) } }
+            runCatching { storage.write(configRoot, updatedSource) }
+                .onFailure { runOnUiThread { root.showConfigError(it.message.orEmpty()) } }
         }
     }
 
@@ -1437,7 +1447,7 @@ class MainActivity : AppCompatActivity() {
                         .put("omarchyTheme", OmarchyThemePalette.parse(payload).toJson())
                     val preview = LauncherSettings.parse(document)
                     currentSettings = preview
-                    root.submitSettings(preview, animateTheme = false)
+                    root.submitSettings(preview, animateTheme = true)
                     applySystemTheme(preview)
                 }
                 val bundledBackgroundPath = choice.backgroundPreviewPath?.let(::materializeBundledBackground)

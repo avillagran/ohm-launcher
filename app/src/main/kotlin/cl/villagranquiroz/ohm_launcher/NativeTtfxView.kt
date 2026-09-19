@@ -74,15 +74,12 @@ internal object TtfxTextRasterizer {
         }
         val width = wrappedLines.maxOf { paint.measureText(it) }
             .let { kotlin.math.ceil(it).toInt().coerceIn(1, 2048) }
-        val layout = android.text.StaticLayout(
-            wrapped,
-            paint,
-            width,
-            android.text.Layout.Alignment.ALIGN_CENTER,
-            1.05f,
-            0f,
-            false,
-        )
+        val layout = android.text.StaticLayout.Builder
+            .obtain(wrapped, 0, wrapped.length, paint, width)
+            .setAlignment(android.text.Layout.Alignment.ALIGN_CENTER)
+            .setLineSpacing(0f, 1.05f)
+            .setIncludePad(false)
+            .build()
         val height = layout.height.coerceIn(1, 2048)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)

@@ -96,7 +96,14 @@ object TtfxSettingsDialog {
             isChecked = current.audio
             setPadding(dp(4), dp(6), dp(4), dp(6))
         }
+        val floatingControls = SwitchCompat(context).apply {
+            this.text = context.getString(R.string.ttfx_show_floating_controls)
+            setTextColor(foreground)
+            isChecked = current.controlsVisible
+            setPadding(dp(4), dp(6), dp(4), dp(6))
+        }
         column.addView(enabled)
+        column.addView(floatingControls)
         column.addView(text, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(50)).apply { bottomMargin = dp(10) })
         column.addView(labeled(context, context.getString(R.string.ttfx_effect), effect, foreground, muted))
         val size = seek(context, column, context.getString(R.string.ttfx_size), 1, 12, current.textSize, foreground, muted)
@@ -122,6 +129,7 @@ object TtfxSettingsDialog {
             speed = speed.value / 10.0,
             resolution = resolution.value,
             reactivity = reactivity.value,
+            controlsVisible = floatingControls.isChecked,
         )
         val handler = Handler(Looper.getMainLooper())
         var ready = false
@@ -136,6 +144,7 @@ object TtfxSettingsDialog {
             handler.postDelayed(liveUpdate, if (debounce) 180L else 0L)
         }
         enabled.setOnCheckedChangeListener { _, _ -> updateLive() }
+        floatingControls.setOnCheckedChangeListener { _, _ -> updateLive() }
         audio.setOnCheckedChangeListener { _, _ -> updateLive() }
         text.doAfterTextChanged { updateLive(debounce = true) }
         effect.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {

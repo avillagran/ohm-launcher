@@ -170,7 +170,7 @@ class DesktopConfigEditorTest {
         val source = """{"futureRoot":{"keep":true},"desktops":[{"name":"Inicio","custom":"keep","widgets":[{"type":"clock"}]}]}"""
         val settings = TtfxConfig.parse(
             JSONObject(
-                """{"ttfxEffect":"beams","ttfxText":"Omarchy","ttfxTextSize":7,"ttfxResolution":6}""",
+                """{"ttfxEffect":"beams","ttfxText":"Omarchy","ttfxTextSize":7,"ttfxResolution":6,"ttfxControlsVisible":false}""",
             ),
         )
 
@@ -182,6 +182,7 @@ class DesktopConfigEditorTest {
         assertEquals("beams", desktop.getString("ttfxEffect"))
         assertEquals(7, desktop.getInt("ttfxTextSize"))
         assertTrue(desktop.getBoolean("ttfxBackground"))
+        assertEquals(false, desktop.getBoolean("ttfxControlsVisible"))
         assertTrue(JSONObject(updated).getJSONObject("futureRoot").getBoolean("keep"))
     }
 
@@ -260,17 +261,20 @@ class DesktopConfigEditorTest {
     }
 
     @Test
-    fun movesWidgetWithoutChangingItsSize() {
-        val source = """{"desktops":[{"widgets":[{"type":"clock","x":1,"y":2,"w":5,"h":3}]}]}"""
+    fun movesWidgetWithoutChangingItsSizeOrActiveBackground() {
+        val source = """{"wallpaper":"/themes/current.jpg","desktops":[{"background":{"path":"/themes/current.jpg"},"widgets":[{"type":"clock","x":1,"y":2,"w":5,"h":3}]}]}"""
 
         val updated = DesktopConfigEditor.moveWidget(source, 0, 0, x = 7, y = 8)
-        val widget = JSONObject(updated).getJSONArray("desktops").getJSONObject(0)
-            .getJSONArray("widgets").getJSONObject(0)
+        val root = JSONObject(updated)
+        val desktop = root.getJSONArray("desktops").getJSONObject(0)
+        val widget = desktop.getJSONArray("widgets").getJSONObject(0)
 
         assertEquals(7, widget.getInt("x"))
         assertEquals(8, widget.getInt("y"))
         assertEquals(5, widget.getInt("w"))
         assertEquals(3, widget.getInt("h"))
+        assertEquals("/themes/current.jpg", root.getString("wallpaper"))
+        assertEquals("/themes/current.jpg", desktop.getJSONObject("background").getString("path"))
     }
 
     private fun labels(items: JSONArray): List<String> =

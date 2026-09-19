@@ -71,7 +71,7 @@ class LauncherInteractionParityTest {
             ),
         )
         assertEquals(
-            LauncherVerticalAction.OPEN_OMARCHY_MENU,
+            LauncherVerticalAction.OPEN_FAVORITE_APPS,
             LauncherGesturePolicy.verticalAction(
                 quakeVisible = false,
                 drawerVisible = false,

@@ -10,7 +10,6 @@ import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.os.Build
 import android.provider.Settings
-import android.util.DisplayMetrics
 import android.util.Log
 import android.view.*
 import android.view.accessibility.AccessibilityEvent
@@ -202,8 +201,7 @@ class OhmGestureAccessibilityService : AccessibilityService() {
     private fun recreateOverlays() {
         removeOverlays()
         val wm = getSystemService(WINDOW_SERVICE) as? WindowManager ?: return
-        val metrics = DisplayMetrics()
-        wm.defaultDisplay.getRealMetrics(metrics)
+        val metrics = resources.displayMetrics
 
         val density = resources.displayMetrics.density
         val edgeX = (EDGE_X_DP * density).toInt()

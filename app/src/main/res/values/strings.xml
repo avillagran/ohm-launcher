@@ -119,6 +119,8 @@
     <string name="setting_ai_key">AI API key</string>
     <string name="setting_ai_prompt">System prompt</string>
     <string name="ttfx_editor">TTFX editor</string>
+
+    <string name="ttfx_show_floating_controls">Show floating desktop controls</string>
     <string name="ttfx_live_preview">LIVE PREVIEW</string>
     <string name="ttfx_composition">COMPOSITION</string>
     <string name="ttfx_composition_help">Changes are previewed on the desktop while you edit.</string>

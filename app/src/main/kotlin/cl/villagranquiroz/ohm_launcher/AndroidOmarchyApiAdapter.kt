@@ -215,8 +215,9 @@ class AndroidOmarchyApiAdapter(
         val settings = runCatching { if (settingsFile.isFile) JSONObject(settingsFile.readText()) else JSONObject() }
             .getOrElse { JSONObject() }
         changes.keys().forEach { key -> settings.put(key, changes.get(key)) }
-        settingsFile.parentFile?.mkdirs()
-        val temporary = settingsFile.parentFile.resolve("${settingsFile.name}.tmp")
+        val parent = requireNotNull(settingsFile.parentFile)
+        parent.mkdirs()
+        val temporary = parent.resolve("${settingsFile.name}.tmp")
         temporary.writeText(settings.toString(2))
         check(temporary.renameTo(settingsFile) || temporary.copyTo(settingsFile, overwrite = true).let { temporary.delete() })
     }

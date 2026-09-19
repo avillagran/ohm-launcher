@@ -280,6 +280,7 @@ object DesktopConfigEditor {
             put("ttfxSpeed", settings.speed)
             put("ttfxResolution", settings.resolution)
             put("ttfxReactivity", settings.reactivity)
+            put("ttfxControlsVisible", settings.controlsVisible)
         }
         return root.toString(2)
     }

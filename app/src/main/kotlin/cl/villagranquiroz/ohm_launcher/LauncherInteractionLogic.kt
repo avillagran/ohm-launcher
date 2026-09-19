@@ -72,7 +72,7 @@ internal object EdgeBoxMenuPolicy {
 
 enum class LauncherVerticalAction {
     NONE,
-    OPEN_OMARCHY_MENU,
+    OPEN_FAVORITE_APPS,
     CLOSE_DRAWER,
     OPEN_QUAKE,
     CLOSE_QUAKE,
@@ -93,7 +93,7 @@ object LauncherGesturePolicy {
             return if (deltaY > 0f) LauncherVerticalAction.CLOSE_DRAWER else LauncherVerticalAction.NONE
         }
         return when {
-            deltaY < 0f && startedInLowerHalf -> LauncherVerticalAction.OPEN_OMARCHY_MENU
+            deltaY < 0f && startedInLowerHalf -> LauncherVerticalAction.OPEN_FAVORITE_APPS
             deltaY > 0f && !startedInLowerHalf -> LauncherVerticalAction.OPEN_QUAKE
             else -> LauncherVerticalAction.NONE
         }

@@ -196,8 +196,8 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                             startedInLowerHalf = first.y > height * .45f,
                         )
                     ) {
-                        LauncherVerticalAction.OPEN_OMARCHY_MENU -> true.also {
-                            showOmarchyLauncherMenu(OmarchyMenuOpenTrigger.SWIPE_UP)
+                        LauncherVerticalAction.OPEN_FAVORITE_APPS -> true.also {
+                            showFavoriteAppsMenu(focusInput = false)
                         }
                         LauncherVerticalAction.CLOSE_DRAWER -> true.also { showDrawer(false) }
                         LauncherVerticalAction.OPEN_QUAKE -> true.also { onQuakeRequested?.invoke() }
@@ -543,7 +543,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         applyThemeChrome()
         applyFavoriteBarSettings()
         applyCommandBarSettings(forceFromSetting = true)
-        renderFavorites()
+        renderFavorites(updateVisibility = !barModeChanged)
         renderEdgeBoxes()
         applyOmarchyBarMode(animate = barModeChanged)
         renderDesktop()
@@ -594,7 +594,10 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
 
 
     fun previewTtfx(desktop: Int, value: TtfxConfig) {
-        if (desktop == desktopIndex) ttfx.submit(value)
+        if (desktop == desktopIndex) {
+            ttfx.submit(value)
+            ttfxMini.submit(value)
+        }
     }
 
     fun activeDesktopIndex(): Int = desktopIndex
@@ -1044,7 +1047,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         SimpleDateFormat(pattern, Locale.getDefault()).format(Date())
     }.getOrElse { SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()) }
 
-    private fun renderFavorites() {
+    private fun renderFavorites(updateVisibility: Boolean = true) {
         favorites.removeAllViews()
         val resolved = FavoritesConfigEditor.resolve(favoriteKeys, apps)
         val availableWidth = commandContainer.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
@@ -1067,9 +1070,11 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             fixedButtonsWidth,
             resolved.size,
         )
-        favoritesScroll.visibility = if (
-            favorites.childCount > 0 && OmarchyBarModePolicy.favoritesInBar(settings.omarchyBarMode)
-        ) VISIBLE else GONE
+        if (updateVisibility) {
+            favoritesScroll.visibility = if (
+                favorites.childCount > 0 && OmarchyBarModePolicy.favoritesInBar(settings.omarchyBarMode)
+            ) VISIBLE else GONE
+        }
     }
 
     private fun applyFavoriteBarSettings() {
@@ -1807,9 +1812,9 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         }
         commandBar.addView(commandMenu, LinearLayout.LayoutParams(dp(46), dp(46)))
         commandBar.addView(commandFavApps, LinearLayout.LayoutParams(dp(46), dp(46)))
+        commandBar.addView(favoritesScroll, LinearLayout.LayoutParams(0, dp(50), 1f))
         commandBar.addView(commandSpacer, LinearLayout.LayoutParams(0, dp(46), 1f))
         commandBar.addView(commandApps, LinearLayout.LayoutParams(dp(100), dp(46)))
-        commandBar.addView(favoritesScroll, LinearLayout.LayoutParams(0, dp(50), 1f))
         commandBar.addView(commandToggleSlot, LinearLayout.LayoutParams(dp(46), dp(46)))
         commandContainer.addView(commandBar, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         commandContainer.addView(
@@ -1954,7 +1959,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         commandContainer.layoutParams = LayoutParams(MATCH_PARENT, dp(52) + commandContainer.paddingBottom, Gravity.BOTTOM)
         commandContainer.visibility = VISIBLE
         ViewCompat.requestApplyInsets(commandContainer)
-        if (forceFromSetting) post(::renderFavorites)
+        if (forceFromSetting) post { renderFavorites(updateVisibility = !edgeModeAnimationRunning) }
     }
 
     /** Omarchy mode: compact bar without edge boxes/favorites; activador restores the full layout. */
@@ -2049,12 +2054,70 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         commandRecents.visibility = if (mode) VISIBLE else GONE
         commandAppsLabel.visibility = if (mode) GONE else VISIBLE
         commandApps.layoutParams = LinearLayout.LayoutParams(dp(if (mode) 28 else 100), dp(46))
-        favoritesScroll.visibility =
-            if (OmarchyBarModePolicy.favoritesInBar(mode)) VISIBLE else GONE
+        val favoritesVisible = favorites.childCount > 0 && OmarchyBarModePolicy.favoritesInBar(mode)
+        if (animate && favorites.childCount > 0) {
+            animateFavoriteBar(favoritesVisible, edgeAnimationGeneration)
+        } else {
+            favoritesScroll.animate().cancel()
+            favoritesScroll.visibility = if (favoritesVisible) VISIBLE else GONE
+            for (index in 0 until favorites.childCount) {
+                favorites.getChildAt(index).apply {
+                    animate().cancel()
+                    alpha = 1f
+                    translationY = 0f
+                }
+            }
+        }
         commandToggle.text = OmarchyBarModePolicy.toggleGlyph(mode)
         commandToggle.contentDescription = context.getString(
             if (mode) R.string.bar_expand else R.string.bar_compress,
         )
+    }
+
+    private fun animateFavoriteBar(show: Boolean, generation: Int) {
+        val travel = dp(10).toFloat()
+        favoritesScroll.animate().cancel()
+        if (show) {
+            favoritesScroll.visibility = VISIBLE
+            for (index in 0 until favorites.childCount) {
+                favorites.getChildAt(index).apply {
+                    animate().cancel()
+                    alpha = 0f
+                    translationY = travel
+                    animate()
+                        .alpha(1f)
+                        .translationY(0f)
+                        .setStartDelay(index * 28L)
+                        .setDuration(240)
+                        .setInterpolator(android.view.animation.AccelerateInterpolator())
+                        .start()
+                }
+            }
+            return
+        }
+
+        for (index in 0 until favorites.childCount) {
+            favorites.getChildAt(index).apply {
+                animate().cancel()
+                animate()
+                    .alpha(0f)
+                    .translationY(travel)
+                    .setStartDelay((favorites.childCount - index - 1) * 24L)
+                    .setDuration(220)
+                    .setInterpolator(android.view.animation.DecelerateInterpolator())
+                    .start()
+            }
+        }
+        favoritesScroll.postDelayed({
+            if (edgeModeAnimationGeneration != generation || !settings.omarchyBarMode) return@postDelayed
+            favoritesScroll.visibility = GONE
+            for (index in 0 until favorites.childCount) {
+                favorites.getChildAt(index).apply {
+                    alpha = 1f
+                    translationY = 0f
+                }
+            }
+        }, 220L + (favorites.childCount - 1).coerceAtLeast(0) * 24L)
     }
 
     private fun edgeGroupOutsideTranslation(edge: EdgePosition, group: View): Pair<Float, Float> {
@@ -2451,6 +2514,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             entries = FavoritesConfigEditor.resolve(favoriteKeys, installedApps),
             focusInput = focusInput,
             showFavoriteToggle = false,
+            allowReorder = true,
         )
     }
 
@@ -2459,6 +2523,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         entries: List<InstalledApp>,
         focusInput: Boolean,
         showFavoriteToggle: Boolean,
+        allowReorder: Boolean = false,
     ) {
         if (widgetEditing) setWidgetEditing(false)
         if (orbitalMenu != null || omarchyMenu != null) return
@@ -2503,6 +2568,9 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 selectedText = themeColor("accent", 0xFF7AA2F7.toInt()),
                 muted = themeColor("muted", 0xFF565F89.toInt()),
             ),
+            onEntriesReordered = if (allowReorder) ({ reordered ->
+                reorderFavorites(reordered.mapNotNull(OmarchyMenuEntry::iconKey))
+            }) else null,
             onDismissed = {
                 activity.window.setSoftInputMode(originalSoftInputMode)
                 if (omarchyMenu === overlay) omarchyMenu = null
@@ -2516,6 +2584,17 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
 
     private fun toggleFavorite(key: String) {
         favoriteKeys = FavoritesConfigEditor.toggle(favoriteKeys, key)
+        appAdapter.submit(apps, favoriteKeys)
+        renderFavorites()
+        val snapshot = favoriteKeys
+        favoritesWriter.execute {
+            runCatching { ConfigStorage.writeActiveFavorites(snapshot) }
+                .onFailure { error -> post { showConfigError(error.message.orEmpty()) } }
+        }
+    }
+
+    private fun reorderFavorites(visibleOrder: List<String>) {
+        favoriteKeys = FavoritesConfigEditor.reorderVisible(favoriteKeys, visibleOrder)
         appAdapter.submit(apps, favoriteKeys)
         renderFavorites()
         val snapshot = favoriteKeys
@@ -2670,9 +2749,9 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
 
     private companion object {
         val VIDEO_BACKGROUND_EXTENSIONS = setOf("mp4", "webm", "mkv", "m4v", "mov", "avi")
-        const val THEME_TRANSITION_OUT_MILLIS = 170L
-        const val THEME_TRANSITION_IN_MILLIS = 330L
-        const val THEME_TRANSITION_MID_ALPHA = 0.18f
+        const val THEME_TRANSITION_OUT_MILLIS = 90L
+        const val THEME_TRANSITION_IN_MILLIS = 170L
+        const val THEME_TRANSITION_MID_ALPHA = 0.65f
     }
 }
 

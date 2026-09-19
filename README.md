@@ -6,13 +6,13 @@ OhmLauncher is a native Android home-screen launcher inspired by Omarchy, with s
 
 ## Download and install
 
-- [Download OhmLauncher 0.0.2 release APK](https://github.com/avillagran/ohm-launcher/releases/download/0.0.2/OhmLauncher-0.0.2-release.apk)
-- [View the 0.0.2 release and notes](https://github.com/avillagran/ohm-launcher/releases/tag/0.0.2)
+- [Download OhmLauncher 0.0.3 release APK](https://github.com/avillagran/ohm-launcher/releases/download/v0.0.3/OhmLauncher-0.0.3-release.apk)
+- [View the 0.0.3 release and notes](https://github.com/avillagran/ohm-launcher/releases/tag/v0.0.3)
 
 Install or update the downloaded APK with ADB:
 
 ```bash
-adb install -r OhmLauncher-0.0.2-release.apk
+adb install -r OhmLauncher-0.0.3-release.apk
 ```
 
 Install Omarchy Link on Omarchy Linux, then restart the shell:
@@ -47,6 +47,8 @@ widget to the bar, and scan its QR code from the phone.
 - Android HOME and LAUNCHER activity.
 - Fast, pre-indexed application search by label and package name.
 - Favorites and edge boxes with persistent JSON configuration.
+- Favorite applications can be reordered directly inside the Fav Apps menu.
+- Swipe up from the lower half opens the same Fav Apps menu as the bar button.
 - Multiple desktops with animated horizontal transitions.
 - Direct widget editing with drag, four-corner resize handles, and grid-aware persistence.
 - Android `AppWidgetHost` integration for real system widgets.
@@ -59,7 +61,7 @@ widget to the bar, and scan its QR code from the phone.
 - Official Omarchy 81×19 wordmark and five-band final gradient.
 - Live effect, text, size, resolution, speed, position, audio intensity, and reactivity controls.
 - Full-screen live editing plus an embedded preview using the same runtime as the desktop.
-- Compact floating TTFX editor for cycling effects and adjusting size and X/Y without opening settings.
+- Compact floating TTFX editor for cycling effects and adjusting size and X/Y without opening settings, with per-desktop visibility control.
 - Changes to X/Y and audio parameters update without restarting the process; engine-input changes are restarted and coalesced safely.
 - Audio-reactive coloring through Android's audio spectrum APIs.
 

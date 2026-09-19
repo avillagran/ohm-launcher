@@ -119,6 +119,8 @@
     <string name="setting_ai_key">Clave API de IA</string>
     <string name="setting_ai_prompt">Prompt del sistema</string>
     <string name="ttfx_editor">Editor TTFX</string>
+
+    <string name="ttfx_show_floating_controls">Mostrar controles flotantes del escritorio</string>
     <string name="ttfx_live_preview">VISTA PREVIA · EN VIVO</string>
     <string name="ttfx_composition">COMPOSICIÓN</string>
     <string name="ttfx_composition_help">Los cambios se aplican al escritorio mientras editas.</string>

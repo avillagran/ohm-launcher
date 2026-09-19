@@ -83,6 +83,7 @@ data class TtfxConfig(
     val speed: Double,
     val resolution: Int,
     val reactivity: Int,
+    val controlsVisible: Boolean = true,
 ) {
     companion object {
         fun parse(json: JSONObject) = TtfxConfig(
@@ -97,6 +98,7 @@ data class TtfxConfig(
             speed = json.optDouble("ttfxSpeed", 1.0).coerceIn(0.2, 5.0),
             resolution = json.optInt("ttfxResolution", 2).coerceIn(1, 8),
             reactivity = json.optInt("ttfxReactivity", 2).coerceIn(0, 5),
+            controlsVisible = json.optBoolean("ttfxControlsVisible", true),
         )
     }
 }

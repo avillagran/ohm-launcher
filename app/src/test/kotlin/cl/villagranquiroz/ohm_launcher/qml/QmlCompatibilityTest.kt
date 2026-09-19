@@ -7,9 +7,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class QmlCompatibilityTest {
-    private val nativeRoot = generateSequence(File(System.getProperty("user.dir")).absoluteFile) { it.parentFile }
+    private val nativeRoot = generateSequence(File(requireNotNull(System.getProperty("user.dir"))).absoluteFile) { it.parentFile }
         .first { it.resolve("settings.gradle.kts").isFile }
-    private val flutterRoot = nativeRoot.parentFile.resolve("ohm-launcher-flutter")
+    private val flutterRoot = requireNotNull(nativeRoot.parentFile).resolve("ohm-launcher-flutter")
 
     @Test
     fun parsesEveryFlutterQmlFixture() {

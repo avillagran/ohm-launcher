@@ -33,6 +33,27 @@ class FavoritesConfigEditorTest {
     }
 
     @Test
+    fun reordersVisibleFavoritesWhileKeepingMissingAppsInPlace() {
+        val favorites = listOf("one/.Main", "missing/.Main", "two/.Main", "three/.Main")
+
+        assertEquals(
+            listOf("three/.Main", "missing/.Main", "one/.Main", "two/.Main"),
+            FavoritesConfigEditor.reorderVisible(
+                favorites,
+                listOf("three/.Main", "one/.Main", "two/.Main"),
+            ),
+        )
+    }
+
+    @Test
+    fun rejectsIncompleteOrDuplicateReorderPayloads() {
+        val favorites = listOf("one/.Main", "two/.Main")
+
+        assertEquals(favorites, FavoritesConfigEditor.reorderVisible(favorites, listOf("unknown/.Main")))
+        assertEquals(favorites, FavoritesConfigEditor.reorderVisible(favorites, listOf("one/.Main", "one/.Main")))
+    }
+
+    @Test
     fun resolvesInstalledFavoritesInPersistedOrderAndSkipsMissingApps() {
         val one = InstalledApp("One", "one.pkg", ".Main")
         val two = InstalledApp("Two", "two.pkg", "two.pkg.Home")

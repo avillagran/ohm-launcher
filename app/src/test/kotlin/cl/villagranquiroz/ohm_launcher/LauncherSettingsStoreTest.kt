@@ -52,7 +52,7 @@ class LauncherSettingsStoreTest {
         assertEquals("Predeterminada", persisted.getString("fontFamily"))
         assertTrue(persisted.isNull("favoritesBarMode"))
         assertTrue(persisted.isNull("omarchyPeer"))
-        assertEquals(emptyList<String>(), file.parentFile.listFiles()!!.filter { it.name.contains(".tmp-") }.map { it.name })
+        assertEquals(emptyList<String>(), requireNotNull(file.parentFile).listFiles()!!.filter { it.name.contains(".tmp-") }.map { it.name })
     }
 
     @Test

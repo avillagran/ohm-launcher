@@ -240,7 +240,7 @@ class PluginRepositoryTest {
         createPlugin(root, "io.github.ohm.replace", folderName = "active-copy")
         val old = createPlugin(root, "io.github.ohm.replace", folderName = "old-copy")
         val oldDisabled = root.resolve("plugins.disabled/old-copy")
-        oldDisabled.parentFile.mkdirs()
+        requireNotNull(oldDisabled.parentFile).mkdirs()
         assertTrue(old.renameTo(oldDisabled))
         val repository = PluginRepository(root)
 
@@ -269,7 +269,7 @@ class PluginRepositoryTest {
         val active = createPlugin(root, "io.github.ohm.remove", folderName = "active-copy")
         val disabled = createPlugin(root, "io.github.ohm.remove", folderName = "disabled-copy")
         val disabledDestination = root.resolve("plugins.disabled/disabled-copy")
-        disabledDestination.parentFile.mkdirs()
+        requireNotNull(disabledDestination.parentFile).mkdirs()
         assertTrue(disabled.renameTo(disabledDestination))
         val repository = PluginRepository(root)
 

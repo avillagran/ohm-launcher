@@ -19,7 +19,7 @@ class OmarchyFileRepositoryTest {
 
         assertEquals(listOf("Folder", "a.txt", "z.txt"), response.entries.map { it.name })
         assertTrue(response.entries.first().isDirectory)
-        assertNull(repository.list(root.parentFile.resolve("outside").absolutePath))
+        assertNull(repository.list(requireNotNull(root.parentFile).resolve("outside").absolutePath))
         assertNull(repository.download("../outside"))
     }
 

@@ -148,7 +148,8 @@ class TermuxQuakeTerminalView @JvmOverloads constructor(
 
     private fun configureTerminal() {
         terminal.setBackgroundColor(BACKGROUND)
-        terminal.setTextSize((14f * resources.displayMetrics.scaledDensity).toInt())
+        val scaledDensity = resources.displayMetrics.density * resources.configuration.fontScale
+        terminal.setTextSize((14f * scaledDensity).toInt())
         terminal.setTypeface(Typeface.MONOSPACE)
         terminal.setTerminalViewClient(createViewClient())
         terminal.isFocusableInTouchMode = true

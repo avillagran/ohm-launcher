@@ -64,7 +64,7 @@ class TtfxMiniControlsView(context: Context) : LinearLayout(context) {
         xBar.progress = (value.textX * 20).roundToInt().coerceIn(0, 20)
         yBar.progress = (value.textY * 20).roundToInt().coerceIn(0, 20)
         updateLabels()
-        visibility = if (value.enabled) View.VISIBLE else View.GONE
+        visibility = if (value.enabled && value.controlsVisible) View.VISIBLE else View.GONE
     }
 
     private fun buildPanel() {

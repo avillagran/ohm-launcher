@@ -18,6 +18,13 @@ object FavoritesConfigEditor {
         if (contains(key)) remove(key) else add(key)
     }
 
+    fun reorderVisible(favorites: List<String>, visibleOrder: List<String>): List<String> {
+        val visible = visibleOrder.toSet()
+        if (visible.size != visibleOrder.size || !favorites.containsAll(visible)) return favorites
+        val ordered = visibleOrder.iterator()
+        return favorites.map { key -> if (key in visible) ordered.next() else key }
+    }
+
     fun resolve(favorites: List<String>, apps: List<InstalledApp>): List<InstalledApp> {
         val appsByKey = apps.associateBy { "${it.packageName}/${it.activityName}" }
         return favorites.mapNotNull(appsByKey::get)
