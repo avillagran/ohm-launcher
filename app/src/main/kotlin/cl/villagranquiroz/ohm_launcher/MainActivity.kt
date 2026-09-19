@@ -1332,7 +1332,12 @@ class MainActivity : AppCompatActivity() {
         val synced = syncedThemeCatalog
         val themes = linkedMapOf<String, OmarchyThemeChoice>()
         bundled.themes.forEach { themes[it.id] = it }
-        synced?.themes?.forEach { themes[it.id] = it }
+        synced?.themes?.forEach { syncedChoice ->
+            themes[syncedChoice.id] = syncedChoice.copy(
+                backgroundPreviewPath = syncedChoice.backgroundPreviewPath
+                    ?: themes[syncedChoice.id]?.backgroundPreviewPath,
+            )
+        }
         if (themes.isEmpty()) {
             root.showConfigError(getString(R.string.theme_selector_unavailable))
             return
@@ -1435,16 +1440,18 @@ class MainActivity : AppCompatActivity() {
                     root.submitSettings(preview, animateTheme = false)
                     applySystemTheme(preview)
                 }
+                val bundledBackgroundPath = choice.backgroundPreviewPath?.let(::materializeBundledBackground)
                 val instantBackground = OmarchyThemeBackgroundSelection
                     .resolve(syncedBackgroundCatalog?.backgrounds.orEmpty(), choice.backgroundId)
                 android.util.Log.e("OHM-DEBUG-theme", "background choice=${choice.backgroundId} catalog=${syncedBackgroundCatalog?.backgrounds?.size} resolved=${instantBackground?.id}")
-                instantBackground
-                    ?.previewPath
+                (bundledBackgroundPath ?: instantBackground?.previewPath)
                     ?.let { path ->
                         val backgroundPreview = OmarchyLocalBackgroundPreview.apply(currentConfig, path)
                         currentConfig = backgroundPreview
                         root.submitConfig(backgroundPreview)
-                        syncedBackgroundCatalog = syncedBackgroundCatalog?.withCurrent(instantBackground)
+                        if (instantBackground != null) {
+                            syncedBackgroundCatalog = syncedBackgroundCatalog?.withCurrent(instantBackground)
+                        }
                     }
             },
             publishSelection = { id -> if (peer != null) pendingThemeSelection = id },
@@ -1553,6 +1560,7 @@ class MainActivity : AppCompatActivity() {
                         label = item.getString("label"),
                         previewPath = "asset://${item.getString("previewAsset")}",
                         palette = OmarchyThemePalette.parse(item.getJSONObject("palette")),
+                        backgroundPreviewPath = "asset://${item.getString("backgroundAsset")}",
                     ),
                 )
             }
@@ -1569,6 +1577,19 @@ class MainActivity : AppCompatActivity() {
         check(file.isFile && file.path.startsWith(shared.path + File.separator))
         check(file.length() in 1..(16L * 1024L * 1024L))
         file.readBytes()
+    }.getOrNull()
+
+    private fun materializeBundledBackground(path: String): String? = runCatching {
+        if (!path.startsWith("asset://")) return@runCatching path
+        val assetPath = path.removePrefix("asset://")
+        check(assetPath.startsWith("omarchy/backgrounds/"))
+        val extension = assetPath.substringAfterLast('.', "jpg")
+        val themeId = assetPath.substringAfterLast('/').substringBeforeLast('.')
+        check(Regex("^[a-z0-9-]+$").matches(themeId))
+        val directory = filesDir.resolve("omarchy-style/bundled").apply { mkdirs() }
+        val target = directory.resolve("$themeId.$extension")
+        assets.open(assetPath).use { input -> target.outputStream().use(input::copyTo) }
+        target.absolutePath
     }.getOrNull()
 
     private fun themeSelectionSnapshot(): JSONObject {

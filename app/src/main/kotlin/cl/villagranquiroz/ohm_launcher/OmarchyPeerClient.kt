@@ -14,6 +14,7 @@ data class OmarchyThemeChoice(
     val previewPath: String,
     val palette: OmarchyThemePalette? = null,
     val backgroundId: String? = null,
+    val backgroundPreviewPath: String? = null,
 )
 
 data class OmarchyThemeCatalog(

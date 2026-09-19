@@ -36,7 +36,8 @@
           "bright_blue": "#89b4fa",
           "bright_magenta": "#f5c2e7"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/catppuccin.webp"
     },
     {
       "id": "catppuccin-latte",
@@ -73,7 +74,8 @@
           "bright_blue": "#1e66f5",
           "bright_magenta": "#ea76cb"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/catppuccin-latte.webp"
     },
     {
       "id": "ethereal",
@@ -110,7 +112,8 @@
           "bright_blue": "#c2c4f0",
           "bright_magenta": "#ead7e7"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/ethereal.webp"
     },
     {
       "id": "everforest",
@@ -147,7 +150,8 @@
           "bright_blue": "#7fbbb3",
           "bright_magenta": "#d699b6"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/everforest.webp"
     },
     {
       "id": "flexoki-light",
@@ -184,7 +188,8 @@
           "bright_blue": "#4385BE",
           "bright_magenta": "#CE5D97"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/flexoki-light.webp"
     },
     {
       "id": "gruvbox",
@@ -221,7 +226,8 @@
           "bright_blue": "#7daea3",
           "bright_magenta": "#d3869b"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/gruvbox.jpg"
     },
     {
       "id": "hackerman",
@@ -258,7 +264,8 @@
           "bright_blue": "#c4d2ed",
           "bright_magenta": "#cddbf4"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/hackerman.jpg"
     },
     {
       "id": "kanagawa",
@@ -295,7 +302,8 @@
           "bright_blue": "#7fb4ca",
           "bright_magenta": "#938aa9"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/kanagawa.jpg"
     },
     {
       "id": "last-horizon",
@@ -332,7 +340,8 @@
           "bright_blue": "#b59790",
           "bright_magenta": "#c4d8e2"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/last-horizon.webp"
     },
     {
       "id": "lumon",
@@ -371,7 +380,8 @@
           "bright_blue": "#f2fcff",
           "bright_magenta": "#b1d8ee"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/lumon.webp"
     },
     {
       "id": "lupine",
@@ -408,7 +418,8 @@
           "bright_blue": "#5482ff",
           "bright_magenta": "#b363ff"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/lupine.webp"
     },
     {
       "id": "matte-black",
@@ -445,7 +456,8 @@
           "bright_blue": "#f59e0b",
           "bright_magenta": "#B91C1C"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/matte-black.jpg"
     },
     {
       "id": "miasma",
@@ -482,7 +494,8 @@
           "bright_blue": "#78824b",
           "bright_magenta": "#bb7744"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/miasma.webp"
     },
     {
       "id": "nord",
@@ -519,7 +532,8 @@
           "bright_blue": "#81a1c1",
           "bright_magenta": "#b48ead"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/nord.jpg"
     },
     {
       "id": "osaka-jade",
@@ -556,7 +570,8 @@
           "bright_blue": "#ACD4CF",
           "bright_magenta": "#75bbb3"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/osaka-jade.webp"
     },
     {
       "id": "retro-82",
@@ -593,7 +608,8 @@
           "bright_blue": "#faa968",
           "bright_magenta": "#3f8f8a"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/retro-82.webp"
     },
     {
       "id": "ristretto",
@@ -630,7 +646,8 @@
           "bright_blue": "#f8a788",
           "bright_magenta": "#bebffd"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/ristretto.webp"
     },
     {
       "id": "rose-pine",
@@ -667,7 +684,8 @@
           "bright_blue": "#56949f",
           "bright_magenta": "#907aa9"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/rose-pine.webp"
     },
     {
       "id": "solitude",
@@ -704,7 +722,8 @@
           "bright_blue": "#5d6367",
           "bright_magenta": "#9a9a9a"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/solitude.webp"
     },
     {
       "id": "tokyo-night",
@@ -741,7 +760,8 @@
           "bright_blue": "#7da6ff",
           "bright_magenta": "#bb9af7"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/tokyo-night.webp"
     },
     {
       "id": "vantablack",
@@ -778,7 +798,8 @@
           "bright_blue": "#8d8d8d",
           "bright_magenta": "#9b9b9b"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/vantablack.webp"
     },
     {
       "id": "white",
@@ -813,7 +834,8 @@
           "bright_blue": "#1a1a1a",
           "bright_magenta": "#2e2e2e"
         }
-      }
+      },
+      "backgroundAsset": "omarchy/backgrounds/white.webp"
     }
   ]
 }
