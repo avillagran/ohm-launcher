@@ -2,7 +2,7 @@
 
 ## Short description
 
-An Omarchy-inspired Android home screen with local-first customization.
+A customizable Android home screen inspired by Omarchy.
 
 ## Full description
 
