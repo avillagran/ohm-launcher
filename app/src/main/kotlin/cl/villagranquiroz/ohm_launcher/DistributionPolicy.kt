@@ -9,4 +9,5 @@ data class DistributionPolicy(
     val allowAccessibilityControl: Boolean get() = !playStore
     val allowNotificationAccess: Boolean get() = !playStore
     val allowCompactSystemNavigation: Boolean get() = !playStore
+    val allowOmarchyBarMode: Boolean get() = true
 }

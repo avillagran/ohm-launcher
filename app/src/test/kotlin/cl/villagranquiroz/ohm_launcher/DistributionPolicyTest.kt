@@ -14,6 +14,7 @@ class DistributionPolicyTest {
         assertFalse(policy.allowAccessibilityControl)
         assertFalse(policy.allowNotificationAccess)
         assertFalse(policy.allowCompactSystemNavigation)
+        assertTrue(policy.allowOmarchyBarMode)
     }
 
     @Test
@@ -25,5 +26,6 @@ class DistributionPolicyTest {
         assertTrue(policy.allowAccessibilityControl)
         assertTrue(policy.allowNotificationAccess)
         assertTrue(policy.allowCompactSystemNavigation)
+        assertTrue(policy.allowOmarchyBarMode)
     }
 }

@@ -190,10 +190,10 @@ class MainActivity : AppCompatActivity() {
             configRoot.resolve(ConfigStorage.CONFIG_NAME),
         )
         currentSettings = settingsStore.read().let { settings ->
-            if (distributionPolicy.allowLanIntegration && distributionPolicy.allowCompactSystemNavigation) settings
+            if (distributionPolicy.allowLanIntegration) settings
             else settings.copy(
                 apiServerEnabled = false,
-                omarchyBarMode = false,
+                omarchyBarMode = settings.omarchyBarMode && distributionPolicy.allowOmarchyBarMode,
                 gestureNavigationEnabled = false,
             )
         }

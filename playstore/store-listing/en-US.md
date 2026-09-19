@@ -2,36 +2,30 @@
 
 ## Short description
 
-An Omarchy-inspired Android home screen paired with your PC.
+An Omarchy-inspired Android home screen with local-first customization.
 
 ## Full description
 
-OhmLauncher is a native Android home launcher inspired by Omarchy. It brings a focused desktop style to your phone while keeping your data under your control.
+OhmLauncher is a native Android home launcher inspired by Omarchy. It gives your phone a focused desktop style while keeping its features and data on your device.
 
-Make it yours
+Omarchy from the first launch
 
-• Apply themes and backgrounds, and sync them with your own paired Omarchy PC on the same local network.
-• Add widgets and plugins to shape your home screen.
-• Find and open installed apps quickly with search and configurable edge boxes.
-• Use the Quake-style terminal for fast access to supported commands and workflows.
-• Enjoy TTFX audio-reactive visuals. Microphone audio is analyzed on your device and is not recorded or sent anywhere.
+• Starts in Omarchy mode by default, with a compact, focused navigation bar.
+• Includes a catalog of Omarchy themes, previews, and matching backgrounds in the app, ready to use offline.
+• Lets you arrange apps in configurable edge boxes and find installed apps quickly with search.
+• Supports Android widgets and local plugins for a home screen that fits your workflow.
+• Includes a Quake-style terminal for fast access to supported on-device commands.
+• Offers animated TTFX backgrounds, including optional audio-reactive visuals. Microphone audio is analyzed transiently on your device and is never recorded or transmitted.
+• Can show local notification badges when you choose to grant notification access.
 
-Optional peer features
+Private by design
 
-Pair with a computer you control to send clipboard content, files, or photos; back up selected photos; or share your screen over your local network. These features are off until you enable or use them. Transfers go directly between your devices: OhmLauncher has no developer-operated cloud or backend.
+This secure Google Play edition has no remote LAN access, device pairing, remote control, screen sharing, clipboard sync, or file and photo transfers.
 
-Optional Android integrations
+No ads. No analytics. No account. No developer-operated backend. Your settings, installed-app information, widget data, and optional microphone processing stay on your device. Permissions are requested only when needed for a feature, and optional access can be disabled in Android settings.
 
-• Notification access can show local app badges.
-• Accessibility access can allow remote input from your paired computer when you explicitly enable it.
-• Installed-app access powers launcher search and app opening.
-
-Privacy by design
-
-No ads. No analytics. No account required. No developer servers. Permissions are requested only for the feature that needs them, and optional access can be disabled in Android settings.
-
-OhmLauncher replaces your Android home screen only after you choose it as the default launcher. Some features require a compatible Omarchy setup on your own computer.
+OhmLauncher replaces your Android home screen only after you choose it as the default launcher. It can discover installed apps because browsing and opening them is a core launcher function.
 
 ## Release notes
 
-First public release of OhmLauncher. Includes an Omarchy-inspired home screen, app search, edge boxes, themes, backgrounds, widgets, plugins, Quake terminal, local TTFX visuals, and optional LAN pairing for theme sync, clipboard, files, photos, screen sharing, notification badges, and user-enabled remote input. No ads, analytics, accounts, or developer cloud.
+First secure Google Play release. Omarchy mode is enabled by default, with bundled offline themes and backgrounds, app search, edge boxes, widgets, local plugins, a Quake-style terminal, and local TTFX visuals. No remote access, ads, analytics, accounts, or developer backend.
