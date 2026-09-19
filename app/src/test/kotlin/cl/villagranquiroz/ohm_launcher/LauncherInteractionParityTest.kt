@@ -104,6 +104,15 @@ class LauncherInteractionParityTest {
     }
 
     @Test
+    fun themeBackgroundRefreshPreservesLiveFavorites() {
+        val live = listOf("app/live", "app/new")
+        val staleConfig = listOf("app/live")
+
+        assertEquals(live, FavoriteConfigMergePolicy.resolve(staleConfig, live, preserveCurrent = true))
+        assertEquals(staleConfig, FavoriteConfigMergePolicy.resolve(staleConfig, live, preserveCurrent = false))
+    }
+
+    @Test
     fun doubleTapAndLongPressOpenMenuWithDistinctInputModes() {
         assertEquals(BackgroundTapAction.OPEN_OMARCHY_MENU, BackgroundTapPolicy.onDoubleTap(editing = false))
         assertEquals(BackgroundTapAction.EXIT_EDIT_AND_OPEN_OMARCHY_MENU, BackgroundTapPolicy.onDoubleTap(editing = true))

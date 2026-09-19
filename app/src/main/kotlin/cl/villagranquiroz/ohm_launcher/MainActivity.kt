@@ -1448,7 +1448,7 @@ class MainActivity : AppCompatActivity() {
                     ?.let { path ->
                         val backgroundPreview = OmarchyLocalBackgroundPreview.apply(currentConfig, path)
                         currentConfig = backgroundPreview
-                        root.submitConfig(backgroundPreview)
+                        root.submitConfig(backgroundPreview, preserveFavorites = true)
                         if (instantBackground != null) {
                             syncedBackgroundCatalog = syncedBackgroundCatalog?.withCurrent(instantBackground)
                         }
@@ -1477,7 +1477,7 @@ class MainActivity : AppCompatActivity() {
                 choice.previewPath?.let { path ->
                     val preview = OmarchyLocalBackgroundPreview.apply(currentConfig, path)
                     currentConfig = preview
-                    root.submitConfig(preview)
+                    root.submitConfig(preview, preserveFavorites = true)
                 }
                 syncedBackgroundCatalog = syncedBackgroundCatalog?.withCurrent(choice)
             },
@@ -1634,7 +1634,7 @@ class MainActivity : AppCompatActivity() {
             storage.write(configRoot, document.toString(2))
             val updatedConfig = storage.read(configRoot)
             currentConfig = updatedConfig
-            runOnUiThread { if (!isDestroyed) root.submitConfig(updatedConfig) }
+            runOnUiThread { if (!isDestroyed) root.submitConfig(updatedConfig, preserveFavorites = true) }
             directory.listFiles()
                 ?.filter { it.isFile && it != file }
                 ?.forEach(File::delete)

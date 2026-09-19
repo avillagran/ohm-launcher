@@ -499,9 +499,10 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         }
     }
 
-    fun submitConfig(value: LauncherConfig) {
-        config = value
-        favoriteKeys = value.favorites
+    fun submitConfig(value: LauncherConfig, preserveFavorites: Boolean = false) {
+        val resolvedFavorites = FavoriteConfigMergePolicy.resolve(value.favorites, favoriteKeys, preserveFavorites)
+        config = value.copy(favorites = resolvedFavorites)
+        favoriteKeys = resolvedFavorites
         desktopIndex = desktopIndex.coerceIn(0, value.desktops.lastIndex.coerceAtLeast(0))
         appAdapter.submit(apps, favoriteKeys)
         renderFavorites()

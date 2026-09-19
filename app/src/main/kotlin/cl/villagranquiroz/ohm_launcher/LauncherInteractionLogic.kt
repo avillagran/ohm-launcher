@@ -110,6 +110,11 @@ object CommandBarFocusPolicy {
         hasFocus && backgroundPressed
 }
 
+object FavoriteConfigMergePolicy {
+    fun resolve(incoming: List<String>, current: List<String>, preserveCurrent: Boolean): List<String> =
+        if (preserveCurrent) current else incoming
+}
+
 enum class BackgroundTapAction { NONE, OPEN_OMARCHY_MENU, EXIT_EDIT_AND_OPEN_OMARCHY_MENU }
 
 object BackgroundTapPolicy {
