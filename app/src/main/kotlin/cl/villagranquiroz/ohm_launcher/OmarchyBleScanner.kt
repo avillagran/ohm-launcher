@@ -82,16 +82,26 @@ class OmarchyBleScanner(
     }
 
     private fun record(result: ScanResult) {
-        val name = result.scanRecord?.deviceName ?: runCatching { result.device.name }.getOrNull().orEmpty()
-        val address = runCatching { result.device.address }.getOrNull() ?: return
-        collector.record(OhmBlePeer(address = address, name = name, rssi = result.rssi))
+        if (!hasPermissions()) return
+        try {
+            val name = result.scanRecord?.deviceName ?: result.device.name.orEmpty()
+            collector.record(OhmBlePeer(address = result.device.address, name = name, rssi = result.rssi))
+        } catch (_: SecurityException) {
+            // Permission can be revoked while scan results are being delivered.
+        }
     }
 
     @Synchronized
     private fun finishScan() {
         val callback = activeCallback ?: return
         activeCallback = null
-        runCatching { bluetoothManager.adapter?.bluetoothLeScanner?.stopScan(callback) }
+        if (hasPermissions()) {
+            try {
+                bluetoothManager.adapter?.bluetoothLeScanner?.stopScan(callback)
+            } catch (_: SecurityException) {
+                // Permission can be revoked between the check and platform call.
+            }
+        }
         val finished = completion
         completion = null
         finished?.invoke(collector.peers())

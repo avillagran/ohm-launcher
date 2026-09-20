@@ -16,7 +16,7 @@ Ana ekranınız, sizin tarzınız
 • Desteklenen komutlara hızla ulaşmak için Quake tarzı terminali açın.
 • Animasyonlu TTFX arka planları ve isteğe bağlı, sese duyarlı efektlerle ekranınızı canlandırın.
 
-Ayarlarınız cihazınızda kalır.
+Launcher ayarlarınız telefonunuzda kalır. Bir Omarchy bilgisayarı eşlerseniz temalar ve arka planlar yerel ağınız üzerinden doğrudan eşitlenir.
 
 OhmLauncher’ı ana ekran olarak kullanmak için Android ayarlarından varsayılan başlatıcı olarak seçin. Varsayılan ana ekran uygulamasını istediğiniz zaman değiştirebilirsiniz.
 

@@ -1,6 +1,11 @@
 <resources>
     <string name="app_name">Ohm Launcher</string>
     <string name="accessibility_service_description">Allows Ohm Launcher to capture navigation gestures and accept remote control when the system does not provide it to third-party launchers.</string>
+    <string name="omarchy_navigation_service_name">Omarchy Recents button</string>
+    <string name="omarchy_navigation_service_description">Opens Android Recents only when you press the square button in the Omarchy bar. It does not read the screen, perform gestures, or accept remote commands.</string>
+    <string name="omarchy_navigation_disclosure_title">Enable the Omarchy Recents button?</string>
+    <string name="omarchy_navigation_disclosure_message">OhmLauncher uses Android Accessibility only to open Recents when you press the square button in the Omarchy bar. It cannot read screen content, perform taps or swipes, or accept remote commands. You can disable it at any time to restore Android’s navigation bar.</string>
+    <string name="action_continue">Continue</string>
     <string name="favorite_add">Add to favorites</string>
     <string name="favorite_remove">Remove from favorites</string>
     <string name="action_close">Close</string>

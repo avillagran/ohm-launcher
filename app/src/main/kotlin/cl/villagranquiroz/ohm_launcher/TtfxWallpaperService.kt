@@ -171,10 +171,11 @@ class TtfxWallpaperService : WallpaperService() {
             ttfx.submit(config)
         }
 
+        @Suppress("DEPRECATION") // String-path FileObserver keeps minSdk 24 support.
         private fun startObserver() {
             stopObserver()
             val directory = configDirectory ?: return
-            observer = object : FileObserver(directory, CLOSE_WRITE or MOVED_TO or CREATE) {
+            observer = object : FileObserver(directory.absolutePath, CLOSE_WRITE or MOVED_TO or CREATE) {
                 override fun onEvent(event: Int, path: String?) {
                     if (path == ConfigStorage.CONFIG_NAME || path == LauncherSettingsStore.FILE_NAME) {
                         handler.removeCallbacks(reloadRunnable)

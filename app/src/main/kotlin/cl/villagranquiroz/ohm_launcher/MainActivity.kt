@@ -2,7 +2,10 @@ package cl.villagranquiroz.ohm_launcher
 
 import android.Manifest
 import android.app.role.RoleManager
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
@@ -37,12 +40,19 @@ import androidx.core.view.WindowInsetsControllerCompat
 import java.io.File
 import java.net.NetworkInterface
 import java.security.MessageDigest
+import java.security.SecureRandom
+import java.util.Base64
 import java.util.concurrent.Executors
 import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
     private val distributionPolicy = DistributionPolicy(BuildConfig.PLAY_STORE_DISTRIBUTION)
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val compactNavigationReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            applyCompactSystemNavigation(currentSettings.omarchyBarMode)
+        }
+    }
     private lateinit var root: NativeLauncherView
     private lateinit var storage: ConfigStorage
     private lateinit var configRoot: File
@@ -62,6 +72,9 @@ class MainActivity : AppCompatActivity() {
     private var lanAdvertiser: OmarchyLanAdvertiser? = null
     private val connectionState = OmarchyConnectionState()
     private val peerClient = OmarchyPeerClient()
+    private val apiSessionToken: String = ByteArray(32).also(SecureRandom()::nextBytes).let {
+        Base64.getUrlEncoder().withoutPadding().encodeToString(it)
+    }
     private val screenFrames = LatestScreenFrameStore()
     private val peerProbe = object : Runnable {
         override fun run() {
@@ -121,6 +134,12 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) window.isNavigationBarContrastEnforced = false
         root = NativeLauncherView(this)
         setContentView(root)
+        ContextCompat.registerReceiver(
+            this,
+            compactNavigationReceiver,
+            IntentFilter(OmarchyNavigationService.ACTION_STATE_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (root.handleBackPressed()) return
@@ -201,6 +220,7 @@ class MainActivity : AppCompatActivity() {
         applyCompactSystemNavigation(currentSettings.omarchyBarMode)
         currentConfig = runCatching { storage.read(configRoot) }.getOrElse { currentConfig }
         root.submitConfig(currentConfig)
+        io.execute { syncSystemWallpaper(currentConfig, currentSettings) }
         applySystemTheme(currentSettings)
         pluginRepository = PluginRepository(configRoot)
         runtimeWidgetStore = RuntimeWidgetStore(configRoot.resolve("runtime_widgets.json"))
@@ -225,7 +245,13 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         disableHomeChooserStub()
+        applyCompactSystemNavigation(currentSettings.omarchyBarMode)
         loadApps()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) applyCompactSystemNavigation(currentSettings.omarchyBarMode)
     }
 
     /** The stub only exists to make the resolver forget the previous default
@@ -246,6 +272,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        runCatching { unregisterReceiver(compactNavigationReceiver) }
         watcher?.stopWatching()
         pluginWatchers.forEach(FileObserver::stopWatching)
         pluginWatchers.clear()
@@ -341,7 +368,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun openAccessibilitySettings() {
-        if (!distributionPolicy.allowAccessibilityControl) return
+        if (!distributionPolicy.allowAccessibilityControl && !distributionPolicy.allowCompactRecentsNavigation) return
         startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
     }
 
@@ -373,7 +400,7 @@ class MainActivity : AppCompatActivity() {
 
     fun showOmarchyQr() {
         val uri = OhmDiscoveryConfig(apiServer?.boundPort ?: currentSettings.apiServerPort)
-            .fallbackUri(preferredLanIp())
+            .fallbackUri(preferredLanIp(), apiSessionToken)
         val matrix = com.google.zxing.qrcode.QRCodeWriter().encode(
             uri,
             com.google.zxing.BarcodeFormat.QR_CODE,
@@ -585,23 +612,34 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun setOmarchyBarMode(enabled: Boolean) {
-        if (currentSettings.omarchyBarMode == enabled) return
-        val updated = currentSettings.copy(omarchyBarMode = enabled)
+        if (
+            distributionPolicy.allowCompactSystemNavigation &&
+            CompactNavigationPolicy.shouldRequestPermission(enabled, compactNavigationServiceConnected())
+        ) {
+            showCompactNavigationDisclosure()
+            return
+        }
+        val previous = currentSettings
+        val updated = previous.copy(omarchyBarMode = enabled)
+        currentSettings = updated
+        root.submitSettings(updated)
+        applyCompactSystemNavigation(enabled)
         io.execute {
             runCatching { settingsStore.write(updated) }
-                .onSuccess {
-                    currentSettings = updated
+                .onFailure {
                     runOnUiThread {
-                        root.submitSettings(updated)
-                        applyCompactSystemNavigation(enabled)
+                        currentSettings = previous
+                        root.submitSettings(previous)
+                        applyCompactSystemNavigation(previous.omarchyBarMode)
+                        root.showConfigError(it.message.orEmpty())
                     }
                 }
-                .onFailure { runOnUiThread { root.showConfigError(it.message.orEmpty()) } }
         }
     }
 
     private fun applyCompactSystemNavigation(compact: Boolean) {
-        val compactAllowed = compact && distributionPolicy.allowCompactSystemNavigation
+        val compactAllowed = distributionPolicy.allowCompactSystemNavigation &&
+            CompactNavigationPolicy.shouldHideSystemNavigation(compact, compactNavigationServiceConnected())
         val navigationBackground = systemNavigationBackground(currentSettings)
         @Suppress("DEPRECATION")
         window.navigationBarColor = navigationBackground
@@ -613,9 +651,30 @@ class MainActivity : AppCompatActivity() {
             if (compactAllowed) hide(WindowInsetsCompat.Type.navigationBars())
             else show(WindowInsetsCompat.Type.navigationBars())
         }
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility = if (compactAllowed) {
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        } else {
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+        }
     }
 
     private fun performCompactNavigation(action: String) {
+        if (!distributionPolicy.allowCompactRecentsNavigation || action != "recents") return
+        if (distributionPolicy.playStore) {
+            val service = OmarchyNavigationService.instance
+            if (service == null) {
+                showCompactNavigationDisclosure()
+                return
+            }
+            service.openRecents()
+            return
+        }
         if (!distributionPolicy.allowAccessibilityControl) return
         val service = OhmGestureAccessibilityService.instance
         if (service == null) {
@@ -623,6 +682,22 @@ class MainActivity : AppCompatActivity() {
             return
         }
         service.remoteKey(action)
+    }
+
+    private fun compactNavigationServiceConnected(): Boolean =
+        if (distributionPolicy.playStore) {
+            OmarchyNavigationService.instance != null
+        }
+        else OhmGestureAccessibilityService.instance != null
+
+
+    private fun showCompactNavigationDisclosure() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.omarchy_navigation_disclosure_title)
+            .setMessage(R.string.omarchy_navigation_disclosure_message)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.action_continue) { _, _ -> openAccessibilitySettings() }
+            .show()
     }
 
     private fun editDesktopConfig(transform: (String) -> String) {
@@ -991,6 +1066,7 @@ class MainActivity : AppCompatActivity() {
         apiServer = LocalApiServer(
             port = port,
             lanMode = true,
+            sessionToken = apiSessionToken,
             onCommand = CommandHandler { command, args ->
                 shell.run(command, args, useTermux = currentSettings.shellPreferTermux)
             },
@@ -1050,6 +1126,7 @@ class MainActivity : AppCompatActivity() {
             root.submitSettings(updated)
             applySystemTheme(updated)
         }
+        io.execute { syncSystemWallpaper(currentConfig, updated) }
         val palette = OmarchyThemePalette.parse(normalized)
         val peer = updated.omarchyPeer
         palette.background?.let { background ->
@@ -1276,12 +1353,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    @Suppress("DEPRECATION") // String-path FileObserver keeps minSdk 24 support.
     private fun watchPlugins(plugins: List<Plugin>) {
         pluginWatchers.forEach(FileObserver::stopWatching)
         pluginWatchers.clear()
         val directories = (listOf(pluginRepository.pluginsDirectory) + plugins.map(Plugin::folder)).distinct()
         directories.filter(File::isDirectory).forEach { directory ->
-            pluginWatchers += object : FileObserver(directory, CLOSE_WRITE or MOVED_TO or MOVED_FROM or CREATE or DELETE) {
+            pluginWatchers += object : FileObserver(directory.absolutePath, CLOSE_WRITE or MOVED_TO or MOVED_FROM or CREATE or DELETE) {
                 override fun onEvent(event: Int, path: String?) {
                     mainHandler.removeCallbacks(pluginReload)
                     mainHandler.postDelayed(pluginReload, PLUGIN_RELOAD_DEBOUNCE_MS)
@@ -1290,9 +1368,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    @Suppress("DEPRECATION") // String-path FileObserver keeps minSdk 24 support.
     private fun startWatcher() {
         watcher?.stopWatching()
-        watcher = object : FileObserver(configRoot, CLOSE_WRITE or MOVED_TO or CREATE) {
+        watcher = object : FileObserver(configRoot.absolutePath, CLOSE_WRITE or MOVED_TO or CREATE) {
             override fun onEvent(event: Int, path: String?) {
                 when (path) {
                     ConfigStorage.CONFIG_NAME,
@@ -1320,6 +1399,10 @@ class MainActivity : AppCompatActivity() {
     private fun restorePeer() {
         if (!distributionPolicy.allowOmarchyPeerConnection) return
         val peer = currentSettings.omarchyPeer ?: return
+        if (!OmarchyPeerRestorePolicy.canRestore(peer, distributionPolicy.playStore)) {
+            persistPeer(null)
+            return
+        }
         connectPeer(peer, persist = false)
     }
 
@@ -1331,7 +1414,8 @@ class MainActivity : AppCompatActivity() {
                 this,
                 Intent(this, ClipboardMonitorService::class.java)
                     .putExtra("peerIp", peer.host)
-                    .putExtra("peerPort", peer.port),
+                    .putExtra("peerPort", peer.port)
+                    .putExtra("peerToken", peer.token),
             )
         }
         mainHandler.removeCallbacks(peerProbe)
@@ -1343,6 +1427,7 @@ class MainActivity : AppCompatActivity() {
                 preferredLanIp(),
                 apiServer?.boundPort ?: API_PORT,
                 Build.MODEL.ifBlank { "OhmLauncher" },
+                apiSessionToken,
             )
             syncThemeFromPeer(peer)
         }
@@ -1464,13 +1549,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun applyLocalThemeSelection(choice: OmarchyThemeChoice) {
         val normalized = choice.palette?.let { withDesktopTextColor(it.toJson()) }
-        android.util.Log.e("OHM-DEBUG-theme", "selected id=${choice.id} palette=${choice.palette?.name} local=${normalized != null}")
         val peer = currentSettings.omarchyPeer
         OmarchyLocalStyleSelection.apply(
             id = choice.id,
             applyLocal = {
                 normalized?.let { payload ->
-                    android.util.Log.e("OHM-DEBUG-theme", "submitting local palette=${OmarchyThemePalette.parse(payload).name}")
                     val document = JSONObject(currentSettings.raw.toString())
                         .put("omarchyTheme", OmarchyThemePalette.parse(payload).toJson())
                     val preview = LauncherSettings.parse(document)
@@ -1484,9 +1567,7 @@ class MainActivity : AppCompatActivity() {
                 android.util.Log.e("OHM-DEBUG-theme", "background choice=${choice.backgroundId} catalog=${syncedBackgroundCatalog?.backgrounds?.size} resolved=${instantBackground?.id}")
                 (bundledBackgroundPath ?: instantBackground?.previewPath)
                     ?.let { path ->
-                        val backgroundPreview = OmarchyLocalBackgroundPreview.apply(currentConfig, path)
-                        currentConfig = backgroundPreview
-                        root.submitConfig(backgroundPreview, preserveFavorites = true)
+                        applyAndPersistLocalBackground(path)
                         if (instantBackground != null) {
                             syncedBackgroundCatalog = syncedBackgroundCatalog?.withCurrent(instantBackground)
                         }
@@ -1512,11 +1593,7 @@ class MainActivity : AppCompatActivity() {
         OmarchyLocalStyleSelection.apply(
             id = choice.id,
             applyLocal = {
-                choice.previewPath?.let { path ->
-                    val preview = OmarchyLocalBackgroundPreview.apply(currentConfig, path)
-                    currentConfig = preview
-                    root.submitConfig(preview, preserveFavorites = true)
-                }
+                choice.previewPath?.let(::applyAndPersistLocalBackground)
                 syncedBackgroundCatalog = syncedBackgroundCatalog?.withCurrent(choice)
             },
             publishSelection = pendingBackgroundSelection::select,
@@ -1531,6 +1608,20 @@ class MainActivity : AppCompatActivity() {
                 }
             },
         )
+    }
+
+    private fun applyAndPersistLocalBackground(path: String) {
+        val updated = OmarchyLocalBackgroundPreview.apply(currentConfig, path)
+        currentConfig = updated
+        root.submitConfig(updated, preserveFavorites = true)
+        io.execute {
+            runCatching {
+                storage.write(configRoot, updated.raw.toString(2))
+                syncSystemWallpaper(updated, currentSettings)
+            }.onFailure { error ->
+                runOnUiThread { if (!isDestroyed) root.showConfigError(error.message.orEmpty()) }
+            }
+        }
     }
 
     private fun persistSyncedBackgroundCatalog(payload: JSONObject) {
@@ -1672,12 +1763,33 @@ class MainActivity : AppCompatActivity() {
             storage.write(configRoot, document.toString(2))
             val updatedConfig = storage.read(configRoot)
             currentConfig = updatedConfig
+            syncSystemWallpaper(updatedConfig, currentSettings)
             runOnUiThread { if (!isDestroyed) root.submitConfig(updatedConfig, preserveFavorites = true) }
             directory.listFiles()
                 ?.filter { it.isFile && it != file }
                 ?.forEach(File::delete)
         }.onFailure { error ->
             runOnUiThread { root.showConfigError(error.message.orEmpty()) }
+        }
+    }
+
+    private fun syncSystemWallpaper(config: LauncherConfig, settings: LauncherSettings) {
+        val backgroundImage = config.desktops.firstOrNull()?.backgroundImage.orEmpty()
+        val color = OmarchyThemePalette.fromSettings(settings.raw)?.color("background")
+            ?: config.desktops.firstOrNull()?.background
+            ?: config.wallpaper
+        val key = SystemWallpaperSync.desiredKey(backgroundImage, color)
+        val preferences = getSharedPreferences(SYSTEM_WALLPAPER_PREFS, MODE_PRIVATE)
+        if (preferences.getString(SYSTEM_WALLPAPER_KEY, null) == key) return
+        val imageApplied = backgroundImage.isNotBlank() && SystemWallpaperSync.apply(this, backgroundImage)
+        val applied = if (imageApplied) {
+            true
+        } else {
+            SystemWallpaperSync.applyColor(this, color)
+        }
+        if (applied) {
+            val appliedKey = SystemWallpaperSync.appliedKey(backgroundImage, color, imageApplied)
+            preferences.edit().putString(SYSTEM_WALLPAPER_KEY, appliedKey).apply()
         }
     }
 
@@ -1735,6 +1847,8 @@ class MainActivity : AppCompatActivity() {
         private const val API_PORT = 8753
         private const val PEER_PROBE_INTERVAL_MS = 15_000L
         private const val REMOTE_CONTROL_PROMPT_THROTTLE_MS = 10_000L
+        private const val SYSTEM_WALLPAPER_PREFS = "system_wallpaper_sync"
+        private const val SYSTEM_WALLPAPER_KEY = "applied_key"
         private const val PLUGIN_RELOAD_DEBOUNCE_MS = 400L
         private val BUILT_IN_PLUGINS = mapOf(
             "io.github.ohm.demo.clock" to listOf("manifest.json", "BarWidget.json", "Panel.json"),

@@ -165,6 +165,9 @@ class OmarchyThemeTest {
         assertTrue(OmarchyThemeTransitionPolicy.shouldAnimate(null, nord, 1080, 2400))
         assertFalse(OmarchyThemeTransitionPolicy.shouldAnimate(nord, nord, 1080, 2400))
         assertFalse(OmarchyThemeTransitionPolicy.shouldAnimate(null, nord, 0, 2400))
+        assertFalse(OmarchyThemeTransitionPolicy.shouldQueueForActiveTransition(null, null))
+        assertFalse(OmarchyThemeTransitionPolicy.shouldQueueForActiveTransition(null, nord))
+        assertTrue(OmarchyThemeTransitionPolicy.shouldQueueForActiveTransition(nord, nord))
     }
 
     @Test
@@ -255,5 +258,21 @@ class OmarchyThemeTest {
         assertEquals(listOf("/tmp/preview.jpg", "/tmp/preview.jpg"), preview.desktops.map { it.backgroundImage })
         assertEquals(listOf("old-a.jpg", "old-b.jpg"), source.desktops.map { it.backgroundImage })
         assertTrue(preview.raw.getBoolean("future"))
+    }
+
+    @Test
+    fun disablingTtfxPreservesTheSelectedLocalBackground() {
+        val source = LauncherConfig.parse(
+            """{"desktops":[{"backgroundImage":"old.jpg","ttfxBackground":true,"widgets":[]}]}""",
+        )
+        val selected = OmarchyLocalBackgroundPreview.apply(source, "/tmp/lumon.webp")
+        val disabled = selected.desktops.single().ttfx.copy(enabled = false)
+
+        val updated = LauncherConfig.parse(
+            DesktopConfigEditor.updateTtfx(selected.raw.toString(), 0, disabled),
+        )
+
+        assertFalse(updated.desktops.single().ttfx.enabled)
+        assertEquals("/tmp/lumon.webp", updated.desktops.single().backgroundImage)
     }
 }

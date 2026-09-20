@@ -1,6 +1,11 @@
 <resources>
     <string name="app_name">Ohm Launcher</string>
     <string name="accessibility_service_description">システムがサードパーティ製ランチャーに提供しない場合、Ohm Launcher がナビゲーションジェスチャーを取得し、リモート操作を受け付けられるようにします。</string>
+    <string name="omarchy_navigation_service_name">Omarchy の履歴ボタン</string>
+    <string name="omarchy_navigation_service_description">Omarchy バーの四角いボタンを押したときだけ Android の履歴を開きます。画面の読み取り、ジェスチャーの実行、リモートコマンドの受信は行いません。</string>
+    <string name="omarchy_navigation_disclosure_title">Omarchy の履歴ボタンを有効にしますか？</string>
+    <string name="omarchy_navigation_disclosure_message">OhmLauncher が Android のユーザー補助機能を使用するのは、Omarchy バーの四角いボタンを押したときに履歴を開くためだけです。画面の内容を読み取ったり、タップやスワイプを実行したり、リモートコマンドを受信したりすることはできません。いつでも無効にして Android のナビゲーションバーを元に戻せます。</string>
+    <string name="action_continue">続行</string>
     <string name="favorite_add">お気に入りに追加</string>
     <string name="favorite_remove">お気に入りから削除</string>
     <string name="action_close">閉じる</string>

@@ -1,6 +1,11 @@
 <resources>
     <string name="app_name">Ohm Launcher</string>
     <string name="accessibility_service_description">يسمح لتطبيق Ohm Launcher بالتقاط إيماءات التنقل وقبول التحكم عن بُعد عندما لا يوفر النظام ذلك لتطبيقات المشغّلات الخارجية.</string>
+    <string name="omarchy_navigation_service_name">زر التطبيقات الحديثة في Omarchy</string>
+    <string name="omarchy_navigation_service_description">يفتح التطبيقات الحديثة في Android فقط عند الضغط على الزر المربع في شريط Omarchy. ولا يقرأ الشاشة أو ينفذ إيماءات أو يقبل أوامر عن بُعد.</string>
+    <string name="omarchy_navigation_disclosure_title">هل تريد تفعيل زر التطبيقات الحديثة في Omarchy؟</string>
+    <string name="omarchy_navigation_disclosure_message">يستخدم OhmLauncher تسهيلات الاستخدام في Android فقط لفتح التطبيقات الحديثة عند الضغط على الزر المربع في شريط Omarchy. ولا يمكنه قراءة محتوى الشاشة أو تنفيذ نقرات أو تمريرات أو قبول أوامر عن بُعد. يمكنك تعطيله في أي وقت لاستعادة شريط التنقل في Android.</string>
+    <string name="action_continue">متابعة</string>
     <string name="favorite_add">إضافة إلى المفضلة</string>
     <string name="favorite_remove">إزالة من المفضلة</string>
     <string name="action_close">إغلاق</string>

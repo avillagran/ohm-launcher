@@ -1,6 +1,11 @@
 <resources>
     <string name="app_name">Ohm Başlatıcı</string>
     <string name="accessibility_service_description">Ohm Launcher\'ın gezinme hareketlerini yakalamasına ve sistem bunu üçüncü taraf başlatıcılara sağlamadığında uzaktan kontrolü kabul etmesine olanak tanır.</string>
+    <string name="omarchy_navigation_service_name">Omarchy Son Uygulamalar düğmesi</string>
+    <string name="omarchy_navigation_service_description">Yalnızca Omarchy çubuğundaki kare düğmeye bastığınızda Android Son Uygulamalar ekranını açar. Ekranı okumaz, hareket gerçekleştirmez veya uzaktan komut kabul etmez.</string>
+    <string name="omarchy_navigation_disclosure_title">Omarchy Son Uygulamalar düğmesi etkinleştirilsin mi?</string>
+    <string name="omarchy_navigation_disclosure_message">OhmLauncher, Android Erişilebilirlik hizmetini yalnızca Omarchy çubuğundaki kare düğmeye bastığınızda Son Uygulamalar ekranını açmak için kullanır. Ekran içeriğini okuyamaz, dokunma veya kaydırma gerçekleştiremez ya da uzaktan komut kabul edemez. Android gezinme çubuğunu geri getirmek için bu hizmeti istediğiniz zaman devre dışı bırakabilirsiniz.</string>
+    <string name="action_continue">Devam et</string>
     <string name="favorite_add">Favorilere ekle</string>
     <string name="favorite_remove">Favorilerden kaldır</string>
     <string name="action_close">Kapalı</string>

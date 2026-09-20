@@ -19,6 +19,14 @@ class OmarchyDiscoveryContractTest {
     }
 
     @Test
+    fun includesApiTokenInAuthenticatedPhoneQr() {
+        assertEquals(
+            "ohm://192.168.1.44:9123?token=phone-token",
+            OhmDiscoveryConfig(apiPort = 9123).fallbackUri("192.168.1.44", "phone-token"),
+        )
+    }
+
+    @Test
     fun rejectsUnsafeFallbackUriHosts() {
         listOf("", "bad host", "[fd00::12]", "host/path", "host?query").forEach { host ->
             try {

@@ -68,4 +68,14 @@ class OmarchyPeerTest {
         assertFalse(state.screenSharing)
         assertFalse(state.setScreenSharing(true))
     }
+
+    @Test
+    fun playRestoreRejectsLegacyPeersWithoutAuthenticationToken() {
+        val legacy = OmarchyPeer("192.168.1.10", 8753, "desktop")
+        val authenticated = legacy.copy(token = "secret")
+
+        assertFalse(OmarchyPeerRestorePolicy.canRestore(legacy, playStore = true))
+        assertTrue(OmarchyPeerRestorePolicy.canRestore(authenticated, playStore = true))
+        assertTrue(OmarchyPeerRestorePolicy.canRestore(legacy, playStore = false))
+    }
 }

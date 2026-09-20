@@ -16,7 +16,7 @@ Ihr Startbildschirm, Ihr Stil
 • Öffnen Sie das Quake-Terminal für schnellen Zugriff auf unterstützte Befehle.
 • Erwecken Sie den Bildschirm mit animierten TTFX-Hintergründen und optionalen audioreaktiven Effekten zum Leben.
 
-Ihre Einrichtung bleibt auf Ihrem Gerät.
+Ihre Launcher-Einstellungen bleiben auf Ihrem Smartphone. Wenn Sie einen Omarchy-Computer koppeln, werden Designs und Hintergründe direkt über Ihr lokales Netzwerk synchronisiert.
 
 Um OhmLauncher als Startbildschirm zu verwenden, wählen Sie ihn in den Android-Einstellungen als Standard-Launcher aus. Die Standard-Start-App lässt sich jederzeit ändern.
 

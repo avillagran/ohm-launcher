@@ -16,7 +16,7 @@ La tua schermata Home, a modo tuo
 • Apri il terminale in stile Quake per accedere rapidamente ai comandi supportati.
 • Anima lo schermo con gli sfondi TTFX e gli effetti facoltativi che reagiscono all’audio.
 
-La tua configurazione rimane sul tuo dispositivo.
+La configurazione del launcher rimane sul telefono. Se abbini un computer Omarchy, temi e sfondi vengono sincronizzati direttamente sulla rete locale.
 
 Per usare OhmLauncher come schermata Home, selezionalo come launcher predefinito nelle impostazioni di Android. Puoi cambiare l’app Home in qualsiasi momento.
 

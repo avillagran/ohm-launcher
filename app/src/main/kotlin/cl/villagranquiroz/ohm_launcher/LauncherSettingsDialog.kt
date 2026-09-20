@@ -75,14 +75,14 @@ object LauncherSettingsDialog {
         val scroll = ScrollView(context).apply { addView(column) }
 
         fun settingsFromControls() = current.copy(
-            textScale = textScale.progress / 100.0,
-            boxSpacing = boxSpacing.progress / 10.0,
-            boxRadius = boxRadius.progress.toDouble(),
+            textScale = sliderValue(textScale) / 100.0,
+            boxSpacing = sliderValue(boxSpacing) / 10.0,
+            boxRadius = sliderValue(boxRadius).toDouble(),
             boxBorderVisible = boxBorderVisible.isChecked,
-            boxBorderWidth = boxBorderWidth.progress.toDouble(),
-            boxItemSize = boxIconSize.progress.toDouble(),
-            barRadius = barRadius.progress.toDouble(),
-            settingsPanelOpacity = panelOpacity.progress / 100.0,
+            boxBorderWidth = sliderValue(boxBorderWidth).toDouble(),
+            boxItemSize = sliderValue(boxIconSize).toDouble(),
+            barRadius = sliderValue(barRadius).toDouble(),
+            settingsPanelOpacity = sliderValue(panelOpacity) / 100.0,
             gestureNavigationEnabled = gestureNavigation.isChecked,
             showTapBoxes = tapBoxes.isChecked,
             apiServerEnabled = allowLanIntegration && apiEnabled.isChecked,
@@ -156,12 +156,14 @@ object LauncherSettingsDialog {
     ): SeekBar {
         parent.addView(TextView(context).apply { text = title })
         return SeekBar(context).apply {
-            this.min = min
-            this.max = max
-            progress = value.coerceIn(min, max)
+            tag = min
+            this.max = max - min
+            progress = value.coerceIn(min, max) - min
             parent.addView(this, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
     }
+
+    private fun sliderValue(slider: SeekBar): Int = slider.progress + (slider.tag as Int)
 
     private fun spinner(
         context: Context,

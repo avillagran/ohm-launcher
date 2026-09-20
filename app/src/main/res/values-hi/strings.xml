@@ -1,6 +1,11 @@
 <resources>
     <string name="app_name">Ohm Launcher</string>
     <string name="accessibility_service_description">जब सिस्टम तृतीय-पक्ष लॉन्चरों को नेविगेशन जेस्चर प्रदान नहीं करता, तो Ohm Launcher उन्हें कैप्चर करने और रिमोट कंट्रोल स्वीकार करने की अनुमति देता है।</string>
+    <string name="omarchy_navigation_service_name">Omarchy हाल के ऐप्स बटन</string>
+    <string name="omarchy_navigation_service_description">Omarchy बार में चौकोर बटन दबाने पर ही Android के हाल के ऐप्स खोलता है। यह स्क्रीन नहीं पढ़ता, जेस्चर नहीं करता और रिमोट कमांड स्वीकार नहीं करता।</string>
+    <string name="omarchy_navigation_disclosure_title">Omarchy हाल के ऐप्स बटन को चालू करें?</string>
+    <string name="omarchy_navigation_disclosure_message">OhmLauncher, Android की सुलभता सुविधा का उपयोग केवल तब हाल के ऐप्स खोलने के लिए करता है, जब आप Omarchy बार में चौकोर बटन दबाते हैं। यह स्क्रीन की सामग्री नहीं पढ़ सकता, टैप या स्वाइप नहीं कर सकता और रिमोट कमांड स्वीकार नहीं कर सकता। Android नेविगेशन बार वापस लाने के लिए आप इसे कभी भी बंद कर सकते हैं।</string>
+    <string name="action_continue">जारी रखें</string>
     <string name="favorite_add">फ़ेवरिट में जोड़ें</string>
     <string name="favorite_remove">फ़ेवरिट से हटाएँ</string>
     <string name="action_close">बंद करें</string>

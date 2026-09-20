@@ -16,6 +16,11 @@ object OmarchyThemeColor {
 }
 
 object OmarchyThemeTransitionPolicy {
+    fun shouldQueueForActiveTransition(
+        target: OmarchyThemePalette?,
+        next: OmarchyThemePalette?,
+    ): Boolean = target != null && target == next
+
     fun shouldAnimate(
         previous: OmarchyThemePalette?,
         next: OmarchyThemePalette?,

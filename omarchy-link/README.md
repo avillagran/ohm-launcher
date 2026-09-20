@@ -5,8 +5,18 @@ manages the link with **OhmLauncher** (Android): discovers the peer on the LAN
 (mDNS / QR / Bluetooth), shares files, syncs clipboard and themes, backs up
 photos, and shares the screen between the phone and the desktop.
 
-This is a **standalone plugin repository**. The Android side (the launcher that
-exposes the contract) lives at https://github.com/avillagran/ohm-launcher.
+This is a **standalone plugin repository**. Install the Android launcher from:
+
+- **Full GitHub edition:** https://github.com/avillagran/ohm-launcher — includes
+  the complete Omarchy Link feature set.
+- **Google Play edition:** provides authenticated pairing and the subset of
+  user-approved features accepted for store distribution. Its canonical store
+  URL will be added after publication; do not install APKs from unofficial sites.
+
+The Play edition intentionally excludes Accessibility remote control, continuous
+background clipboard monitoring, broad filesystem access, shell commands, and
+developer administration. Use the full GitHub edition when those capabilities
+are required.
 
 ---
 

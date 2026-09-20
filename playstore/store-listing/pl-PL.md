@@ -16,7 +16,7 @@ Twój ekran główny po Twojemu
 • Otwieraj terminal w stylu Quake, aby szybko korzystać z obsługiwanych poleceń.
 • Ożyw ekran animowanymi tłami TTFX i opcjonalnymi efektami reagującymi na dźwięk.
 
-Twoja konfiguracja pozostaje na Twoim urządzeniu.
+Ustawienia launchera pozostają w telefonie. Po sparowaniu komputera Omarchy motywy i tła są synchronizowane bezpośrednio przez sieć lokalną.
 
 Aby używać OhmLaunchera jako ekranu głównego, wybierz go jako domyślny program uruchamiający w ustawieniach Androida. W każdej chwili możesz zmienić tę opcję.
 

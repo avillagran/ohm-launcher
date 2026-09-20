@@ -1,6 +1,11 @@
 <resources>
     <string name="app_name">Ohm Launcher</string>
     <string name="accessibility_service_description">시스템에서 서드 파티 런처에 기능을 제공하지 않을 때 Ohm Launcher가 탐색 제스처를 감지하고 원격 제어를 수신하도록 허용합니다.</string>
+    <string name="omarchy_navigation_service_name">Omarchy 최근 앱 버튼</string>
+    <string name="omarchy_navigation_service_description">Omarchy 표시줄의 사각형 버튼을 누를 때만 Android 최근 앱을 엽니다. 화면을 읽거나 동작을 수행하거나 원격 명령을 수신하지 않습니다.</string>
+    <string name="omarchy_navigation_disclosure_title">Omarchy 최근 앱 버튼을 사용 설정할까요?</string>
+    <string name="omarchy_navigation_disclosure_message">OhmLauncher는 Omarchy 표시줄의 사각형 버튼을 누를 때 최근 앱을 여는 용도로만 Android 접근성 기능을 사용합니다. 화면 콘텐츠를 읽거나 탭 또는 스와이프를 수행하거나 원격 명령을 수신할 수 없습니다. 언제든지 이 기능을 사용 중지하여 Android 탐색 표시줄을 복원할 수 있습니다.</string>
+    <string name="action_continue">계속</string>
     <string name="favorite_add">즐겨찾기에 추가</string>
     <string name="favorite_remove">즐겨찾기에서 삭제</string>
     <string name="action_close">닫기</string>

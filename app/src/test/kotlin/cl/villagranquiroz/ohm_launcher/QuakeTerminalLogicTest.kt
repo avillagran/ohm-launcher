@@ -142,6 +142,7 @@ class QuakeTerminalLogicTest {
     fun pendingInteractiveCommandReceivesRawResponseBeforeCompletionProtocol() {
         val home = temporary.newFolder("interactive-home")
         val output = StringBuilder()
+        val bootstrapped = CountDownLatch(1)
         val completed = CountDownLatch(1)
         val session = PersistentShellSession(
             shellPath = "/bin/sh",
@@ -149,17 +150,22 @@ class QuakeTerminalLogicTest {
             workingDirectory = home,
             homeDir = home,
             binDir = null,
-            onOutput = { synchronized(output) { output.append(it) } },
+            onOutput = {
+                synchronized(output) { output.append(it) }
+                if (it.contains("OHM_BOOTSTRAP_DONE")) bootstrapped.countDown()
+            },
             onCommandFinished = { _, _ -> completed.countDown() },
         )
 
         try {
             session.start()
+            assertTrue(bootstrapped.await(5, TimeUnit.SECONDS))
             session.execute("read answer; printf 'answer=%s' \"${'$'}answer\"")
             assertTrue(session.hasRunningCommand)
             session.submitInteractiveLine("yes")
 
-            assertTrue(completed.await(5, TimeUnit.SECONDS))
+            val finished = completed.await(5, TimeUnit.SECONDS)
+            assertTrue(synchronized(output) { output.toString() }, finished)
             assertTrue(output.toString().contains("answer=yes"))
             assertFalse(session.hasRunningCommand)
         } finally {

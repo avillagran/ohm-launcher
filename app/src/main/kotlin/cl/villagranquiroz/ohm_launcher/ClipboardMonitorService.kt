@@ -1,5 +1,6 @@
 package cl.villagranquiroz.ohm_launcher
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -26,10 +27,12 @@ import java.net.URLEncoder
  * without returning to the launcher. The peer (ip:port) is supplied via the
  * start Intent extras; when null the service idles.
  */
+@SuppressLint("ForegroundServiceType") // Full manifest declares dataSync; Play removes this service.
 class ClipboardMonitorService : Service() {
 
     private var peerIp: String? = null
     private var peerPort: Int = 8753
+    private var peerToken: String = ""
     private var lastClip: String? = null
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -53,6 +56,7 @@ class ClipboardMonitorService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         peerIp = intent?.getStringExtra("peerIp")
         peerPort = intent?.getIntExtra("peerPort", 8753) ?: 8753
+        peerToken = intent?.getStringExtra("peerToken").orEmpty()
         if (intent?.getBooleanExtra("stop", false) == true) {
             stopSelf()
         }
@@ -76,6 +80,9 @@ class ClipboardMonitorService : Service() {
                 conn.requestMethod = "PUT"
                 conn.doOutput = true
                 conn.setRequestProperty("Content-Type", "application/json")
+                if (peerToken.isNotBlank()) {
+                    conn.setRequestProperty("X-Omarchy-Link-Token", peerToken)
+                }
                 val body = "{\"text\":\"" + text.replace("\\", "\\\\").replace("\"", "\\\"") + "\"}"
                 val wr = OutputStreamWriter(conn.outputStream)
                 wr.write(body)

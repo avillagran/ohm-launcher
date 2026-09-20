@@ -16,7 +16,7 @@ Votre écran d’accueil, à votre façon
 • Ouvrez le terminal de style Quake pour accéder rapidement aux commandes compatibles.
 • Animez votre écran avec les fonds TTFX et leurs effets facultatifs réactifs à l’audio.
 
-Votre configuration reste sur votre appareil.
+La configuration du lanceur reste sur votre téléphone. Si vous associez un ordinateur Omarchy, les thèmes et fonds se synchronisent directement sur votre réseau local.
 
 Pour utiliser OhmLauncher comme écran d’accueil, choisissez-le comme lanceur par défaut dans les paramètres Android. Vous pourrez en changer à tout moment.
 

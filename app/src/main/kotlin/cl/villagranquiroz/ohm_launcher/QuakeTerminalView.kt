@@ -328,7 +328,14 @@ internal class PersistentShellSession(
     private var writer: BufferedWriter? = null
 
     val isAlive: Boolean
-        get() = pty != null || process?.isAlive == true
+        get() = pty != null || process?.hasNotExited() == true
+
+    private fun Process.hasNotExited(): Boolean = try {
+        exitValue()
+        false
+    } catch (_: IllegalThreadStateException) {
+        true
+    }
 
     val hasRunningCommand: Boolean
         get() = pendingCommandIds.isNotEmpty()
@@ -398,7 +405,7 @@ internal class PersistentShellSession(
                 it.write(sequence)
                 return
             }
-            check(process?.isAlive == true) { "Shell session is not running" }
+            check(process?.hasNotExited() == true) { "Shell session is not running" }
             writer!!.apply {
                 write(sequence)
                 flush()

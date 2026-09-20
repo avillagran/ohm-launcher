@@ -16,7 +16,7 @@ Sua tela inicial, do seu jeito
 • Abra o terminal no estilo Quake para acessar rapidamente comandos compatíveis.
 • Dê vida à tela com fundos TTFX animados e efeitos opcionais que reagem ao áudio.
 
-Sua configuração permanece no seu dispositivo.
+A configuração do launcher permanece no seu telefone. Se você parear um computador Omarchy, temas e planos de fundo serão sincronizados diretamente pela sua rede local.
 
 Para usar o OhmLauncher como tela inicial, escolha-o como launcher padrão nas configurações do Android. Você pode trocar o app de início quando quiser.
 

@@ -1,6 +1,11 @@
 <resources>
     <string name="app_name">Ohm Launcher</string>
     <string name="accessibility_service_description">Permet à Ohm Launcher de détecter les gestes de navigation et d\'accepter le contrôle à distance lorsque le système ne le fournit pas aux lanceurs tiers.</string>
+    <string name="omarchy_navigation_service_name">Bouton Applications récentes d’Omarchy</string>
+    <string name="omarchy_navigation_service_description">Ouvre les applications récentes d’Android uniquement lorsque vous appuyez sur le bouton carré de la barre Omarchy. Ce service ne lit pas l’écran, n’effectue aucun geste et n’accepte aucune commande à distance.</string>
+    <string name="omarchy_navigation_disclosure_title">Activer le bouton Applications récentes d’Omarchy ?</string>
+    <string name="omarchy_navigation_disclosure_message">OhmLauncher utilise l’accessibilité Android uniquement pour ouvrir les applications récentes lorsque vous appuyez sur le bouton carré de la barre Omarchy. Il ne peut pas lire le contenu de l’écran, effectuer des appuis ou des balayages, ni accepter des commandes à distance. Vous pouvez le désactiver à tout moment pour restaurer la barre de navigation Android.</string>
+    <string name="action_continue">Continuer</string>
     <string name="favorite_add">Ajouter aux favoris</string>
     <string name="favorite_remove">Retirer des favoris</string>
     <string name="action_close">Fermer</string>

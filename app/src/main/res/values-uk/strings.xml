@@ -1,6 +1,11 @@
 <resources>
     <string name="app_name">Ohm Launcher</string>
     <string name="accessibility_service_description">Дає Ohm Launcher змогу розпізнавати жести навігації та приймати дистанційне керування, коли система не надає такої можливості стороннім лаунчерам.</string>
+    <string name="omarchy_navigation_service_name">Кнопка нещодавніх програм Omarchy</string>
+    <string name="omarchy_navigation_service_description">Відкриває нещодавні програми Android, лише коли ви натискаєте квадратну кнопку на панелі Omarchy. Не зчитує екран, не виконує жести та не приймає дистанційні команди.</string>
+    <string name="omarchy_navigation_disclosure_title">Увімкнути кнопку нещодавніх програм Omarchy?</string>
+    <string name="omarchy_navigation_disclosure_message">OhmLauncher використовує спеціальні можливості Android лише для відкриття нещодавніх програм, коли ви натискаєте квадратну кнопку на панелі Omarchy. Він не може зчитувати вміст екрана, виконувати дотики чи проведення або приймати дистанційні команди. Ви можете будь-коли вимкнути його, щоб відновити панель навігації Android.</string>
+    <string name="action_continue">Продовжити</string>
     <string name="favorite_add">Додати до обраного</string>
     <string name="favorite_remove">Вилучити з обраного</string>
     <string name="action_close">Закрити</string>

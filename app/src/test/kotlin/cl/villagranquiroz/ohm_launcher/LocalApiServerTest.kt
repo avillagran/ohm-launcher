@@ -70,6 +70,43 @@ class LocalApiServerTest {
     }
 
     @Test
+    fun rejectsProtectedRequestsBeforeReadingTheirBodyWhenSessionTokenIsMissing() {
+        startServer(sessionToken = "paired-secret")
+
+        val missing = request("POST", "/command", "not-json")
+        val wrong = request("GET", "/omarchy/discover", headers = mapOf("X-Omarchy-Link-Token" to "wrong"))
+        val accepted = request("GET", "/health", headers = mapOf("X-Omarchy-Link-Token" to "paired-secret"))
+
+        assertEquals(401, missing.code)
+        assertEquals("unauthorized", missing.json.getString("error"))
+        assertEquals(401, wrong.code)
+        assertEquals(200, accepted.code)
+    }
+
+    @Test
+    fun permitsQueryTokenOnlyForScreenFrameImageLoading() {
+        val frames = LatestScreenFrameStore().apply {
+            update(byteArrayOf(0xff.toByte(), 0xd8.toByte(), 1, 2), 1220, 2712)
+        }
+        startServer(screenFrames = frames, sessionToken = "paired-secret")
+
+        assertEquals(200, request("GET", "/omarchy/screen/frame?token=paired-secret").code)
+        assertEquals(401, request("GET", "/health?token=paired-secret").code)
+    }
+
+    @Test
+    fun rejectsWebSocketUpgradeWithoutTheSessionToken() {
+        startServer(omarchyAdapter = discoverAdapter(), sessionToken = "paired-secret")
+
+        assertTrue(rawWebSocketStatus().contains(" 401 "))
+        assertTrue(
+            rawWebSocketStatus(
+                requestHeaders = validWebSocketHeaders() + "X-Omarchy-Link-Token: paired-secret",
+            ).contains(" 101 "),
+        )
+    }
+
+    @Test
     fun servesLatestScreenFrameForReversePullTransport() {
         val frames = LatestScreenFrameStore().apply {
             update(byteArrayOf(0xff.toByte(), 0xd8.toByte(), 1, 2), 1220, 2712)
@@ -692,6 +729,7 @@ class LocalApiServerTest {
         onBackgroundCatalogPut: ((JSONObject) -> Unit)? = null,
         onBackgroundSelectionGet: (() -> JSONObject)? = null,
         onBackgroundSelectionAck: ((JSONObject) -> Unit)? = null,
+        sessionToken: String? = null,
     ) {
         server = LocalApiServer(
             port = 0,
@@ -709,6 +747,7 @@ class LocalApiServerTest {
             onBackgroundCatalogPut = onBackgroundCatalogPut,
             onBackgroundSelectionGet = onBackgroundSelectionGet,
             onBackgroundSelectionAck = onBackgroundSelectionAck,
+            sessionToken = sessionToken,
         ).also { it.start() }
     }
 
@@ -718,11 +757,13 @@ class LocalApiServerTest {
         body: String? = null,
         rawBody: ByteArray? = body?.toByteArray(),
         contentType: String = "application/json",
+        headers: Map<String, String> = emptyMap(),
     ): Response {
         val connection = URL("http://127.0.0.1:${server!!.boundPort}$path").openConnection() as HttpURLConnection
         connection.requestMethod = method
         connection.connectTimeout = 2_000
         connection.readTimeout = 2_000
+        headers.forEach(connection::setRequestProperty)
         if (rawBody != null) {
             connection.doOutput = true
             connection.setRequestProperty("Content-Type", contentType)

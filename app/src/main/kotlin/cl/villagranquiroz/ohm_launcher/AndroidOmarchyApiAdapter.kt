@@ -66,7 +66,7 @@ class OmarchyFileRepository(
         val roots = listOf(root.resolve("DCIM"), root.resolve("Pictures"))
         return roots.asSequence()
             .filter(File::isDirectory)
-            .flatMap { it.walkTopDown().onEnter { directory -> !java.nio.file.Files.isSymbolicLink(directory.toPath()) } }
+            .flatMap { it.walkTopDown().onEnter { directory -> !directory.isSymbolicLink() } }
             .filter { it.isFile && it.extension.lowercase() in extensions }
             .take(MAX_PHOTOS)
             .map { OmarchyFileEntry(it.name, it.absolutePath, false, it.length().coerceAtLeast(0), it.lastModified().coerceAtLeast(0)) }
@@ -87,6 +87,9 @@ class OmarchyFileRepository(
 
     private fun isInside(parent: File, child: File): Boolean =
         child.path == parent.path || child.path.startsWith(parent.path + File.separator)
+
+    private fun File.isSymbolicLink(): Boolean =
+        runCatching { absoluteFile != canonicalFile }.getOrDefault(true)
 
     companion object {
         private const val MAX_ENTRIES = 2_000

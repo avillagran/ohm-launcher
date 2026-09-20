@@ -1,6 +1,11 @@
 <resources>
     <string name="app_name">Ohm Launcher</string>
     <string name="accessibility_service_description">Позволяет Ohm Launcher перехватывать жесты навигации и принимать удалённое управление, когда система не предоставляет эти возможности сторонним лаунчерам.</string>
+    <string name="omarchy_navigation_service_name">Кнопка недавних приложений Omarchy</string>
+    <string name="omarchy_navigation_service_description">Открывает недавние приложения Android только при нажатии квадратной кнопки на панели Omarchy. Не считывает содержимое экрана, не выполняет жесты и не принимает удалённые команды.</string>
+    <string name="omarchy_navigation_disclosure_title">Включить кнопку недавних приложений Omarchy?</string>
+    <string name="omarchy_navigation_disclosure_message">OhmLauncher использует специальные возможности Android только для открытия недавних приложений при нажатии квадратной кнопки на панели Omarchy. Он не может считывать содержимое экрана, выполнять нажатия или смахивания либо принимать удалённые команды. Эту функцию можно отключить в любое время, чтобы восстановить панель навигации Android.</string>
+    <string name="action_continue">Продолжить</string>
     <string name="favorite_add">Добавить в избранное</string>
     <string name="favorite_remove">Удалить из избранного</string>
     <string name="action_close">Закрыть</string>

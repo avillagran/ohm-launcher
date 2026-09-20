@@ -10,14 +10,18 @@ data class OhmDiscoveryConfig(
         require(serviceName.isNotBlank()) { "Service name must not be blank" }
     }
 
-    fun fallbackUri(host: String): String {
+    fun fallbackUri(host: String, token: String = ""): String {
         require(
             host.isNotBlank() && host.none {
                 it.isISOControl() || it.isWhitespace() || it == '[' || it == ']' ||
                     it == '/' || it == '?' || it == '#' || it == '@'
             },
         ) { "Host is not a valid URI authority host" }
+        require(token.length <= 128 && token.all { it.isLetterOrDigit() || it == '-' || it == '_' }) {
+            "Token is not URL-safe"
+        }
         val authority = if (host.contains(':')) "[$host]" else host
-        return "ohm://$authority:$apiPort"
+        val query = token.takeIf(String::isNotEmpty)?.let { "?token=$it" }.orEmpty()
+        return "ohm://$authority:$apiPort$query"
     }
 }

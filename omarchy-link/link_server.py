@@ -23,6 +23,7 @@ import mimetypes
 import os
 import re
 import subprocess
+import tempfile
 import threading
 import urllib.request
 from urllib.parse import quote, unquote, urlparse
@@ -138,13 +139,30 @@ def _wl_get_clipboard() -> str:
 
 
 def write_state(state: dict) -> None:
+    temporary = None
     try:
         with _lock:
-            with open(STATE_FILE, "w", encoding="utf-8") as f:
+            target = Path(STATE_FILE)
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=target.parent,
+                prefix=".%s." % target.name,
+                delete=False,
+            ) as f:
+                temporary = Path(f.name)
+                os.fchmod(f.fileno(), 0o600)
                 json.dump(state, f)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(temporary, target)
+            temporary = None
         log("state -> connected=%s peer=%s" % (state.get("connected"), state.get("peerIp")))
     except OSError:
         pass
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def read_state() -> dict:
@@ -154,7 +172,7 @@ def read_state() -> dict:
                 return json.load(f)
     except (OSError, ValueError):
         return {"connected": False, "peerIp": "", "peerPort": 8753,
-                "peerName": "", "linkPort": PORT}
+                "peerName": "", "peerToken": "", "linkPort": PORT}
 
 
 def read_omarchy_geometry(runner=subprocess.run) -> dict:
@@ -697,6 +715,14 @@ def servable_theme_preview(theme_id: str):
         return None
 
 
+def phone_headers(state: dict, headers=None) -> dict:
+    result = dict(headers or {})
+    token = str(state.get("peerToken", ""))
+    if token:
+        result["X-Omarchy-Link-Token"] = token
+    return result
+
+
 def push_theme_to_phone(state: dict, payload: dict, opener=urllib.request.urlopen) -> bool:
     if not state.get("connected") or not state.get("peerIp") or not payload.get("colors"):
         return False
@@ -715,7 +741,7 @@ def push_theme_to_phone(state: dict, payload: dict, opener=urllib.request.urlope
         request = urllib.request.Request(
             "http://%s:%d/omarchy/theme" % (host, port),
             data=body,
-            headers={"Content-Type": "application/json", "Content-Length": str(len(body))},
+            headers=phone_headers(state, {"Content-Type": "application/json", "Content-Length": str(len(body))}),
             method="PUT",
         )
         with opener(request, timeout=5) as response:
@@ -749,8 +775,10 @@ def push_file_to_phone(state: dict, source: Path, file_name: str, opener=urllib.
     request = urllib.request.Request(
         "http://%s:%d/omarchy/file" % (host, port),
         data=body,
-        headers={"Content-Type": "multipart/form-data; boundary=%s" % boundary,
-                 "Content-Length": str(len(body))},
+        headers=phone_headers(state, {
+            "Content-Type": "multipart/form-data; boundary=%s" % boundary,
+            "Content-Length": str(len(body)),
+        }),
         method="POST",
     )
     try:
@@ -792,7 +820,7 @@ def push_theme_catalog_to_phone(state: dict, opener=urllib.request.urlopen) -> b
         request = urllib.request.Request(
             "http://%s:%d/omarchy/themes/catalog" % (host, port),
             data=body,
-            headers={"Content-Type": "application/json", "Content-Length": str(len(body))},
+            headers=phone_headers(state, {"Content-Type": "application/json", "Content-Length": str(len(body))}),
             method="PUT",
         )
         with opener(request, timeout=30) as response:
@@ -841,7 +869,7 @@ def push_background_catalog_to_phone(state: dict, opener=urllib.request.urlopen)
         request = urllib.request.Request(
             "http://%s:%d/omarchy/backgrounds/catalog" % (host, port),
             data=body,
-            headers={"Content-Type": "application/json", "Content-Length": str(len(body))},
+            headers=phone_headers(state, {"Content-Type": "application/json", "Content-Length": str(len(body))}),
             method="PUT",
         )
         with opener(request, timeout=30) as response:
@@ -858,7 +886,11 @@ def process_phone_theme_selection(state: dict, opener=urllib.request.urlopen) ->
         host = "[%s]" % host
     port = int(state.get("peerPort", 8753))
     try:
-        with opener("http://%s:%d/omarchy/themes/selection" % (host, port), timeout=5) as response:
+        poll = urllib.request.Request(
+            "http://%s:%d/omarchy/themes/selection" % (host, port),
+            headers=phone_headers(state),
+        )
+        with opener(poll, timeout=5) as response:
             pending = json.loads(response.read().decode("utf-8"))
         if not pending.get("pending"):
             return False
@@ -869,7 +901,7 @@ def process_phone_theme_selection(state: dict, opener=urllib.request.urlopen) ->
         request = urllib.request.Request(
             "http://%s:%d/omarchy/themes/selection/ack" % (host, port),
             data=body,
-            headers={"Content-Type": "application/json", "Content-Length": str(len(body))},
+            headers=phone_headers(state, {"Content-Type": "application/json", "Content-Length": str(len(body))}),
             method="PUT",
         )
         with opener(request, timeout=5) as response:
@@ -889,7 +921,11 @@ def process_phone_background_selection(state: dict, opener=urllib.request.urlope
         host = "[%s]" % host
     port = int(state.get("peerPort", 8753))
     try:
-        with opener("http://%s:%d/omarchy/backgrounds/selection" % (host, port), timeout=5) as response:
+        poll = urllib.request.Request(
+            "http://%s:%d/omarchy/backgrounds/selection" % (host, port),
+            headers=phone_headers(state),
+        )
+        with opener(poll, timeout=5) as response:
             pending = json.loads(response.read().decode("utf-8"))
         if not isinstance(pending, dict) or not pending.get("pending"):
             return False
@@ -902,7 +938,7 @@ def process_phone_background_selection(state: dict, opener=urllib.request.urlope
         request = urllib.request.Request(
             "http://%s:%d/omarchy/backgrounds/selection/ack" % (host, port),
             data=body,
-            headers={"Content-Type": "application/json", "Content-Length": str(len(body))},
+            headers=phone_headers(state, {"Content-Type": "application/json", "Content-Length": str(len(body))}),
             method="PUT",
         )
         with opener(request, timeout=5) as response:
@@ -994,7 +1030,7 @@ def push_notification_to_phone(state: dict, payload: dict,
         request = urllib.request.Request(
             "http://%s:%d/omarchy/notify" % (host, port),
             data=body,
-            headers={"Content-Type": "application/json", "Content-Length": str(len(body))},
+            headers=phone_headers(state, {"Content-Type": "application/json", "Content-Length": str(len(body))}),
             method="POST",
         )
         with opener(request, timeout=5) as response:
@@ -1221,10 +1257,15 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
+        path = urlparse(self.path).path
+        if path == "/omarchy/link" and self.client_address[0] in ("127.0.0.1", "::1"):
+            state = dict(read_state())
+            state.pop("peerToken", None)
+            self._json(200, state)
+            return
         if not self._authorized():
             self._json(401, {"ok": False, "error": "unauthorized"})
             return
-        path = urlparse(self.path).path
         if path == "/omarchy/link":
             self._json(200, read_state())
         elif path == "/omarchy/screen/status":
@@ -1347,13 +1388,18 @@ class Handler(BaseHTTPRequestHandler):
                 data = json.loads(raw.decode("utf-8") or "{}")
             except (ValueError, OSError):
                 raw, data = b"", {}
-            log("link POST from %s body=%s" % (self.client_address[0], raw[:200]))
+            log("link POST from %s" % self.client_address[0])
             ip, port = self._peer_from(data)
+            peer_token = str(data.get("apiToken", ""))
+            if not peer_token or len(peer_token) > 128 or any(ord(c) < 33 or ord(c) > 126 for c in peer_token):
+                self._json(400, {"ok": False, "error": "invalid_api_token"})
+                return
             state = {
                 "connected": True,
                 "peerIp": ip,
                 "peerPort": port,
                 "peerName": str(data.get("name", "phone")),
+                "peerToken": peer_token,
                 "linkPort": PORT,
                 "linkNonce": os.urandom(8).hex(),
             }
@@ -1365,7 +1411,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, state)
         elif self.path == "/omarchy/link/bye":
             write_state({"connected": False, "peerIp": "", "peerPort": 8753,
-                         "peerName": "", "linkPort": PORT})
+                         "peerName": "", "peerToken": "", "linkPort": PORT})
             self._json(200, {"connected": False})
         elif self.path == "/omarchy/theme/push":
             payload = read_omarchy_theme()
@@ -1392,6 +1438,9 @@ class Handler(BaseHTTPRequestHandler):
             self._json(404, {"error": "not found"})
 
     def do_PUT(self):
+        if not self._authorized():
+            self._json(401, {"ok": False, "error": "unauthorized"})
+            return
         # Phone (ClipboardMonitorService) pushes copied text here; mirror it
         # into the Wayland clipboard so it is paste-able on the desktop.
         if self.path == "/omarchy/clipboard":
@@ -1418,7 +1467,7 @@ def main() -> None:
     srv = ThreadingHTTPServer((HOST, PORT), Handler)
     # Start from a clean (disconnected) state.
     write_state({"connected": False, "peerIp": "", "peerPort": 8753,
-                 "peerName": "", "linkPort": PORT})
+                 "peerName": "", "peerToken": "", "linkPort": PORT})
     log("link server listening on %s:%d" % (HOST, PORT))
     threading.Thread(target=theme_sync_loop, daemon=True, name="omarchy-theme-sync").start()
     srv.serve_forever()

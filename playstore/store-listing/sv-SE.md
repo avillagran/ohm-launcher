@@ -16,7 +16,7 @@ Din startskärm på ditt sätt
 • Öppna terminalen i Quake-stil för snabb åtkomst till kommandon som stöds.
 • Ge skärmen liv med animerade TTFX-bakgrunder och valfria ljudreaktiva effekter.
 
-Din konfiguration stannar på din enhet.
+Launcherinställningarna stannar på telefonen. Om du parkopplar en Omarchy-dator synkroniseras teman och bakgrunder direkt via ditt lokala nätverk.
 
 Välj OhmLauncher som standardlauncher i Android-inställningarna för att använda den som startskärm. Du kan ändra standardapp när du vill.
 

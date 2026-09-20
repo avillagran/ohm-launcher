@@ -1,6 +1,11 @@
 <resources>
     <string name="app_name">Program uruchamiający Ohm</string>
     <string name="accessibility_service_description">Umożliwia programowi Ohm Launcher przechwytywanie gestów nawigacyjnych i akceptowanie zdalnego sterowania, gdy system nie udostępnia go programom uruchamiającym innych firm.</string>
+    <string name="omarchy_navigation_service_name">Przycisk ostatnich aplikacji Omarchy</string>
+    <string name="omarchy_navigation_service_description">Otwiera ostatnie aplikacje Androida tylko po naciśnięciu kwadratowego przycisku na pasku Omarchy. Nie odczytuje ekranu, nie wykonuje gestów ani nie przyjmuje poleceń zdalnych.</string>
+    <string name="omarchy_navigation_disclosure_title">Włączyć przycisk ostatnich aplikacji Omarchy?</string>
+    <string name="omarchy_navigation_disclosure_message">OhmLauncher używa ułatwień dostępu Androida wyłącznie do otwierania ostatnich aplikacji po naciśnięciu kwadratowego przycisku na pasku Omarchy. Nie może odczytywać zawartości ekranu, wykonywać dotknięć ani przesunięć ani przyjmować poleceń zdalnych. Możesz go wyłączyć w dowolnej chwili, aby przywrócić pasek nawigacyjny Androida.</string>
+    <string name="action_continue">Kontynuuj</string>
     <string name="favorite_add">Dodaj do ulubionych</string>
     <string name="favorite_remove">Usuń z ulubionych</string>
     <string name="action_close">Zamknąć</string>

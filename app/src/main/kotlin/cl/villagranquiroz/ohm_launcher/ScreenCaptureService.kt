@@ -1,5 +1,6 @@
 package cl.villagranquiroz.ohm_launcher
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -17,6 +18,7 @@ import androidx.core.app.NotificationCompat
  * service with type `mediaProjection` is running. The actual capture loop lives
  * in MainActivity; this service only holds the foreground state while sharing.
  */
+@SuppressLint("ForegroundServiceType") // Full manifest declares mediaProjection; Play removes this service.
 class ScreenCaptureService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

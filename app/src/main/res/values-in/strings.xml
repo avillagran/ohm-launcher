@@ -1,6 +1,11 @@
 <resources>
     <string name="app_name">Ohm Launcher</string>
     <string name="accessibility_service_description">Memungkinkan Ohm Launcher menangkap gerakan navigasi dan menerima kontrol jarak jauh saat sistem tidak menyediakannya untuk launcher pihak ketiga.</string>
+    <string name="omarchy_navigation_service_name">Tombol aplikasi terbaru Omarchy</string>
+    <string name="omarchy_navigation_service_description">Membuka aplikasi terbaru Android hanya saat Anda menekan tombol kotak di bilah Omarchy. Layanan ini tidak membaca layar, melakukan gestur, atau menerima perintah jarak jauh.</string>
+    <string name="omarchy_navigation_disclosure_title">Aktifkan tombol aplikasi terbaru Omarchy?</string>
+    <string name="omarchy_navigation_disclosure_message">OhmLauncher menggunakan Aksesibilitas Android hanya untuk membuka aplikasi terbaru saat Anda menekan tombol kotak di bilah Omarchy. Aplikasi ini tidak dapat membaca konten layar, melakukan ketukan atau gesekan, maupun menerima perintah jarak jauh. Anda dapat menonaktifkannya kapan saja untuk memulihkan bilah navigasi Android.</string>
+    <string name="action_continue">Lanjutkan</string>
     <string name="favorite_add">Tambahkan ke favorit</string>
     <string name="favorite_remove">Hapus dari favorit</string>
     <string name="action_close">Tutup</string>

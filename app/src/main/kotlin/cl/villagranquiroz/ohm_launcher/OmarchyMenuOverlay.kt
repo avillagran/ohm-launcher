@@ -17,7 +17,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
-import android.widget.EditText
+
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -26,6 +26,7 @@ import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.appcompat.widget.AppCompatEditText
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
@@ -186,7 +187,7 @@ internal object OmarchySystemMenuPolicy {
     fun showNotificationAccessShortcut(alreadyEnabled: Boolean): Boolean = true
 }
 
-private class MenuSearchEditText(context: Context) : EditText(context) {
+private class MenuSearchEditText(context: Context) : AppCompatEditText(context) {
     var onImeBack: (() -> Unit)? = null
 
     override fun onKeyPreIme(keyCode: Int, event: KeyEvent): Boolean {
@@ -704,7 +705,7 @@ internal class OmarchyMenuOverlay(
 
     private fun open(entry: OmarchyMenuEntry) {
         levels += Level(entry.label, entry.children)
-        header.text.clear()
+        header.text?.clear()
         updateHeader()
         renderRows("")
         post(::updateCardLayout)
@@ -713,7 +714,7 @@ internal class OmarchyMenuOverlay(
     private fun goBack(): Boolean {
         if (levels.size <= 1) return false
         levels.removeAt(levels.lastIndex)
-        header.text.clear()
+        header.text?.clear()
         updateHeader()
         renderRows("")
         post(::updateCardLayout)

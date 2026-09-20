@@ -47,6 +47,11 @@ data class OmarchyPeer(
     }
 }
 
+internal object OmarchyPeerRestorePolicy {
+    fun canRestore(peer: OmarchyPeer, playStore: Boolean): Boolean =
+        !playStore || peer.token.isNotBlank()
+}
+
 /** Strict parser for `omarchy://host:port?id=name&token=secret` discovery links. */
 object OmarchyPeerUri {
     fun parse(value: String): OmarchyPeer? {

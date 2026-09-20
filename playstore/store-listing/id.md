@@ -16,7 +16,7 @@ Layar utama sesuai gaya Anda
 • Buka terminal ala Quake untuk mengakses perintah yang didukung dengan cepat.
 • Hidupkan layar dengan latar belakang TTFX animasi dan efek opsional yang bereaksi terhadap audio.
 
-Konfigurasi Anda tetap berada di perangkat Anda.
+Konfigurasi launcher tetap berada di ponsel Anda. Jika Anda memasangkan komputer Omarchy, tema dan latar belakang disinkronkan langsung melalui jaringan lokal Anda.
 
 Untuk memakai OhmLauncher sebagai layar utama, pilih sebagai launcher default di setelan Android. Anda dapat mengganti aplikasi layar utama kapan saja.
 

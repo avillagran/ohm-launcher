@@ -1,6 +1,11 @@
 <resources>
     <string name="app_name">Ohm Launcher</string>
     <string name="accessibility_service_description">Ermöglicht es Ohm Launcher, Navigationsgesten zu erfassen und Fernsteuerung zu akzeptieren, wenn das System sie Drittanbieter-Launchern nicht bereitstellt.</string>
+    <string name="omarchy_navigation_service_name">Omarchy-Schaltfläche „Letzte Apps“</string>
+    <string name="omarchy_navigation_service_description">Öffnet die letzten Android-Apps nur, wenn du die quadratische Schaltfläche in der Omarchy-Leiste drückst. Der Dienst liest den Bildschirm nicht, führt keine Gesten aus und akzeptiert keine Fernbefehle.</string>
+    <string name="omarchy_navigation_disclosure_title">Omarchy-Schaltfläche „Letzte Apps“ aktivieren?</string>
+    <string name="omarchy_navigation_disclosure_message">OhmLauncher verwendet die Android-Bedienungshilfe ausschließlich, um die letzten Apps zu öffnen, wenn du die quadratische Schaltfläche in der Omarchy-Leiste drückst. Die App kann keine Bildschirminhalte lesen, Tipp- oder Wischgesten ausführen oder Fernbefehle akzeptieren. Du kannst den Dienst jederzeit deaktivieren, um die Android-Navigationsleiste wiederherzustellen.</string>
+    <string name="action_continue">Weiter</string>
     <string name="favorite_add">Zu Favoriten hinzufügen</string>
     <string name="favorite_remove">Aus Favoriten entfernen</string>
     <string name="action_close">Schließen</string>

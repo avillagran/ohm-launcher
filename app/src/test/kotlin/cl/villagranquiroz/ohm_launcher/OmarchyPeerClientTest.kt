@@ -112,7 +112,7 @@ class OmarchyPeerClientTest {
         }.start()
 
         val peer = OmarchyPeer("127.0.0.1", server.localPort, "lab")
-        val result = OmarchyPeerClient().notify(peer, "192.168.1.100", 8753, "Phone")
+        val result = OmarchyPeerClient().notify(peer, "192.168.1.100", 8753, "Phone", "phone-session-token")
 
         assertTrue(result)
         assertTrue(done.await(2, TimeUnit.SECONDS))
@@ -123,6 +123,7 @@ class OmarchyPeerClientTest {
         assertEquals("192.168.1.100", json.getString("ip"))
         assertEquals(8753, json.getInt("port"))
         assertEquals("Phone", json.getString("name"))
+        assertEquals("phone-session-token", json.getString("apiToken"))
     }
 
     @Test

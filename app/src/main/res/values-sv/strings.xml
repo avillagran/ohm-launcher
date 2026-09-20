@@ -1,6 +1,11 @@
 <resources>
     <string name="app_name">Ohm Launcher</string>
     <string name="accessibility_service_description">Gör att Ohm Launcher kan registrera navigeringsgester och ta emot fjärrstyrning när systemet inte erbjuder detta för launchers från tredje part.</string>
+    <string name="omarchy_navigation_service_name">Omarchys knapp för senaste appar</string>
+    <string name="omarchy_navigation_service_description">Öppnar Androids senaste appar endast när du trycker på den fyrkantiga knappen i Omarchy-fältet. Tjänsten läser inte skärmen, utför inte gester och tar inte emot fjärrkommandon.</string>
+    <string name="omarchy_navigation_disclosure_title">Aktivera Omarchys knapp för senaste appar?</string>
+    <string name="omarchy_navigation_disclosure_message">OhmLauncher använder Androids tillgänglighetsfunktion endast för att öppna senaste appar när du trycker på den fyrkantiga knappen i Omarchy-fältet. Den kan inte läsa skärminnehåll, utföra tryckningar eller svepningar eller ta emot fjärrkommandon. Du kan inaktivera den när som helst för att återställa Androids navigeringsfält.</string>
+    <string name="action_continue">Fortsätt</string>
     <string name="favorite_add">Lägg till i favoriter</string>
     <string name="favorite_remove">Ta bort från favoriter</string>
     <string name="action_close">Stäng</string>

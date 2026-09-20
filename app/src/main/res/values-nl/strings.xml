@@ -1,6 +1,11 @@
 <resources>
     <string name="app_name">Ohm-lanceerder</string>
     <string name="accessibility_service_description">Hiermee kan Ohm Launcher navigatiegebaren vastleggen en bediening op afstand accepteren wanneer het systeem deze niet aan draagraketten van derden levert.</string>
+    <string name="omarchy_navigation_service_name">Knop Recente apps van Omarchy</string>
+    <string name="omarchy_navigation_service_description">Opent Recente apps van Android alleen wanneer u op de vierkante knop in de Omarchy-balk drukt. De service leest het scherm niet, voert geen gebaren uit en accepteert geen externe opdrachten.</string>
+    <string name="omarchy_navigation_disclosure_title">Knop Recente apps van Omarchy inschakelen?</string>
+    <string name="omarchy_navigation_disclosure_message">OhmLauncher gebruikt Android-toegankelijkheid uitsluitend om Recente apps te openen wanneer u op de vierkante knop in de Omarchy-balk drukt. De app kan geen scherminhoud lezen, tik- of veegbewegingen uitvoeren of externe opdrachten accepteren. U kunt dit op elk moment uitschakelen om de navigatiebalk van Android te herstellen.</string>
+    <string name="action_continue">Doorgaan</string>
     <string name="favorite_add">Toevoegen aan favorieten</string>
     <string name="favorite_remove">Verwijderen uit favorieten</string>
     <string name="action_close">Dichtbij</string>

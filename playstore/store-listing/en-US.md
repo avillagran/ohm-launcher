@@ -16,7 +16,7 @@ Make your home screen work your way
 • Open the Quake-style terminal whenever you want quick access to supported commands.
 • Bring your screen to life with animated TTFX backgrounds and optional audio-reactive visuals.
 
-Your setup stays on your device.
+Your launcher setup stays on your phone. If you choose to pair an Omarchy computer, themes and backgrounds sync directly over your local network.
 
 To use OhmLauncher as your home screen, choose it as the default launcher in Android settings. You can change your default home app at any time.
 

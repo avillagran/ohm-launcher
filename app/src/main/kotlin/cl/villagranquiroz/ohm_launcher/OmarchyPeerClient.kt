@@ -52,12 +52,14 @@ class OmarchyPeerClient(
         launcherIp: String,
         launcherPort: Int,
         launcherName: String,
+        apiToken: String,
     ): Boolean {
-        if (launcherIp.isBlank() || launcherPort !in 1..65535 || launcherName.isBlank()) return false
+        if (launcherIp.isBlank() || launcherPort !in 1..65535 || launcherName.isBlank() || apiToken.isBlank()) return false
         val body = JSONObject()
             .put("ip", launcherIp)
             .put("port", launcherPort)
             .put("name", launcherName)
+            .put("apiToken", apiToken)
             .toString()
             .toByteArray(StandardCharsets.UTF_8)
         return request(peer, "POST", "/omarchy/link", body) { it in 200..299 } ?: false

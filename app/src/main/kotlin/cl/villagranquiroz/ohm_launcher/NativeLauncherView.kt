@@ -515,7 +515,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         val previousTheme = omarchyTheme
         val nextTheme = OmarchyThemePalette.fromSettings(value.raw)
         android.util.Log.e("OHM-DEBUG-theme", "submit animate=$animateTheme previous=${previousTheme?.name} next=${nextTheme?.name} target=${themeTransitionTarget?.name}")
-        if (themeTransitionTarget == nextTheme) {
+        if (OmarchyThemeTransitionPolicy.shouldQueueForActiveTransition(themeTransitionTarget, nextTheme)) {
             pendingThemeSettings = value
             return
         }
@@ -1948,6 +1948,10 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
 
     private fun applyCommandBarSettings(forceFromSetting: Boolean = false) {
         commandCollapsed = false
+        commandToggle.text = OmarchyBarModePolicy.toggleGlyph(settings.omarchyBarMode)
+        commandToggle.contentDescription = context.getString(
+            if (settings.omarchyBarMode) R.string.bar_expand else R.string.bar_compress,
+        )
         commandBar.visibility = VISIBLE
         commandBar.orientation = LinearLayout.HORIZONTAL
         commandMenu.layoutParams = LinearLayout.LayoutParams(dp(46), dp(46))

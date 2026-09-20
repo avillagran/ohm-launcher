@@ -6,6 +6,12 @@ OhmLauncher is a native Android home-screen launcher inspired by Omarchy, with s
 
 ## Download and install
 
+- **Google Play edition:** the store build is being prepared with authenticated
+  QR pairing and user-approved Omarchy Link features. Its listing URL will be
+  added here after publication.
+- **Full GitHub edition:** use the release APK below for the complete integration,
+  including advanced local administration and remote-control capabilities that
+  are not distributed through Google Play.
 - [Download OhmLauncher 0.0.3 release APK](https://github.com/avillagran/ohm-launcher/releases/download/v0.0.3/OhmLauncher-0.0.3-release.apk)
 - [View the 0.0.3 release and notes](https://github.com/avillagran/ohm-launcher/releases/tag/v0.0.3)
 
@@ -92,6 +98,13 @@ widget to the bar, and scan its QR code from the phone.
 - MediaProjection screen capture.
 - Canonical Omarchy theme palette support, including live application to launcher chrome, TTFX, widgets, and allowed Android system-bar appearance.
 - Companion desktop plugin under [`omarchy-link/`](omarchy-link/).
+
+The Google Play and full GitHub editions share the launcher experience, bundled
+themes, and authenticated Omarchy pairing. Features that require broad storage,
+continuous background access, Accessibility remote control, or developer
+administration remain exclusive to the full GitHub edition. See
+[`docs/play-omarchy-link-plan.md`](docs/play-omarchy-link-plan.md) for the exact
+distribution boundary.
 
 ## Public data
 

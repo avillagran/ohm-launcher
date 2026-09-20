@@ -12,6 +12,7 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -81,6 +82,7 @@ class LocalApiServer(
     private val onBackgroundSelectionGet: (() -> JSONObject)? = null,
     private val onBackgroundSelectionAck: ((JSONObject) -> Unit)? = null,
     private val lanMode: Boolean = false,
+    private val sessionToken: String? = null,
 ) : Closeable {
     @Volatile
     var isRunning: Boolean = false
@@ -204,6 +206,10 @@ class LocalApiServer(
                 }
                 headers[name] = line.substring(colon + 1).trim()
             }
+            if (!isAuthorized(target, headers)) {
+                writeJson(output, 401, mapOf("error" to "unauthorized"))
+                return
+            }
             if (target == OmarchyWebSocketHub.PATH) {
                 handleWebSocket(method, parts[2], headers, input, output)
                 return
@@ -245,6 +251,20 @@ class LocalApiServer(
                 writeJson(output, 500, mapOf("error" to "server_error", "detail" to error.toString()))
             }
         }
+    }
+
+    private fun isAuthorized(target: String, headers: Map<String, String>): Boolean {
+        val expected = sessionToken ?: return true
+        val supplied = headers[OMARCHY_TOKEN_HEADER]
+            ?: target.takeIf { it.startsWith("/omarchy/screen/frame?") }
+                ?.substringAfter('?', "")
+                ?.let(::parseQuery)
+                ?.get("token")
+            ?: return false
+        return MessageDigest.isEqual(
+            expected.toByteArray(StandardCharsets.UTF_8),
+            supplied.toByteArray(StandardCharsets.UTF_8),
+        )
     }
 
     private fun handleWebSocket(
@@ -794,6 +814,7 @@ class LocalApiServer(
     }
 
     companion object {
+        private const val OMARCHY_TOKEN_HEADER = "x-omarchy-link-token"
         private const val MAX_JSON_BODY_BYTES = 1_048_576
         private const val MAX_NOTIFICATION_BODY_BYTES = 16 * 1024
 

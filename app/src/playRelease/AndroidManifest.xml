@@ -6,8 +6,13 @@
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:node="remove" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" tools:node="remove" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" tools:node="remove" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" tools:node="remove" />
-    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions"
+        tools:node="remove" />
     <uses-permission android:name="android.permission.BLUETOOTH" tools:node="remove" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" tools:node="remove" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" tools:node="remove" />
@@ -23,5 +28,17 @@
         <service android:name=".ScreenCaptureService" tools:node="remove" />
         <service android:name=".OhmGestureAccessibilityService" tools:node="remove" />
         <service android:name=".OhmNotificationListenerService" tools:node="remove" />
+        <service
+            android:name=".OmarchyNavigationService"
+            android:exported="true"
+            android:label="@string/omarchy_navigation_service_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/omarchy_navigation_service_config" />
+        </service>
     </application>
 </manifest>

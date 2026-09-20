@@ -31,6 +31,7 @@ Panel {
   property string peerName: ""
   property string peerIp: ""
   property int peerPort: 8753
+  property string peerToken: ""
   // Port of THIS pc's link_server (for local status polls + QR generation).
   // Reported by link_server.py in the state file so the panel never assumes 8753.
   property int linkPort: 8753
@@ -65,6 +66,7 @@ Panel {
       root.connected = d.connected === true
       root.peerIp = d.peerIp || ""
       root.peerName = d.peerName || ""
+      if (d.peerToken !== undefined) root.peerToken = d.peerToken || ""
       if (root.connected) root.showPairing = false
       if (d.peerPort) root.peerPort = parseInt(d.peerPort, 10)
       if (d.linkPort) root.linkPort = parseInt(d.linkPort, 10)
@@ -93,10 +95,15 @@ Panel {
     if (!m) { log("bad uri: " + uri); return }
     root.peerIp = m[1]
     root.peerPort = parseInt(m[2], 10)
+    const token = /[?&]token=([^&]+)/.exec(uri)
+    root.peerToken = token ? decodeURIComponent(token[1]) : ""
     log("peer set -> " + root.peerIp + ":" + root.peerPort)
   }
 
   function base() { return "http://" + root.peerIp + ":" + root.peerPort }
+  function authorize(request) {
+    if (root.peerToken) request.setRequestHeader("X-Omarchy-Link-Token", root.peerToken)
+  }
 
   // FileView remains the event-driven source, while this cheap local probe
   // repairs stale bar state after helper/shell restarts or missed file events.
@@ -114,6 +121,7 @@ Panel {
   function getJson(path, onOk, onErr) {
     const x = new XMLHttpRequest()
     x.open("GET", base() + path)
+    authorize(x)
     x.onreadystatechange = function () {
       if (x.readyState === XMLHttpRequest.DONE) {
         if (x.status === 200) onOk(JSON.parse(x.responseText))
@@ -128,6 +136,7 @@ Panel {
     const x = new XMLHttpRequest()
     x.open("PUT", base() + path)
     x.setRequestHeader("Content-Type", "application/json")
+    authorize(x)
     x.onreadystatechange = function () {
       if (x.readyState === XMLHttpRequest.DONE) {
         if (x.status === 200) onOk(JSON.parse(x.responseText))
@@ -180,6 +189,7 @@ Panel {
     if (!root.screenSharing) return
     var x = new XMLHttpRequest()
     x.open("GET", base() + "/omarchy/screen/status?after=" + root.frameCount + "&timeout=20000")
+    authorize(x)
     x.onreadystatechange = function () {
       if (x.readyState !== XMLHttpRequest.DONE) return
       var advanced = false
@@ -192,6 +202,7 @@ Panel {
             root.frameCount = j.frames
             // Load into the hidden buffer; it flips visible when decoded.
             const url = base() + "/omarchy/screen/frame?sequence=" + j.frames
+              + "&token=" + encodeURIComponent(root.peerToken)
             if (screenImage.frontA) frameB.source = url
             else frameA.source = url
             advanced = true
@@ -209,6 +220,7 @@ Panel {
   function postOnly(path) {
     const x = new XMLHttpRequest()
     x.open("POST", base() + path)
+    authorize(x)
     x.onreadystatechange = function () {
       if (x.readyState === XMLHttpRequest.DONE) log(path + " -> " + x.status)
     }
@@ -222,6 +234,7 @@ Panel {
     const x = new XMLHttpRequest()
     x.open("POST", base() + "/omarchy/input")
     x.setRequestHeader("Content-Type", "application/json")
+    authorize(x)
     x.onreadystatechange = function () {
       if (x.readyState === XMLHttpRequest.DONE) {
         try {
@@ -258,10 +271,12 @@ Panel {
   }
 
   function downloadFile(path, name) {
+    const safeName = String(name || "download").replace(/[^A-Za-z0-9._-]/g, "_")
     // bash expands $HOME; mkdir -p so first download never fails.
     const url = base() + "/omarchy/file?path=" + encodeURIComponent(path)
     dlProc.command = ["bash", "-c",
-      "mkdir -p \"$HOME/Downloads\" && curl -sSL -o \"$HOME/Downloads/" + name + "\" \"" + url + "\""]
+      "mkdir -p \"$HOME/Downloads\" && curl -sSL -H \"X-Omarchy-Link-Token: "
+        + root.peerToken + "\" -o \"$HOME/Downloads/" + safeName + "\" \"" + url + "\""]
     dlProc.running = true
     log("downloading " + name)
   }

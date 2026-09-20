@@ -1,6 +1,11 @@
 <resources>
     <string name="app_name">Ohm Launcher</string>
     <string name="accessibility_service_description">允許 Ohm Launcher 擷取導覽手勢，並在系統未向第三方啟動器提供相應功能時接受遠端控制。</string>
+    <string name="omarchy_navigation_service_name">Omarchy 最近使用的應用程式按鈕</string>
+    <string name="omarchy_navigation_service_description">只有在您按下 Omarchy 列中的方形按鈕時，才會開啟 Android 最近使用的應用程式。此服務不會讀取螢幕、執行手勢或接受遠端指令。</string>
+    <string name="omarchy_navigation_disclosure_title">要啟用 Omarchy 最近使用的應用程式按鈕嗎？</string>
+    <string name="omarchy_navigation_disclosure_message">OhmLauncher 使用 Android 無障礙功能的唯一目的，是在您按下 Omarchy 列中的方形按鈕時開啟最近使用的應用程式。它無法讀取螢幕內容、執行輕觸或滑動，也無法接受遠端指令。您可以隨時停用此功能，以還原 Android 導覽列。</string>
+    <string name="action_continue">繼續</string>
     <string name="favorite_add">加入最愛</string>
     <string name="favorite_remove">從最愛移除</string>
     <string name="action_close">關閉</string>

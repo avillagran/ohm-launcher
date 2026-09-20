@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import json
+import os
+import stat
 import subprocess
 import tempfile
 import threading
@@ -13,6 +15,21 @@ import link_server
 
 
 class ThemeSyncTest(unittest.TestCase):
+    def test_state_file_is_private_and_replaces_symlink_without_following_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state_file = Path(directory) / "state.json"
+            victim = Path(directory) / "victim"
+            victim.write_text("untouched", encoding="utf-8")
+            state_file.symlink_to(victim)
+
+            with patch.object(link_server, "STATE_FILE", str(state_file)):
+                link_server.write_state({"connected": True, "peerToken": "secret"})
+
+            self.assertEqual("untouched", victim.read_text(encoding="utf-8"))
+            self.assertFalse(state_file.is_symlink())
+            self.assertEqual(0o600, stat.S_IMODE(os.stat(state_file).st_mode))
+            self.assertEqual("secret", json.loads(state_file.read_text())["peerToken"])
+
     def test_remote_requests_require_qr_pairing_token(self):
         with tempfile.TemporaryDirectory() as directory:
             token_file = Path(directory) / "token"
@@ -31,6 +48,19 @@ class ThemeSyncTest(unittest.TestCase):
             request.client_address = ("127.0.0.1", 12345)
             request.headers = {}
             self.assertTrue(link_server.Handler._authorized(request))
+
+    def test_remote_clipboard_put_rejects_missing_pairing_token(self):
+        request = MagicMock()
+        request.client_address = ("192.168.1.50", 12345)
+        request.headers = {}
+        request.path = "/omarchy/clipboard"
+        request._authorized = MagicMock(return_value=False)
+        request._json = MagicMock()
+
+        link_server.Handler.do_PUT(request)
+
+        request._json.assert_called_once_with(401, {"ok": False, "error": "unauthorized"})
+        request._read_body.assert_not_called()
 
     def test_current_theme_exports_live_hyprland_corner_geometry(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -366,11 +396,12 @@ class ThemeSyncTest(unittest.TestCase):
 
         def opener(request, timeout):
             calls.append(request)
-            if isinstance(request, str):
+            if request.full_url.endswith("/omarchy/backgrounds/selection"):
                 return Response(json.dumps({"pending": True, "id": "e" * 64}).encode())
             return Response()
 
-        state = {"connected": True, "peerIp": "192.168.1.100", "peerPort": 8753}
+        state = {"connected": True, "peerIp": "192.168.1.100", "peerPort": 8753,
+                 "peerToken": "phone-session-token"}
         theme = {"name": "Nord", "colors": {"accent": "#81a1c1"}}
         with patch("link_server.select_omarchy_background", return_value=True) as select, \
                 patch("link_server.read_omarchy_theme", return_value=theme), \
@@ -382,6 +413,7 @@ class ThemeSyncTest(unittest.TestCase):
         ack = calls[1]
         self.assertEqual("PUT", ack.method)
         self.assertTrue(ack.full_url.endswith("/omarchy/backgrounds/selection/ack"))
+        self.assertEqual("phone-session-token", ack.get_header("X-omarchy-link-token"))
         self.assertEqual({"id": "e" * 64, "status": "applied"}, json.loads(ack.data))
         push.assert_called_once_with(state, theme, opener)
 
