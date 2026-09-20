@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Minimal link-state server for the Omarchy Link plugin.
 
-The phone (OhmLauncher) scans the plugin's `omarchy://<pc-ip>:8753?id=<name>`
-QR. After showing its "connected" snackbar, OhmLauncher POSTs back to this
-server so the PC plugin can reflect the live connection state.
+The phone scans the plugin's `http://<pc-ip>:8753/pair?...` QR. This server
+validates its token and redirects to OhmLauncher's `omarchy://` deep link.
+OhmLauncher then POSTs back so the plugin can reflect the live connection.
 
 Endpoints:
   POST /omarchy/link        body: {"ip": "<phone-ip>", "name": "<phone-name>"}
@@ -1180,6 +1180,47 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        parsed = urlparse(self.path)
+        if parsed.path == "/pair":
+            params = {}
+            for part in parsed.query.split("&"):
+                key, separator, value = part.partition("=")
+                if not separator or key in params:
+                    self._json(400, {"ok": False, "error": "invalid_pairing_link"})
+                    return
+                params[key] = unquote(value)
+            token = params.get("token", "")
+            peer_id = params.get("id", "omarchy-pc")
+            expected = TOKEN_FILE.read_text().strip() if TOKEN_FILE.exists() else ""
+            host_header = self.headers.get("Host", "")
+            try:
+                target = urlparse(f"http://{host_header}")
+                host = target.hostname or ""
+                port = target.port or PORT
+                ipaddress.ip_address(host)
+                valid_host = port == PORT
+            except (ValueError, OSError):
+                valid_host = False
+                host = ""
+                port = PORT
+            if (
+                not expected
+                or not hmac.compare_digest(token, expected)
+                or not valid_host
+                or not peer_id
+                or len(peer_id) > 128
+                or any(ord(character) < 32 or ord(character) == 127 for character in peer_id)
+            ):
+                self._json(401, {"ok": False, "error": "unauthorized"})
+                return
+            authority = f"[{host}]" if ":" in host else host
+            location = f"omarchy://{authority}:{port}?id={quote(peer_id)}&token={quote(token)}"
+            self.send_response(302)
+            self.send_header("Location", location)
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         if not self._authorized():
             self._json(401, {"ok": False, "error": "unauthorized"})
             return

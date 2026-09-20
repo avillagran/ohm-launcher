@@ -9,8 +9,9 @@
 # Output: /tmp/omarchy-link-qr.png  (overwritten)
 #
 # The QR includes a random pairing token. Remote API calls without it are denied.
-# The phone scans it with the system camera; Android routes the omarchy://
-# intent to OhmLauncher, which connects back to this PC.
+# The phone scans an HTTP URL with the system camera. The local link server
+# validates the pairing token and redirects the browser to the omarchy:// deep
+# link, which also works on camera apps that treat custom schemes as plain text.
 set -euo pipefail
 
 IP="${1:-}"
@@ -27,6 +28,6 @@ fi
 umask 077
 TOKEN="$(openssl rand -hex 16)"
 printf '%s' "$TOKEN" > "$TOKEN_FILE"
-URI="omarchy://${IP}:${PORT}?id=${ID}&token=${TOKEN}"
+URI="http://${IP}:${PORT}/pair?id=${ID}&token=${TOKEN}"
 qrencode -o "$OUT" -s 8 -m 2 "$URI"
 echo "wrote $OUT -> $URI"
