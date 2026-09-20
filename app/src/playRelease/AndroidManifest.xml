@@ -17,7 +17,7 @@
     <application
         android:allowBackup="false"
         android:requestLegacyExternalStorage="false"
-        android:usesCleartextTraffic="false"
+        android:usesCleartextTraffic="true"
         tools:replace="android:allowBackup,android:requestLegacyExternalStorage,android:usesCleartextTraffic">
         <service android:name=".ClipboardMonitorService" tools:node="remove" />
         <service android:name=".ScreenCaptureService" tools:node="remove" />

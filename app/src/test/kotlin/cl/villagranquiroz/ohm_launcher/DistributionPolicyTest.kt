@@ -10,6 +10,8 @@ class DistributionPolicyTest {
         val policy = DistributionPolicy(playStore = true)
 
         assertFalse(policy.allowLanIntegration)
+        assertTrue(policy.allowOmarchyPeerConnection)
+        assertFalse(policy.allowClipboardSync)
         assertFalse(policy.allowAllFilesAccess)
         assertFalse(policy.allowAccessibilityControl)
         assertFalse(policy.allowNotificationAccess)
@@ -22,6 +24,8 @@ class DistributionPolicyTest {
         val policy = DistributionPolicy(playStore = false)
 
         assertTrue(policy.allowLanIntegration)
+        assertTrue(policy.allowOmarchyPeerConnection)
+        assertTrue(policy.allowClipboardSync)
         assertTrue(policy.allowAllFilesAccess)
         assertTrue(policy.allowAccessibilityControl)
         assertTrue(policy.allowNotificationAccess)

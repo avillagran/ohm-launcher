@@ -5,6 +5,8 @@ data class DistributionPolicy(
     val playStore: Boolean,
 ) {
     val allowLanIntegration: Boolean get() = !playStore
+    val allowOmarchyPeerConnection: Boolean get() = true
+    val allowClipboardSync: Boolean get() = !playStore
     val allowAllFilesAccess: Boolean get() = !playStore
     val allowAccessibilityControl: Boolean get() = !playStore
     val allowNotificationAccess: Boolean get() = !playStore

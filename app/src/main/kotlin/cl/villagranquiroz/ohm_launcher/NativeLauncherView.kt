@@ -2456,10 +2456,10 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 context.getString(R.string.menu_omarchy),
                 children = buildList {
                     add(OmarchyMenuEntry(NerdGlyph.DOWN, context.getString(R.string.menu_install_omarchy_link), action = { activity.openOmarchyLinkInstallationPage() }))
+                    add(OmarchyMenuEntry(NerdGlyph.CAMERA, context.getString(R.string.menu_read_qr), action = { activity.readOmarchyQr() }))
                     if (!BuildConfig.PLAY_STORE_DISTRIBUTION) {
                         add(OmarchyMenuEntry(NerdGlyph.BLUETOOTH, context.getString(R.string.menu_bluetooth), action = { activity.scanOmarchyBluetooth() }))
                         add(OmarchyMenuEntry(NerdGlyph.QR, context.getString(R.string.menu_show_qr), action = { activity.showOmarchyQr() }))
-                        add(OmarchyMenuEntry(NerdGlyph.CAMERA, context.getString(R.string.menu_read_qr), action = { activity.readOmarchyQr() }))
                     }
                 },
             ),

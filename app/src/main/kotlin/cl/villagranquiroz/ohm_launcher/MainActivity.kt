@@ -1305,11 +1305,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleDeepLink(intent: Intent?) {
-        if (!distributionPolicy.allowLanIntegration) return
+        if (!distributionPolicy.allowOmarchyPeerConnection) return
         val uri = intent?.data ?: return
         if (uri.scheme != "omarchy") return
         val peer = OmarchyPeerUri.parse(uri.toString())
-        if (peer == null) {
+        if (peer == null || (distributionPolicy.playStore && peer.token.isEmpty())) {
             root.showConfigError(getString(R.string.invalid_omarchy_link))
             return
         }
@@ -1318,20 +1318,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun restorePeer() {
-        if (!distributionPolicy.allowLanIntegration) return
+        if (!distributionPolicy.allowOmarchyPeerConnection) return
         val peer = currentSettings.omarchyPeer ?: return
         connectPeer(peer, persist = false)
     }
 
     private fun connectPeer(peer: OmarchyPeer, persist: Boolean) {
-        if (!distributionPolicy.allowLanIntegration) return
+        if (!distributionPolicy.allowOmarchyPeerConnection) return
         connectionState.connect(peer, replace = true)
-        ContextCompat.startForegroundService(
-            this,
-            Intent(this, ClipboardMonitorService::class.java)
-                .putExtra("peerIp", peer.host)
-                .putExtra("peerPort", peer.port),
-        )
+        if (distributionPolicy.allowClipboardSync) {
+            ContextCompat.startForegroundService(
+                this,
+                Intent(this, ClipboardMonitorService::class.java)
+                    .putExtra("peerIp", peer.host)
+                    .putExtra("peerPort", peer.port),
+            )
+        }
         mainHandler.removeCallbacks(peerProbe)
         mainHandler.postDelayed(peerProbe, PEER_PROBE_INTERVAL_MS)
         io.execute {
