@@ -2,30 +2,24 @@
 
 ## Kort beskrivning
 
-En Omarchy-inspirerad Android-startskärm med lokal anpassning.
+En Omarchy-startskärm med teman, widgetar och snabb appsökning.
 
 ## Fullständig beskrivning
 
-OhmLauncher är en inbyggd Android-launcher inspirerad av Omarchy. Den ger mobilen en fokuserad skrivbordsstil samtidigt som funktioner och data stannar på enheten.
+OhmLauncher tar Omarchys rena och fokuserade stil till Androids startskärm. Börja direkt i Omarchy-läget och anpassa utseendet med medföljande teman och bakgrunder.
 
-Omarchy från första starten
+Din startskärm på ditt sätt
 
-• Startar i Omarchy-läge som standard, med ett kompakt och fokuserat navigeringsfält.
-• Innehåller en katalog med Omarchy-teman, förhandsvisningar och matchande bakgrunder som fungerar offline.
-• Låter dig ordna appar i konfigurerbara kantrutor och snabbt hitta installerade appar med sökfunktionen.
-• Stöder Android-widgetar och lokala insticksprogram så att startskärmen passar ditt arbetssätt.
-• Innehåller en terminal i Quake-stil för snabb åtkomst till kommandon som stöds på enheten.
-• Erbjuder animerade TTFX-bakgrunder, inklusive valfria ljudreaktiva effekter. Ljud som spelas upp på enheten analyseras tillfälligt och endast lokalt; det spelas aldrig in, lagras, laddas upp eller överförs. Android begär mikrofonbehörighet enbart eftersom den styr visualisering av systemljud; TTFX använder inte den fysiska mikrofonen.
-• Google Play-utgåvan begär inte åtkomst till aviseringar och visar inga aviseringsmärken.
+• Ha favoritappar nära till hands och hitta andra appar med snabb sökning.
+• Ordna appar och genvägar i anpassningsbara kantrutor.
+• Lägg till Android-widgetar och lokala insticksprogram för en layout som passar dig.
+• Öppna terminalen i Quake-stil för snabb åtkomst till kommandon som stöds.
+• Ge skärmen liv med animerade TTFX-bakgrunder och valfria ljudreaktiva effekter.
 
-Privat från grunden
+Din konfiguration stannar på din enhet.
 
-Den här säkra Google Play-utgåvan har ingen fjärråtkomst via lokalt nätverk, enhetsparkoppling, fjärrstyrning, skärmdelning, synkronisering av urklipp eller överföring av filer och foton.
-
-Inga annonser. Ingen analys. Inget konto. Ingen server som drivs av utvecklaren. Dina inställningar, uppgifter om installerade appar, widgetdata och valfri lokal analys av uppspelat ljud stannar på enheten. Behörigheter begärs bara när en funktion behöver dem, och valfri åtkomst kan stängas av i Android-inställningarna.
-
-OhmLauncher ersätter Android-startskärmen först när du väljer appen som standardlauncher. Den kan identifiera installerade appar eftersom det är en central launcherfunktion att bläddra bland och öppna dem.
+Välj OhmLauncher som standardlauncher i Android-inställningarna för att använda den som startskärm. Du kan ändra standardapp när du vill.
 
 ## Versionsinformation
 
-Första säkra Google Play-utgåvan. Omarchy-läget är aktiverat som standard och innehåller offline-teman och bakgrunder, appsökning, kantrutor, widgetar, lokala insticksprogram, en terminal i Quake-stil och lokala TTFX-effekter. Ingen fjärråtkomst, reklam, analys, konton eller utvecklarserver.
+Välkommen till den första versionen av OhmLauncher. Njut av Omarchy-läget från första starten, medföljande teman och bakgrunder, favoritappar, snabb sökning, kantrutor, widgetar, lokala insticksprogram, terminalen i Quake-stil och animerade TTFX-bakgrunder.

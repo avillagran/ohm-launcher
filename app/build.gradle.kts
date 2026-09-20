@@ -20,7 +20,7 @@ android {
         targetSdk = 36
         // Google Play requires a new internal code for every uploaded bundle.
         // The public release remains 0.0.4.
-        versionCode = 6
+        versionCode = 7
         versionName = "0.0.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

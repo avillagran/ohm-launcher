@@ -2,30 +2,24 @@
 
 ## Descrição curta
 
-Launcher Android inspirado no Omarchy, personalizável e privado.
+Tela inicial no estilo Omarchy com temas, widgets e busca rápida.
 
 ## Descrição completa
 
-OhmLauncher é um launcher nativo para Android inspirado no Omarchy. No app distribuído pelo Google Play, o modo Omarchy vem ativado por padrão para oferecer uma tela inicial organizada, rápida e com uma identidade visual marcante.
+O OhmLauncher leva o visual organizado do Omarchy à tela inicial do Android. Comece no modo Omarchy e personalize tudo com temas e planos de fundo incluídos.
 
-Personalize sua tela inicial
+Sua tela inicial, do seu jeito
 
-• Escolha entre temas e planos de fundo incluídos no app.
-• Organize seus apps favoritos para acessá-los com rapidez.
-• Encontre e abra apps instalados usando a busca.
-• Crie caixas configuráveis nas bordas para agrupar apps e atalhos.
-• Adicione widgets do Android e plugins para adaptar a área de trabalho ao seu jeito.
-• Use o terminal no estilo Quake para acessar rapidamente comandos e fluxos compatíveis.
-• Crie fundos animados com o editor TTFX e aproveite efeitos visuais que reagem ao áudio. O áudio reproduzido pelo dispositivo é analisado apenas temporariamente e no próprio aparelho; nunca é gravado, armazenado, enviado ou transmitido. O Android solicita a permissão de microfone somente porque ela controla a visualização do áudio do sistema; o TTFX não usa o microfone físico.
+• Mantenha os apps favoritos por perto e encontre qualquer aplicativo com a busca rápida.
+• Organize apps e atalhos em caixas laterais configuráveis.
+• Adicione widgets do Android e plugins locais para criar o layout ideal para você.
+• Abra o terminal no estilo Quake para acessar rapidamente comandos compatíveis.
+• Dê vida à tela com fundos TTFX animados e efeitos opcionais que reagem ao áudio.
 
-Feito para o seu dispositivo
+Sua configuração permanece no seu dispositivo.
 
-O OhmLauncher funciona como a tela inicial do Android depois que você o escolhe como launcher padrão. O acesso aos apps instalados permite pesquisar e abrir aplicativos. A versão do Google Play não solicita acesso às notificações nem exibe indicadores de notificação.
-
-Privacidade desde o início
-
-Sem anúncios. Sem análise de uso. Sem conta. Sem backend ou servidores do desenvolvedor. O app do Google Play não oferece conexão remota por LAN, controle remoto, compartilhamento de tela nem transferência da área de transferência. Seus temas, planos de fundo, favoritos e ajustes permanecem no seu dispositivo.
+Para usar o OhmLauncher como tela inicial, escolha-o como launcher padrão nas configurações do Android. Você pode trocar o app de início quando quiser.
 
 ## Notas da versão
 
-Primeira versão pública do OhmLauncher no Google Play. Inclui modo Omarchy por padrão, temas e planos de fundo integrados, favoritos, busca de apps, caixas laterais, widgets, plugins, terminal Quake e efeitos TTFX. Sem anúncios, análise de uso, contas ou backend.
+Boas-vindas à primeira versão do OhmLauncher. Aproveite o modo Omarchy desde o primeiro uso, temas e planos de fundo incluídos, apps favoritos, busca rápida, caixas laterais, widgets, plugins locais, o terminal no estilo Quake e fundos TTFX animados.

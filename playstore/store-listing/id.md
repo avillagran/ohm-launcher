@@ -2,29 +2,24 @@
 
 ## Deskripsi singkat
 
-Layar utama Android ala Omarchy dengan kustomisasi lokal sepenuhnya.
+Layar utama ala Omarchy dengan tema, widget, dan pencarian cepat.
 
 ## Deskripsi lengkap
 
-OhmLauncher adalah launcher layar utama Android asli yang terinspirasi dari Omarchy. Aplikasi ini memberikan gaya desktop yang fokus di ponsel Anda, sambil menjaga semua fitur dan data tetap berada di perangkat Anda.
+OhmLauncher menghadirkan tampilan Omarchy yang rapi dan terfokus ke layar utama Android. Gunakan mode Omarchy sejak pertama dibuka, lalu sesuaikan dengan tema dan latar belakang bawaan.
 
-Omarchy sejak peluncuran pertama
+Layar utama sesuai gaya Anda
 
-• Berjalan dalam mode Omarchy secara default, dengan bilah navigasi yang ringkas dan fokus.
-• Menyertakan katalog tema Omarchy, pratinjau, dan latar belakang yang cocok langsung di dalam aplikasi, siap digunakan secara luring.
-• Memungkinkan Anda menyusun aplikasi dalam kotak tepi yang dapat diatur dan menemukan aplikasi terpasang dengan cepat melalui pencarian.
-• Mendukung widget Android dan plugin lokal untuk layar utama yang sesuai dengan alur kerja Anda.
-• Menyertakan terminal ala Quake untuk akses cepat ke perintah-perintah di perangkat yang didukung.
-• Menawarkan latar belakang TTFX animasi, termasuk visual reaktif audio opsional. Audio yang diputar perangkat dianalisis sesaat dan hanya di perangkat; audio tidak pernah direkam, disimpan, diunggah, atau dikirim. Android meminta izin mikrofon semata-mata karena izin tersebut membatasi visualisasi audio sistem; TTFX tidak menggunakan mikrofon fisik.
+• Simpan aplikasi favorit agar mudah dijangkau dan temukan aplikasi lain lewat pencarian cepat.
+• Susun aplikasi dan pintasan dalam kotak tepi yang dapat diatur.
+• Tambahkan widget Android dan plugin lokal untuk membuat tata letak yang cocok bagi Anda.
+• Buka terminal ala Quake untuk mengakses perintah yang didukung dengan cepat.
+• Hidupkan layar dengan latar belakang TTFX animasi dan efek opsional yang bereaksi terhadap audio.
 
-Privasi sejak desain
+Konfigurasi Anda tetap berada di perangkat Anda.
 
-Edisi Google Play yang aman ini sepenuhnya lokal: tidak ada fitur jarak jauh, tanpa akses jaringan antar perangkat.
-
-Tanpa iklan. Tanpa analitik. Tanpa akun. Tanpa backend yang dikelola pengembang. Setelan Anda, informasi aplikasi terpasang, data widget, dan analisis lokal opsional atas audio yang diputar tetap berada di perangkat Anda. Izin hanya diminta saat diperlukan untuk sebuah fitur, dan akses opsional dapat dinonaktifkan di setelan Android.
-
-OhmLauncher menggantikan layar utama Android Anda hanya setelah Anda memilihnya sebagai launcher default. Aplikasi ini dapat mendeteksi aplikasi terpasang karena menjelajah dan membukanya adalah fungsi inti sebuah launcher.
+Untuk memakai OhmLauncher sebagai layar utama, pilih sebagai launcher default di setelan Android. Anda dapat mengganti aplikasi layar utama kapan saja.
 
 ## Catatan rilis
 
-Rilis pertama Google Play yang aman. Mode Omarchy aktif secara default, dengan tema dan latar belakang luring yang tersedia langsung, pencarian aplikasi, kotak tepi, widget, plugin lokal, terminal ala Quake, dan visual TTFX lokal. Tanpa akses jarak jauh, iklan, analitik, akun, atau layanan pengembang.
+Selamat datang di rilis pertama OhmLauncher. Nikmati mode Omarchy sejak pertama dibuka, tema dan latar belakang bawaan, aplikasi favorit, pencarian cepat, kotak tepi, widget, plugin lokal, terminal ala Quake, dan latar belakang TTFX animasi.

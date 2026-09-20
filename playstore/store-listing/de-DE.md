@@ -2,33 +2,24 @@
 
 ## Kurzbeschreibung
 
-Ein von Omarchy inspirierter Android-Startbildschirm mit integrierten Designs.
+Omarchy-Startbildschirm mit Designs, Widgets und schneller App-Suche.
 
 ## Vollständige Beschreibung
 
-OhmLauncher ist ein nativer Android-Startbildschirm, der von Omarchy inspiriert ist. Er bringt einen aufgeräumten, fokussierten Desktop-Stil auf Ihr Telefon – und Ihre Daten bleiben unter Ihrer Kontrolle.
+OhmLauncher bringt den klaren Omarchy-Stil auf Ihren Android-Startbildschirm. Beginnen Sie direkt im Omarchy-Modus und gestalten Sie ihn mit den enthaltenen Designs und Hintergründen nach Ihren Wünschen.
 
-Gestalten Sie Ihren Startbildschirm
+Ihr Startbildschirm, Ihr Stil
 
-• Nutzen Sie standardmäßig den Omarchy-Stil und wählen Sie aus integrierten Designs und Hintergründen.
-• Fügen Sie Android-Widgets und Plugins hinzu, um Ihren Startbildschirm nach Ihren Wünschen zu gestalten.
-• Legen Sie Ihre häufig genutzten Apps in konfigurierbaren Randboxen ab.
-• Finden und öffnen Sie installierte Apps schnell über die Suche.
-• Kehren Sie über Favoriten und zuletzt verwendete Apps schnell zu Ihren Inhalten zurück.
-• Nutzen Sie das Quake-Terminal für den schnellen Zugriff auf unterstützte lokale Befehle und Abläufe.
-• Genießen Sie TTFX-Visuals, die auf Audio reagieren. Die Audiowiedergabe des Geräts wird nur vorübergehend auf dem Gerät analysiert und niemals aufgenommen, gespeichert, hochgeladen oder übertragen. Android verlangt die Mikrofonberechtigung ausschließlich, weil sie die Systemaudiovisualisierung freigibt; TTFX verwendet nicht das physische Mikrofon.
-• Legen Sie ein animiertes TTFX-Hintergrundbild mit Omarchy-Design und Sanduhr fest.
+• Halten Sie Lieblings-Apps griffbereit und finden Sie jede App über die schnelle Suche.
+• Ordnen Sie Apps und Verknüpfungen in anpassbaren Randboxen an.
+• Ergänzen Sie Android-Widgets und lokale Plugins für ein passendes Layout.
+• Öffnen Sie das Quake-Terminal für schnellen Zugriff auf unterstützte Befehle.
+• Erwecken Sie den Bildschirm mit animierten TTFX-Hintergründen und optionalen audioreaktiven Effekten zum Leben.
 
-Praktische Android-Integrationen
+Ihre Einrichtung bleibt auf Ihrem Gerät.
 
-• Die Google-Play-Version fordert keinen Benachrichtigungszugriff an und zeigt keine Benachrichtigungsbadges.
-• Der Zugriff auf installierte Apps ermöglicht Suche und Start von Apps.
-• OhmLauncher ersetzt Ihren Android-Startbildschirm erst, wenn Sie es als Standard-Launcher auswählen.
-
-Datenschutz zuerst
-
-Keine Werbung, keine Analyse, kein Konto. OhmLauncher nutzt keine Entwickler-Server. Startbildschirm, Suche, Designs, Visuals und Einstellungen laufen lokal auf Ihrem Gerät. Berechtigungen werden nur für die jeweilige Funktion angefordert, und optionale Zugriffe können jederzeit in den Android-Einstellungen deaktiviert werden.
+Um OhmLauncher als Startbildschirm zu verwenden, wählen Sie ihn in den Android-Einstellungen als Standard-Launcher aus. Die Standard-Start-App lässt sich jederzeit ändern.
 
 ## Versionshinweise
 
-Erste öffentliche Version von OhmLauncher: Startbildschirm im Omarchy-Stil, integrierte Designs und Hintergründe, App-Suche, Randboxen, Widgets, Plugins, Quake-Terminal und lokale TTFX-Visuals. Keine Werbung, keine Analyse, keine Konten.
+Willkommen bei der ersten Version von OhmLauncher. Freuen Sie sich vom ersten Start an auf den Omarchy-Modus, enthaltene Designs und Hintergründe, Lieblings-Apps, schnelle Suche, Randboxen, Widgets, lokale Plugins, das Quake-Terminal und animierte TTFX-Hintergründe.
