@@ -1717,7 +1717,11 @@ class MainActivity : AppCompatActivity() {
         check(Regex("^[a-z0-9-]+$").matches(themeId))
         val directory = filesDir.resolve("omarchy-style/bundled").apply { mkdirs() }
         val target = directory.resolve("$themeId.$extension")
-        assets.open(assetPath).use { input -> target.outputStream().use(input::copyTo) }
+        val bytes = assets.open(assetPath).use { it.readBytes() }
+        val existing = target.takeIf(File::isFile)?.readBytes()
+        if (!OmarchyBundledBackground.shouldReuse(existing, bytes)) {
+            target.writeBytes(bytes)
+        }
         target.absolutePath
     }.getOrNull()
 
