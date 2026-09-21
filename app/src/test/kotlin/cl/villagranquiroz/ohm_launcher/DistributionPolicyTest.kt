@@ -18,6 +18,8 @@ class DistributionPolicyTest {
         assertTrue(policy.allowCompactSystemNavigation)
         assertTrue(policy.allowCompactRecentsNavigation)
         assertTrue(policy.allowOmarchyBarMode)
+        assertTrue(policy.allowPublicSystemThemeIntegration)
+        assertFalse(policy.allowPrivilegedSystemThemeIntegration)
     }
 
     @Test
@@ -33,5 +35,7 @@ class DistributionPolicyTest {
         assertTrue(policy.allowCompactSystemNavigation)
         assertTrue(policy.allowCompactRecentsNavigation)
         assertTrue(policy.allowOmarchyBarMode)
+        assertTrue(policy.allowPublicSystemThemeIntegration)
+        assertTrue(policy.allowPrivilegedSystemThemeIntegration)
     }
 }

@@ -13,4 +13,6 @@ data class DistributionPolicy(
     val allowCompactSystemNavigation: Boolean get() = true
     val allowCompactRecentsNavigation: Boolean get() = true
     val allowOmarchyBarMode: Boolean get() = true
+    val allowPublicSystemThemeIntegration: Boolean get() = true
+    val allowPrivilegedSystemThemeIntegration: Boolean get() = !playStore
 }
