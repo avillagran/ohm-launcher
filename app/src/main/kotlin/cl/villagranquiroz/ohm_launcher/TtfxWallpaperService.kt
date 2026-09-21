@@ -258,7 +258,12 @@ class TtfxWallpaperService : WallpaperService() {
             )
             if (report.notify) {
                 lastReportedFingerprint = colors.fingerprint
-                handler.post { notifyColorsChanged() }
+                // Runtime guard is redundant with the policy's API gate, but
+                // keeping it explicit lets lint verify the API 27+ requirement
+                // for notifyColorsChanged() without a suppression.
+                if (Build.VERSION.SDK_INT >= OmarchyWallpaperColors.WALLPAPER_COLORS_MIN_SDK) {
+                    handler.post { notifyColorsChanged() }
+                }
             }
         }
 
@@ -271,6 +276,11 @@ class TtfxWallpaperService : WallpaperService() {
          */
         override fun onComputeColors(): android.app.WallpaperColors? {
             val colors = currentSystemColors ?: return null
+            // Only the exposed colors matter here; the notify flag from this
+            // evaluation is intentionally ignored (notifications are owned by
+            // reportSystemColors, which compares against the last reported
+            // fingerprint). previousFingerprint = null keeps the evaluation
+            // pure without side effects.
             val report = TtfxWallpaperColorPolicy.evaluate(
                 api = Build.VERSION.SDK_INT,
                 syncEnabled = systemSyncEnabled,
