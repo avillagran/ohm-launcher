@@ -10,16 +10,25 @@ import android.net.Uri
 import android.os.Build
 import java.io.File
 
+/** Pure decision for whether the launcher may mutate Android's system wallpaper. */
+internal object SystemWallpaperSyncPolicy {
+    fun shouldSync(enabled: Boolean, desiredKey: String, storedKey: String?): Boolean =
+        enabled && desiredKey != storedKey
+}
+
 /** Keeps Android's home wallpaper aligned with the launcher's selected background. */
 internal object SystemWallpaperSync {
     fun desiredKey(backgroundImage: String, fallbackColor: String): String {
         val file = resolveFile(backgroundImage)
         return if (file != null) {
-            "file:${file.absolutePath}:${file.length()}:${file.lastModified()}"
+            fileKey(file)
         } else {
             "color:${fallbackColor.lowercase()}"
         }
     }
+
+    internal fun fileKey(file: File): String =
+        "file:${file.absolutePath}:${file.length()}:${file.lastModified()}"
 
     fun appliedKey(backgroundImage: String, fallbackColor: String, imageApplied: Boolean): String =
         if (imageApplied) desiredKey(backgroundImage, fallbackColor)
@@ -42,9 +51,10 @@ internal object SystemWallpaperSync {
 
     private fun resolveFile(value: String): File? {
         if (value.isBlank()) return null
-        val uri = Uri.parse(value)
-        if (uri.scheme != null && uri.scheme != "file") return null
-        return File(uri.path ?: value).takeIf(File::isFile)
+        // Unparseable values fall back to being treated as plain file paths.
+        val uri = runCatching { Uri.parse(value) }.getOrNull()
+        if (uri != null && uri.scheme != null && uri.scheme != "file") return null
+        return File(uri?.path ?: value).takeIf(File::isFile)
     }
 
     private fun decodePreview(file: File): Bitmap? = runCatching {

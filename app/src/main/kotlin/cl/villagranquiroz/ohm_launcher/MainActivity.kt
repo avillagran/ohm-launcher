@@ -1774,13 +1774,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun syncSystemWallpaper(config: LauncherConfig, settings: LauncherSettings) {
+        // Honor the user preference and the distribution boundary before any
+        // system wallpaper preference read/write or WallpaperManager call.
+        if (!settings.applyOmarchyThemeToSystem) return
+        if (!distributionPolicy.allowPublicSystemThemeIntegration) return
         val backgroundImage = config.desktops.firstOrNull()?.backgroundImage.orEmpty()
         val color = OmarchyThemePalette.fromSettings(settings.raw)?.color("background")
             ?: config.desktops.firstOrNull()?.background
             ?: config.wallpaper
         val key = SystemWallpaperSync.desiredKey(backgroundImage, color)
         val preferences = getSharedPreferences(SYSTEM_WALLPAPER_PREFS, MODE_PRIVATE)
-        if (preferences.getString(SYSTEM_WALLPAPER_KEY, null) == key) return
+        val storedKey = preferences.getString(SYSTEM_WALLPAPER_KEY, null)
+        if (!SystemWallpaperSyncPolicy.shouldSync(settings.applyOmarchyThemeToSystem, key, storedKey)) return
         val imageApplied = backgroundImage.isNotBlank() && SystemWallpaperSync.apply(this, backgroundImage)
         val applied = if (imageApplied) {
             true
