@@ -105,6 +105,8 @@
     <string name="setting_box_border_visible">Borda das caixas</string>
     <string name="setting_box_border_width">Largura da borda das caixas</string>
     <string name="setting_box_icon_size">Tamanho dos ícones das caixas</string>
+    <string name="setting_apply_omarchy_system_theme">Aplicar cores Omarchy ao Android</string>
+    <string name="setting_apply_omarchy_system_theme_summary">Apenas superfícies e apps compatíveis com o Material You seguem essas cores.</string>
     <string name="setting_set_wallpaper">Definir papel de parede TTFX</string>
     <string name="ttfx_wallpaper_description">Plano de fundo animado TTFX com o tema Omarchy e ampulheta</string>
     <string name="setting_bar_radius">Raio da barra</string>

@@ -105,6 +105,8 @@
     <string name="setting_box_border_visible">बॉक्स बॉर्डर</string>
     <string name="setting_box_border_width">बॉक्स बॉर्डर की मोटाई</string>
     <string name="setting_box_icon_size">बॉक्स आइकन का आकार</string>
+    <string name="setting_apply_omarchy_system_theme">Android पर Omarchy रंग लागू करें</string>
+    <string name="setting_apply_omarchy_system_theme_summary">केवल संगत Material You सतहें और ऐप्स इन रंगों का पालन करते हैं।</string>
     <string name="setting_set_wallpaper">TTFX वॉलपेपर सेट करें</string>
     <string name="ttfx_wallpaper_description">Omarchy थीम और रेत घड़ी के साथ एनिमेटेड TTFX बैकग्राउंड</string>
     <string name="setting_bar_radius">बार रेडियस</string>

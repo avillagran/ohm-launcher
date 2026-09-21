@@ -105,6 +105,8 @@
     <string name="setting_box_border_visible">Obramowanie pudełka</string>
     <string name="setting_box_border_width">Szerokość obramowania pudełka</string>
     <string name="setting_box_icon_size">Rozmiar ikony pudełka</string>
+    <string name="setting_apply_omarchy_system_theme">Zastosuj kolory Omarchy na Androidzie</string>
+    <string name="setting_apply_omarchy_system_theme_summary">Tylko zgodne z Material You powierzchnie i aplikacje stosują te kolory.</string>
     <string name="setting_set_wallpaper">Ustaw tapetę TTFX</string>
     <string name="ttfx_wallpaper_description">Animowane tło TTFX z motywem Omarchy i zegarem piaskowym</string>
     <string name="setting_bar_radius">Promień pręta</string>

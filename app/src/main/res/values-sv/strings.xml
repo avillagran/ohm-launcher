@@ -105,6 +105,8 @@
     <string name="setting_box_border_visible">Rutornas kantlinje</string>
     <string name="setting_box_border_width">Rutornas kantbredd</string>
     <string name="setting_box_icon_size">Ikonstorlek i rutor</string>
+    <string name="setting_apply_omarchy_system_theme">Tillämpa Omarchy-färger på Android</string>
+    <string name="setting_apply_omarchy_system_theme_summary">Endast Material You-kompatibla ytor och appar följer dessa färger.</string>
     <string name="setting_set_wallpaper">Använd TTFX-bakgrund</string>
     <string name="ttfx_wallpaper_description">Animerad TTFX-bakgrund med Omarchy-tema och sandklocka</string>
     <string name="setting_bar_radius">Fältets hörnradie</string>

@@ -105,6 +105,8 @@
     <string name="setting_box_border_visible">Рамка панели</string>
     <string name="setting_box_border_width">Толщина рамки панели</string>
     <string name="setting_box_icon_size">Размер значков панели</string>
+    <string name="setting_apply_omarchy_system_theme">Применить цвета Omarchy к Android</string>
+    <string name="setting_apply_omarchy_system_theme_summary">Только совместимые с Material You поверхности и приложения используют эти цвета.</string>
     <string name="setting_set_wallpaper">Установить обои TTFX</string>
     <string name="ttfx_wallpaper_description">Анимированный фон TTFX с темой Omarchy и песочными часами</string>
     <string name="setting_bar_radius">Скругление строки</string>

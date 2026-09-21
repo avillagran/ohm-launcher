@@ -105,6 +105,8 @@
     <string name="setting_box_border_visible">方塊邊框</string>
     <string name="setting_box_border_width">方塊邊框寬度</string>
     <string name="setting_box_icon_size">方塊圖示大小</string>
+    <string name="setting_apply_omarchy_system_theme">將 Omarchy 色彩套用至 Android</string>
+    <string name="setting_apply_omarchy_system_theme_summary">只有相容 Material You 的介面和應用程式會使用這些色彩。</string>
     <string name="setting_set_wallpaper">設定 TTFX 桌布</string>
     <string name="ttfx_wallpaper_description">帶有 Omarchy 主題和沙漏的 TTFX 動態背景</string>
     <string name="setting_bar_radius">列圓角</string>

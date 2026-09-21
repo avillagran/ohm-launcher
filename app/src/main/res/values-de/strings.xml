@@ -105,6 +105,8 @@
     <string name="setting_box_border_visible">Box-Rahmen</string>
     <string name="setting_box_border_width">Breite des Box-Rahmens</string>
     <string name="setting_box_icon_size">Größe der Box-Symbole</string>
+    <string name="setting_apply_omarchy_system_theme">Omarchy-Farben auf Android anwenden</string>
+    <string name="setting_apply_omarchy_system_theme_summary">Nur kompatible Material You-Oberflächen und Apps übernehmen diese Farben.</string>
     <string name="setting_set_wallpaper">TTFX-Hintergrundbild festlegen</string>
     <string name="ttfx_wallpaper_description">Animierter TTFX-Hintergrund mit Omarchy-Design und Sanduhr</string>
     <string name="setting_bar_radius">Radius der Leiste</string>

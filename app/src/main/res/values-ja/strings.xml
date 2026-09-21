@@ -105,6 +105,8 @@
     <string name="setting_box_border_visible">ボックスの枠線</string>
     <string name="setting_box_border_width">ボックスの枠線の太さ</string>
     <string name="setting_box_icon_size">ボックスのアイコンサイズ</string>
+    <string name="setting_apply_omarchy_system_theme">OmarchyのカラーをAndroidに適用</string>
+    <string name="setting_apply_omarchy_system_theme_summary">Material Youに対応した画面とアプリのみがこれらのカラーを使用します。</string>
     <string name="setting_set_wallpaper">TTFX 壁紙を設定</string>
     <string name="ttfx_wallpaper_description">Omarchy テーマと砂時計を使用したアニメーション TTFX 背景</string>
     <string name="setting_bar_radius">バーの角丸</string>

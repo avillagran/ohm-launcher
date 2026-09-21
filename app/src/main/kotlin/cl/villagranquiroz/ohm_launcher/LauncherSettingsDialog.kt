@@ -56,6 +56,19 @@ object LauncherSettingsDialog {
         val preferTermux = check(context, column, context.getString(R.string.setting_prefer_termux), current.shellPreferTermux)
         val quake = check(context, column, context.getString(R.string.setting_quake_terminal), current.quakeTerminal)
         val language = spinner(context, column, context.getString(R.string.setting_language), LauncherLanguage.entries.map { it.wireValue }, current.language.wireValue)
+        val applySystemTheme = check(
+            context,
+            column,
+            context.getString(R.string.setting_apply_omarchy_system_theme),
+            current.applyOmarchyThemeToSystem,
+        )
+        column.addView(
+            android.widget.TextView(context).apply {
+                text = context.getString(R.string.setting_apply_omarchy_system_theme_summary)
+                textSize = 12f
+                setPadding(dp(context, 32), 0, 0, dp(context, 4))
+            },
+        )
         column.addView(
             android.widget.Button(context).apply {
                 text = context.getString(R.string.setting_set_wallpaper)
@@ -89,6 +102,7 @@ object LauncherSettingsDialog {
             apiServerPort = apiPort.text.toString().toIntOrNull()?.coerceIn(1, 65535) ?: current.apiServerPort,
             shellPreferTermux = preferTermux.isChecked,
             quakeTerminal = quake.isChecked,
+            applyOmarchyThemeToSystem = applySystemTheme.isChecked,
             language = LauncherLanguage.entries[language.selectedItemPosition],
             aiBaseUrl = aiBase.text.toString(),
             aiApiKey = aiKey.text.toString(),
@@ -112,7 +126,7 @@ object LauncherSettingsDialog {
                 override fun onStopTrackingTouch(bar: SeekBar?) = Unit
             })
         }
-        listOf(gestureNavigation, tapBoxes, apiEnabled, preferTermux, quake, boxBorderVisible)
+        listOf(gestureNavigation, tapBoxes, apiEnabled, preferTermux, quake, boxBorderVisible, applySystemTheme)
             .forEach { it.setOnCheckedChangeListener { _, _ -> updateLive() } }
         listOf(language).forEach { spinner ->
             spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {

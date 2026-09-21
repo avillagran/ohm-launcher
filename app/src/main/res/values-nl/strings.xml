@@ -105,6 +105,8 @@
     <string name="setting_box_border_visible">Vakrand</string>
     <string name="setting_box_border_width">Breedte van de doosrand</string>
     <string name="setting_box_icon_size">Grootte van het vakpictogram</string>
+    <string name="setting_apply_omarchy_system_theme">Omarchy-kleuren op Android toepassen</string>
+    <string name="setting_apply_omarchy_system_theme_summary">Alleen compatibele Material You-omgevingen en apps volgen deze kleuren.</string>
     <string name="setting_set_wallpaper">Stel de TTFX-achtergrond in</string>
     <string name="ttfx_wallpaper_description">Geanimeerde TTFX-achtergrond met het Omarchy-thema en zandklok</string>
     <string name="setting_bar_radius">Stafradius</string>

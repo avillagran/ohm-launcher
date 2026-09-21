@@ -105,6 +105,8 @@
     <string name="setting_box_border_visible">Kutu kenarlığı</string>
     <string name="setting_box_border_width">Kutu kenarlığı genişliği</string>
     <string name="setting_box_icon_size">Kutu simge boyutu</string>
+    <string name="setting_apply_omarchy_system_theme">Omarchy renklerini Android\'e uygula</string>
+    <string name="setting_apply_omarchy_system_theme_summary">Yalnızca uyumlu Material You yüzeyleri ve uygulamaları bu renkleri izler.</string>
     <string name="setting_set_wallpaper">TTFX duvar kağıdını ayarla</string>
     <string name="ttfx_wallpaper_description">Omarchy temalı ve kum saatli animasyonlu TTFX arka planı</string>
     <string name="setting_bar_radius">Çubuk yarıçapı</string>

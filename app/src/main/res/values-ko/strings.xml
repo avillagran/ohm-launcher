@@ -105,6 +105,8 @@
     <string name="setting_box_border_visible">상자 테두리</string>
     <string name="setting_box_border_width">상자 테두리 두께</string>
     <string name="setting_box_icon_size">상자 아이콘 크기</string>
+    <string name="setting_apply_omarchy_system_theme">Omarchy 색상을 Android에 적용</string>
+    <string name="setting_apply_omarchy_system_theme_summary">호환되는 Material You 화면과 앱만 이 색상을 따릅니다.</string>
     <string name="setting_set_wallpaper">TTFX 배경화면 설정</string>
     <string name="ttfx_wallpaper_description">Omarchy 테마와 모래시계가 적용된 움직이는 TTFX 배경</string>
     <string name="setting_bar_radius">바 모서리 둥글기</string>
