@@ -66,6 +66,7 @@ data class LauncherSettings(
     val bottomBarVisible: Boolean,
     val bottomBarPosition: LauncherEdge,
     val omarchyBarMode: Boolean,
+    val applyOmarchyThemeToSystem: Boolean,
     val gestureNavigationEnabled: Boolean,
     val showTapBoxes: Boolean,
     val apiServerEnabled: Boolean,
@@ -104,6 +105,7 @@ data class LauncherSettings(
         result.put("bottomBarVisible", bottomBarVisible)
         result.put("bottomBarPosition", bottomBarPosition.wireValue)
         result.put("omarchyBarMode", omarchyBarMode)
+        result.put("applyOmarchyThemeToSystem", applyOmarchyThemeToSystem)
         result.put("gestureNavigationEnabled", gestureNavigationEnabled)
         result.put("showTapBoxes", showTapBoxes)
         result.put("apiServerEnabled", apiServerEnabled)
@@ -155,6 +157,7 @@ data class LauncherSettings(
                 bottomBarVisible = root.boolean("bottomBarVisible") ?: true,
                 bottomBarPosition = LauncherEdge.fromWireValue(root.opt("bottomBarPosition")) ?: LauncherEdge.TOP,
                 omarchyBarMode = root.boolean("omarchyBarMode") ?: true,
+                applyOmarchyThemeToSystem = root.boolean("applyOmarchyThemeToSystem") ?: true,
                 gestureNavigationEnabled = root.boolean("gestureNavigationEnabled") ?: false,
                 showTapBoxes = root.boolean("showTapBoxes") ?: false,
                 apiServerEnabled = root.boolean("apiServerEnabled") ?: true,

@@ -162,6 +162,39 @@ class LauncherSettingsTest {
     }
 
     @Test
+    fun applyOmarchyThemeToSystemDefaultsToTrueAndRoundTripsBothValues() {
+        assertTrue(LauncherSettings.parse("{}").applyOmarchyThemeToSystem)
+
+        val disabled = LauncherSettings.parse("""{"applyOmarchyThemeToSystem":false}""")
+        assertFalse(disabled.applyOmarchyThemeToSystem)
+        assertFalse(LauncherSettings.parse(disabled.toJson().toString()).applyOmarchyThemeToSystem)
+
+        val enabled = LauncherSettings.parse("""{"applyOmarchyThemeToSystem":true}""")
+        assertTrue(enabled.applyOmarchyThemeToSystem)
+        assertTrue(LauncherSettings.parse(enabled.toJson().toString()).applyOmarchyThemeToSystem)
+    }
+
+    @Test
+    fun applyOmarchyThemeToSystemSerializationLeavesUnknownFieldsAndOmarchyThemeUntouched() {
+        val parsed = LauncherSettings.parse(
+            """{
+              "applyOmarchyThemeToSystem":false,
+              "future":{"enabled":true},
+              "omarchyTheme":{"name":"Nord","mode":"dark","colors":{"accent":"#81a1c1"}}
+            }""",
+        )
+
+        val json = parsed.toJson()
+
+        assertFalse(json.getBoolean("applyOmarchyThemeToSystem"))
+        assertTrue(json.getJSONObject("future").getBoolean("enabled"))
+        val theme = json.getJSONObject("omarchyTheme")
+        assertEquals("Nord", theme.getString("name"))
+        assertEquals("dark", theme.getString("mode"))
+        assertEquals("#81a1c1", theme.getJSONObject("colors").getString("accent"))
+    }
+
+    @Test
     fun peerObjectDefaultsOptionalFieldsAndRejectsMissingRequiredIp() {
         assertEquals(
             OmarchyPeer("desktop.local", 8753, "omarchy-pc"),
