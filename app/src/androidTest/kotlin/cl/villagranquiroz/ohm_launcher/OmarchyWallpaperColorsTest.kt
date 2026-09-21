@@ -13,11 +13,11 @@ import org.junit.runner.RunWith
 /**
  * Instrumentation coverage for the WallpaperColors adapter.
  *
- * API 31+ devices must observe the exact ARGB role mapping through the public
- * three-color constructor; API 27-30 devices exercise the bitmap path
- * (quantized roles, primary still reported); every device exercises the
- * public entry point so class-loading of android.app.WallpaperColors via the
- * method signature is proven safe on the running API level.
+ * On every API 27+ device the public three-color WallpaperColors constructor
+ * is used (it has been public since API 27; only the four-color hints variant
+ * is API 31+), so all three roles must round-trip as exact opaque ARGB. On
+ * API < 27 the entry point must return null and the framework class must
+ * never be loaded outside the guarded branch.
  */
 @RunWith(AndroidJUnit4::class)
 class OmarchyWallpaperColorsTest {
@@ -39,11 +39,9 @@ class OmarchyWallpaperColorsTest {
         }
         assertNotNull(wallpaperColors)
         assertEquals(0xFF, Color.alpha(wallpaperColors!!.primaryColor.toArgb()))
-        if (Build.VERSION.SDK_INT >= 31) {
-            assertEquals(theme.primary, wallpaperColors.primaryColor.toArgb())
-            assertEquals(theme.secondary, wallpaperColors.secondaryColor!!.toArgb())
-            assertEquals(theme.tertiary, wallpaperColors.tertiaryColor!!.toArgb())
-        }
+        assertEquals(theme.primary, wallpaperColors.primaryColor.toArgb())
+        assertEquals(theme.secondary, wallpaperColors.secondaryColor!!.toArgb())
+        assertEquals(theme.tertiary, wallpaperColors.tertiaryColor!!.toArgb())
     }
 
     @Test
