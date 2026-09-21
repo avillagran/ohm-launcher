@@ -14,6 +14,37 @@ import android.widget.FrameLayout
 import java.io.File
 
 /**
+ * Pure decision for reporting Omarchy colors from the TTFX live wallpaper.
+ * Framework-free so the notify/expose gates and the fingerprint dedup are
+ * unit-testable on the JVM. [Report.colors] is the palette the engine may
+ * expose to the system; [Report.notify] tells the engine to call
+ * notifyColorsChanged(). The fingerprint comparison always runs against the
+ * last REPORTED fingerprint, so changes that happened while synchronization
+ * was disabled are still picked up (and notified) once it is re-enabled.
+ */
+object TtfxWallpaperColorPolicy {
+    data class Report(
+        val colors: OmarchySystemThemeColors?,
+        val notify: Boolean,
+    )
+
+    fun evaluate(
+        api: Int,
+        syncEnabled: Boolean,
+        previousFingerprint: String?,
+        next: OmarchySystemThemeColors?,
+    ): Report {
+        val supported = api >= OmarchyWallpaperColors.WALLPAPER_COLORS_MIN_SDK
+        val colors = if (supported && syncEnabled) next else null
+        val notify = supported &&
+            syncEnabled &&
+            next != null &&
+            next.fingerprint != previousFingerprint
+        return Report(colors = colors, notify = notify)
+    }
+}
+
+/**
  * Live wallpaper TTFX: replica el fondo del escritorio (config del desktop 0,
  * paleta Omarchy desde settings.json) y lo dibuja también detrás del lockscreen.
  * Incluye el reloj de arena (partículas) en el tercio superior, como un reloj
@@ -36,6 +67,12 @@ class TtfxWallpaperService : WallpaperService() {
         private var surfaceWidth = 0
         private var surfaceHeight = 0
         private var surfaceReady = false
+
+        // Latest palette read from settings; exposed to the system through
+        // onComputeColors() only while synchronization is enabled.
+        private var currentSystemColors: OmarchySystemThemeColors? = null
+        private var systemSyncEnabled = false
+        private var lastReportedFingerprint: String? = null
 
         private val drawRunnable = Runnable { drawFrame() }
         private val tickRunnable = object : Runnable {
@@ -165,6 +202,7 @@ class TtfxWallpaperService : WallpaperService() {
                 palette?.color("accent")?.let { runCatching { Color.parseColor(it) }.getOrNull() }
                     ?: defaultAccent(),
             )
+            reportSystemColors(settings.applyOmarchyThemeToSystem, palette)
             val config = runCatching {
                 TtfxWallpaperConfig.resolve(directory.resolve(ConfigStorage.CONFIG_NAME).readText())
             }.getOrNull() ?: return
@@ -197,6 +235,50 @@ class TtfxWallpaperService : WallpaperService() {
 
         private fun stopTicker() {
             handler.removeCallbacks(tickRunnable)
+        }
+
+        /**
+         * Computes the Omarchy system colors from [palette] and, through the
+         * pure [TtfxWallpaperColorPolicy], decides whether the system must be
+         * told the wallpaper colors changed. The fingerprint is recorded only
+         * when a notification is posted, so identical reloads (FileObserver
+         * duplicates, settings rewrites with the same palette) stay silent,
+         * while changes that happened while synchronization was disabled are
+         * still picked up once it is re-enabled.
+         */
+        private fun reportSystemColors(syncEnabled: Boolean, palette: OmarchyThemePalette?) {
+            val colors = OmarchySystemTheme.fromPalette(palette)
+            currentSystemColors = colors
+            systemSyncEnabled = syncEnabled
+            val report = TtfxWallpaperColorPolicy.evaluate(
+                api = Build.VERSION.SDK_INT,
+                syncEnabled = syncEnabled,
+                previousFingerprint = lastReportedFingerprint,
+                next = colors,
+            )
+            if (report.notify) {
+                lastReportedFingerprint = colors.fingerprint
+                handler.post { notifyColorsChanged() }
+            }
+        }
+
+        /**
+         * Framework callback (API 27+ only; ART resolves the WallpaperColors
+         * return type lazily per method, so overriding it is safe on API 24).
+         * Delegates the expose/skip decision to the pure policy and the
+         * SDK-gated [OmarchyWallpaperColors] adapter; returns null whenever
+         * synchronization is disabled or no palette has been read yet.
+         */
+        override fun onComputeColors(): android.app.WallpaperColors? {
+            val colors = currentSystemColors ?: return null
+            val report = TtfxWallpaperColorPolicy.evaluate(
+                api = Build.VERSION.SDK_INT,
+                syncEnabled = systemSyncEnabled,
+                previousFingerprint = null,
+                next = colors,
+            )
+            val theme = report.colors ?: return null
+            return OmarchyWallpaperColors.fromTheme(theme)
         }
 
         private fun defaultAccent(): Int = 0xFF66E0FF.toInt()
