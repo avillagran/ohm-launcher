@@ -20,20 +20,24 @@
 - Does it change settings or prevent uninstall/disable? **No**.
 - Does it provide remote control? **No**.
 
-## Demonstration video checklist
+## Demonstration video
 
-Record one continuous, unedited-enough-to-follow video from a clean Play build:
+Reviewer link: https://youtube.com/shorts/nYRgwM4ktSg
 
-- [ ] Show the installed OhmLauncher app/version and that it is the active Home launcher.
-- [ ] Show the in-app explanation immediately before opening Accessibility settings.
-- [ ] Show the exact service name and Android's enable confirmation.
-- [ ] Return to OhmLauncher and show the visible Recents button.
-- [ ] Tap Recents once and show Android Recents opening immediately.
-- [ ] Return to OhmLauncher without demonstrating any unrelated accessibility action.
-- [ ] Disable the service in Android settings.
-- [ ] Return to OhmLauncher and show that ordinary system navigation remains available and the Recents feature does not pretend the service is active.
-- [ ] Keep QR codes, pairing tokens, IP addresses, notifications, account names, and other personal/device information out of frame or blur them.
-- [ ] Upload an accessible reviewer link and verify it works in a signed-out/incognito browser with no access request.
+Recorded 2026-09-21 on the physical phone from the exact Play build. One continuous take covering the full enable/use/disable flow below; audited locally (full decode, contact sheet, key frames, privacy review) and verified signed out on 2026-09-22: `playabilityStatus` OK, `isPrivate` false, duration 69 s, video ID matches.
+
+Checklist covered by the take:
+
+- [x] Show the installed OhmLauncher app/version and that it is the active Home launcher.
+- [x] Show the in-app explanation immediately before opening Accessibility settings.
+- [x] Show the exact service name and Android's enable confirmation.
+- [x] Return to OhmLauncher and show the visible Recents button.
+- [x] Tap Recents once and show Android Recents opening immediately.
+- [x] Return to OhmLauncher without demonstrating any unrelated accessibility action.
+- [x] Disable the service in Android settings.
+- [x] Return to OhmLauncher and show that ordinary system navigation remains available and the Recents feature does not pretend the service is active.
+- [x] Keep QR codes, pairing tokens, IP addresses, notifications, account names, and other personal/device information out of frame or blur them.
+- [x] Upload an accessible reviewer link and verify it works in a signed-out/incognito browser with no access request.
 
 ## Artifact evidence to retain
 
