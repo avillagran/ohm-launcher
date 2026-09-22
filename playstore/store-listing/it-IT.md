@@ -20,6 +20,14 @@ La configurazione del launcher rimane sul telefono. Se abbini un computer Omarch
 
 Per usare OhmLauncher come schermata Home, selezionalo come launcher predefinito nelle impostazioni di Android. Puoi cambiare l’app Home in qualsiasi momento.
 
+Servizio di accessibilità
+
+OhmLauncher include un servizio di accessibilità facoltativo che utilizza l'API AccessibilityService. Ha un solo scopo: quando usi il layout di navigazione compatto di OhmLauncher, premendo il pulsante Recents visibile nella schermata home si apre la schermata delle app recenti di Android.
+
+Il servizio è disabilitato per impostazione predefinita. Puoi attivarlo nelle impostazioni di Accessibilità di Android dopo una spiegazione nell'app e disattivarlo in qualsiasi momento. OhmLauncher funziona completamente senza di esso e mantiene visibile la normale navigazione di sistema ogni volta che il servizio non è attivo.
+
+Questo servizio di accessibilità apre le app recenti solo in risposta alla tua pressione diretta su quel pulsante. Non può eseguire gesti, non può leggere o recuperare contenuti delle finestre o testo da altre app, non monitora i tuoi input, non controlla il dispositivo da remoto e non raccoglie, archivia o condivide alcun dato.
+
 ## Note di rilascio
 
 Benvenuto nella prima versione di OhmLauncher. Troverai la modalità Omarchy dal primo avvio, temi e sfondi inclusi, app preferite, ricerca rapida, riquadri laterali, widget, plugin locali, il terminale in stile Quake e sfondi TTFX animati.

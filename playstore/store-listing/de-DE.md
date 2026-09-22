@@ -20,6 +20,14 @@ Ihre Launcher-Einstellungen bleiben auf Ihrem Smartphone. Wenn Sie einen Omarchy
 
 Um OhmLauncher als Startbildschirm zu verwenden, wählen Sie ihn in den Android-Einstellungen als Standard-Launcher aus. Die Standard-Start-App lässt sich jederzeit ändern.
 
+Bedienungshilfe-Dienst
+
+OhmLauncher enthält einen optionalen Bedienungshilfe-Dienst, der die AccessibilityService API verwendet. Er dient nur einem Zweck: Wenn Sie das kompakte Navigationslayout von OhmLauncher nutzen, öffnet das Drücken der sichtbaren „Zuletzt verwendet“-Schaltfläche auf dem Startbildschirm die App-Übersicht von Android.
+
+Der Dienst ist standardmäßig deaktiviert. Sie aktivieren ihn in den Android-Einstellungen für Bedienungshilfen nach einer Erklärung in der App und können ihn jederzeit wieder deaktivieren. OhmLauncher funktioniert vollständig ohne ihn und zeigt die normale Systemnavigation immer dann an, wenn der Dienst nicht aktiviert ist.
+
+Dieser Bedienungshilfe-Dienst öffnet die App-Übersicht nur als Reaktion auf Ihr direktes Drücken dieser Schaltfläche. Er kann keine Gesten ausführen, keinen Fensterinhalt und keinen Text anderer Apps lesen, überwacht Ihre Eingaben nicht, steuert Ihr Gerät nicht aus der Ferne und sammelt, speichert oder teilt keine Daten.
+
 ## Versionshinweise
 
 Willkommen bei der ersten Version von OhmLauncher. Freuen Sie sich vom ersten Start an auf den Omarchy-Modus, enthaltene Designs und Hintergründe, Lieblings-Apps, schnelle Suche, Randboxen, Widgets, lokale Plugins, das Quake-Terminal und animierte TTFX-Hintergründe.

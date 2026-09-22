@@ -20,6 +20,14 @@ Your launcher setup stays on your phone. If you choose to pair an Omarchy comput
 
 To use OhmLauncher as your home screen, choose it as the default launcher in Android settings. You can change your default home app at any time.
 
+Accessibility service
+
+OhmLauncher includes an optional accessibility service that uses the AccessibilityService API. It exists for one purpose: when you use OhmLauncher's compact navigation layout, pressing the visible Recents button on the home screen opens Android Recents.
+
+The service is disabled by default. You choose to enable it in Android Accessibility settings after an in-app explanation, and you can turn it off at any time. OhmLauncher works fully without it and keeps ordinary system navigation visible whenever the service is not enabled.
+
+This accessibility service only opens Recents in response to your direct press of that button. It cannot perform gestures, cannot read or retrieve window content or text from other apps, does not monitor your input, does not control your device remotely, and does not collect, store, or share any data.
+
 ## Release notes
 
 Welcome to the first release of OhmLauncher. Enjoy Omarchy mode from the first launch, bundled themes and backgrounds, favorite apps, fast search, edge boxes, widgets, local plugins, the Quake-style terminal, and animated TTFX backgrounds.

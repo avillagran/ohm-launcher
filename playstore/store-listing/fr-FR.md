@@ -20,6 +20,14 @@ La configuration du lanceur reste sur votre téléphone. Si vous associez un ord
 
 Pour utiliser OhmLauncher comme écran d’accueil, choisissez-le comme lanceur par défaut dans les paramètres Android. Vous pourrez en changer à tout moment.
 
+Service d'accessibilité
+
+OhmLauncher inclut un service d'accessibilité facultatif qui utilise l'API AccessibilityService. Il n'a qu'un seul objectif : lorsque vous utilisez la disposition de navigation compacte d'OhmLauncher, appuyer sur le bouton Applications récentes visible de l'écran d'accueil ouvre la vue des applications récentes d'Android.
+
+Le service est désactivé par défaut. Vous pouvez l'activer dans les paramètres d'accessibilité d'Android après une explication dans l'application, et le désactiver à tout moment. OhmLauncher fonctionne entièrement sans lui et garde la navigation système normale visible chaque fois que le service n'est pas activé.
+
+Ce service d'accessibilité n'ouvre les applications récentes qu'en réponse à votre pression directe sur ce bouton. Il ne peut pas effectuer de gestes, ne peut pas lire ni récupérer le contenu des fenêtres ou le texte d'autres applications, ne surveille pas vos saisies, ne contrôle pas votre appareil à distance et ne collecte, ne stocke ni ne partage aucune donnée.
+
 ## Notes de version
 
 Bienvenue dans la première version d’OhmLauncher. Profitez du mode Omarchy dès le premier lancement, des thèmes et fonds inclus, des favoris, de la recherche rapide, des boîtes latérales, des widgets, des plugins locaux, du terminal façon Quake et des fonds TTFX animés.

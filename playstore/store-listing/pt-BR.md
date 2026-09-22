@@ -20,6 +20,14 @@ A configuração do launcher permanece no seu telefone. Se você parear um compu
 
 Para usar o OhmLauncher como tela inicial, escolha-o como launcher padrão nas configurações do Android. Você pode trocar o app de início quando quiser.
 
+Serviço de acessibilidade
+
+O OhmLauncher inclui um serviço de acessibilidade opcional que usa a API AccessibilityService. Ele tem apenas um objetivo: quando você usa o layout de navegação compacto do OhmLauncher, pressionar o botão visível de Recentes na tela inicial abre as apps recentes do Android.
+
+O serviço está desativado por padrão. Você pode ativá-lo nas configurações de Acessibilidade do Android após uma explicação no app e desativá-lo a qualquer momento. O OhmLauncher funciona por completo sem ele e mantém a navegação normal do sistema visível sempre que o serviço não está ativado.
+
+Este serviço de acessibilidade abre as apps recentes apenas em resposta ao seu toque direto nesse botão. Ele não pode realizar gestos, não pode ler nem recuperar conteúdo de janelas nem texto de outros apps, não monitora suas entradas, não controla seu dispositivo remotamente e não coleta, armazena nem compartilha nenhum dado.
+
 ## Notas da versão
 
 Boas-vindas à primeira versão do OhmLauncher. Aproveite o modo Omarchy desde o primeiro uso, temas e planos de fundo incluídos, apps favoritos, busca rápida, caixas laterais, widgets, plugins locais, o terminal no estilo Quake e fundos TTFX animados.
