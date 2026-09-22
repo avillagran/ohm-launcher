@@ -24,7 +24,7 @@
 
 Reviewer link: https://youtube.com/shorts/nYRgwM4ktSg
 
-Recorded 2026-09-21 on the physical phone from the exact Play build. One continuous take covering the full enable/use/disable flow below; audited locally (full decode, contact sheet, key frames, privacy review) and verified signed out on 2026-09-22: `playabilityStatus` OK, `isPrivate` false, duration 69 s, video ID matches.
+Recorded 2026-09-21 on the physical phone from the exact Play build. One continuous take covering the full enable/use/disable flow below; audited locally (full decode, contact sheet, key frames, privacy review) and verified signed out on 2026-09-22: `playabilityStatus` OK, `isPrivate` false, duration 69 s, video ID matches. Read back from the live Play Console declaration form on 2026-09-22: URL present with the acceptance checkbox checked — the video was part of the original (rejected) submission; the rejection was caused by the listing description only.
 
 Checklist covered by the take:
 

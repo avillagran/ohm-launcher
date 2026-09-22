@@ -35,7 +35,7 @@ Applies only to the current `playRelease` artifact. Do not send for review, star
 - [ ] Content rating and target audience match the final answers in `content-rating.md`.
 - [ ] Complete the `QUERY_ALL_PACKAGES` declaration for core launcher functionality.
 - [ ] Complete the AccessibilityService declaration with `accessibility-declaration.md`.
-- [x] Upload the accessibility demonstration video and verify its link signed out: https://youtube.com/shorts/nYRgwM4ktSg (verified signed out 2026-09-22: playability OK, not private, 69 s). **Paste this link into the AccessibilityService declaration video field on resubmission — the original submission shipped without it.**
+- [x] Upload the accessibility demonstration video and verify its link signed out: https://youtube.com/shorts/nYRgwM4ktSg (verified signed out 2026-09-22: playability OK, not private, 69 s). **Read back from the live Play Console declaration form on 2026-09-22: video URL present, "video meets requirements" checkbox checked, purpose = App functionality, sensitive data = No. The video was submitted with the original rejection — the missing piece was the store-listing description only.**
 - [ ] Declare microphone use as optional, on-device Visualizer functionality; do not mark audio as collected.
 
 ## 4. Privacy and listing audit
