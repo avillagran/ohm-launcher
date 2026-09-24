@@ -133,6 +133,8 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     private var dragSourceEdge: EdgePosition? = null
     private var orbitalMenu: OrbitalActionMenu? = null
     private var omarchyMenu: OmarchyMenuOverlay? = null
+    private var weatherPicker: WeatherCityPickerOverlay? = null
+    private val weatherController: WeatherWidgetController by lazy { WeatherWidgetController(context) }
     private var themeSelector: OmarchyThemeSelectorOverlay? = null
     private var edgeBoxSettingsMenuId: String? = null
 
@@ -867,6 +869,21 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         } else {
             wrapper.setOnLongClickListener(startDrag)
             child.setOnLongClickListener(startDrag)
+            if (node.raw.optString("pluginId") == WEATHER_PLUGIN_ID) {
+                val detector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
+                    override fun onDown(e: MotionEvent): Boolean = true
+
+                    override fun onDoubleTap(e: MotionEvent): Boolean {
+                        showWeatherCityPicker()
+                        return true
+                    }
+
+                    override fun onLongPress(e: MotionEvent) {
+                        wrapper.performLongClick()
+                    }
+                })
+                wrapper.setOnTouchListener { _, event -> detector.onTouchEvent(event) }
+            }
         }
         if (settings.showTapBoxes && !widgetEditing) {
             wrapper.background = rounded(Color.TRANSPARENT, dp(8).toFloat(), 0x8866E0FF.toInt())
@@ -963,7 +980,14 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 val raw = org.json.JSONObject(entry.readText())
                 renderWidget(WidgetNode(raw.optString("type", "container"), raw))
             } else {
-                QmlViewRenderer(context).render(entry.readText(), plugin.folder)
+                val bindings = if (id == WEATHER_PLUGIN_ID) {
+                    weatherController.bindings().also {
+                        weatherController.refreshIfStale { post { renderDesktop() } }
+                    }
+                } else {
+                    emptyMap()
+                }
+                QmlViewRenderer(context).render(entry.readText(), plugin.folder, bindings)
             }
         }
             .getOrElse { label(context.getString(R.string.plugin_error, id), 12f, 0xFFFF6B7A.toInt()) }
@@ -2201,6 +2225,10 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             it.close()
             return true
         }
+        weatherPicker?.let {
+            it.close()
+            return true
+        }
         omarchyMenu?.let { return it.handleBack() }
         orbitalMenu?.let {
             it.close()
@@ -2378,6 +2406,32 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         }
     }
 
+
+    private val WEATHER_PLUGIN_ID = "io.github.ohm.demo.weather"
+
+    private fun showWeatherCityPicker() {
+        if (widgetEditing) setWidgetEditing(false)
+        if (orbitalMenu != null || omarchyMenu != null || weatherPicker != null) return
+        val foreground = themeColor("foreground", 0xFFC0CAF5.toInt())
+        val accent = themeColor("accent", 0xFF7AA2F7.toInt())
+        val overlay = WeatherCityPickerOverlay(
+            context = context,
+            colors = WeatherCityPickerOverlay.Colors(
+                background = themeColor("background", 0xFF1A1B26.toInt()),
+                foreground = foreground,
+                border = alphaColor(foreground, 0x66),
+                scrim = alphaColor(themeColor("dark_background", 0xFF16161E.toInt()), 0xB0),
+                selectedBackground = themeColor("lighter_background", 0xFF24283B.toInt()),
+                selectedText = accent,
+                muted = themeColor("muted", 0xFF565F89.toInt()),
+            ),
+            controller = weatherController,
+            onApplied = { renderDesktop() },
+            onDismissed = { weatherPicker = null },
+        ).also { addView(it, LayoutParams(MATCH_PARENT, MATCH_PARENT)) }
+        weatherPicker = overlay
+        overlay.post { overlay.requestFocus() }
+    }
 
     private fun showOmarchyLauncherMenu(trigger: OmarchyMenuOpenTrigger = OmarchyMenuOpenTrigger.LOGO_TAP) {
         if (widgetEditing) setWidgetEditing(false)

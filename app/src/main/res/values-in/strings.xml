@@ -192,4 +192,20 @@
     <string name="sand_clock">Jam pasir</string>
     <string name="sand_clock_value">Jam pasir %1$s</string>
     <string name="enter_command">Masukkan perintah</string>
+    <string name="weather_condition_clear">Cerah</string>
+    <string name="weather_condition_partly_cloudy">Berawan sebagian</string>
+    <string name="weather_condition_overcast">Mendung</string>
+    <string name="weather_condition_fog">Kabut</string>
+    <string name="weather_condition_drizzle">Gerimis</string>
+    <string name="weather_condition_rain">Hujan</string>
+    <string name="weather_condition_snow">Salju</string>
+    <string name="weather_condition_storm">Badai</string>
+    <string name="weather_condition_unknown">Tidak diketahui</string>
+    <string name="weather_picker_title">Pilih kota</string>
+    <string name="weather_picker_search_hint">Cari kota</string>
+    <string name="weather_picker_no_results">Tidak ada kota ditemukan</string>
+    <string name="weather_picker_error">Tidak dapat mencari kota. Periksa koneksimu.</string>
+    <string name="weather_picker_close">Tutup</string>
+    <string name="weather_unit_celsius">Celsius</string>
+    <string name="weather_unit_fahrenheit">Fahrenheit</string>
 </resources>

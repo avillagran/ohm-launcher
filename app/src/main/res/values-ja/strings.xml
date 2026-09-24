@@ -192,4 +192,20 @@
     <string name="sand_clock">砂時計</string>
     <string name="sand_clock_value">砂時計 %1$s</string>
     <string name="enter_command">コマンドを入力</string>
+    <string name="weather_condition_clear">晴れ</string>
+    <string name="weather_condition_partly_cloudy">曇り時々晴れ</string>
+    <string name="weather_condition_overcast">曇り</string>
+    <string name="weather_condition_fog">霧</string>
+    <string name="weather_condition_drizzle">霧雨</string>
+    <string name="weather_condition_rain">雨</string>
+    <string name="weather_condition_snow">雪</string>
+    <string name="weather_condition_storm">雷雨</string>
+    <string name="weather_condition_unknown">不明</string>
+    <string name="weather_picker_title">都市を選択</string>
+    <string name="weather_picker_search_hint">都市を検索</string>
+    <string name="weather_picker_no_results">都市が見つかりません</string>
+    <string name="weather_picker_error">都市を検索できませんでした。接続を確認してください。</string>
+    <string name="weather_picker_close">閉じる</string>
+    <string name="weather_unit_celsius">摂氏</string>
+    <string name="weather_unit_fahrenheit">華氏</string>
 </resources>

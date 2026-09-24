@@ -192,4 +192,20 @@
     <string name="sand_clock">Sandklocka</string>
     <string name="sand_clock_value">Sandklocka %1$s</string>
     <string name="enter_command">Ange kommando</string>
+    <string name="weather_condition_clear">Klar</string>
+    <string name="weather_condition_partly_cloudy">Delvis molnigt</string>
+    <string name="weather_condition_overcast">Mulet</string>
+    <string name="weather_condition_fog">Dimma</string>
+    <string name="weather_condition_drizzle">Duggregn</string>
+    <string name="weather_condition_rain">Regn</string>
+    <string name="weather_condition_snow">Snö</string>
+    <string name="weather_condition_storm">Storm</string>
+    <string name="weather_condition_unknown">Okänt</string>
+    <string name="weather_picker_title">Välj stad</string>
+    <string name="weather_picker_search_hint">Sök stad</string>
+    <string name="weather_picker_no_results">Inga städer hittades</string>
+    <string name="weather_picker_error">Kunde inte söka städer. Kontrollera din anslutning.</string>
+    <string name="weather_picker_close">Stäng</string>
+    <string name="weather_unit_celsius">Celsius</string>
+    <string name="weather_unit_fahrenheit">Fahrenheit</string>
 </resources>

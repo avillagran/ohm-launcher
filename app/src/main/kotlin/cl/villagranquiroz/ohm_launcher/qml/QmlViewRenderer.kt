@@ -27,12 +27,17 @@ class QmlViewRenderer(
         ResourcesCompat.getFont(context, R.font.symbols_nerd_font_mono_regular)
     }
 
-    fun render(source: String, originDirectory: File? = null): View =
-        render(QmlParser(source).parse(), originDirectory)
+    fun render(source: String, originDirectory: File? = null, bindings: Map<String, Any?> = emptyMap()): View =
+        render(QmlParser(source).parse(), originDirectory, bindings)
 
-    fun render(document: QmlDocument, originDirectory: File? = null): View {
+    fun render(document: QmlDocument, originDirectory: File? = null, bindings: Map<String, Any?> = emptyMap()): View {
         if (document.error != null) return Space(context)
-        val model = document.elements.firstNotNullOfOrNull(converter::convert) ?: return Space(context)
+        val activeConverter = if (bindings.isEmpty()) {
+            converter
+        } else {
+            QmlRenderModelConverter.withBindings(bindings)
+        }
+        val model = document.elements.firstNotNullOfOrNull(activeConverter::convert) ?: return Space(context)
         return render(model, originDirectory)
     }
 

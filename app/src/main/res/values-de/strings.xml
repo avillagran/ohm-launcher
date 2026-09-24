@@ -192,4 +192,20 @@
     <string name="sand_clock">Sanduhr</string>
     <string name="sand_clock_value">Sanduhr %1$s</string>
     <string name="enter_command">Befehl eingeben</string>
+    <string name="weather_condition_clear">Klar</string>
+    <string name="weather_condition_partly_cloudy">Teilweise bewölkt</string>
+    <string name="weather_condition_overcast">Bewölkt</string>
+    <string name="weather_condition_fog">Nebel</string>
+    <string name="weather_condition_drizzle">Nieselregen</string>
+    <string name="weather_condition_rain">Regen</string>
+    <string name="weather_condition_snow">Schnee</string>
+    <string name="weather_condition_storm">Sturm</string>
+    <string name="weather_condition_unknown">Unbekannt</string>
+    <string name="weather_picker_title">Stadt wählen</string>
+    <string name="weather_picker_search_hint">Stadt suchen</string>
+    <string name="weather_picker_no_results">Keine Städte gefunden</string>
+    <string name="weather_picker_error">Städte konnten nicht gesucht werden. Prüfe deine Verbindung.</string>
+    <string name="weather_picker_close">Schließen</string>
+    <string name="weather_unit_celsius">Celsius</string>
+    <string name="weather_unit_fahrenheit">Fahrenheit</string>
 </resources>

@@ -192,4 +192,20 @@
     <string name="sand_clock">Пісковий годинник</string>
     <string name="sand_clock_value">Пісковий годинник %1$s</string>
     <string name="enter_command">Введіть команду</string>
+    <string name="weather_condition_clear">Ясно</string>
+    <string name="weather_condition_partly_cloudy">Хмарно з проясненнями</string>
+    <string name="weather_condition_overcast">Похмуро</string>
+    <string name="weather_condition_fog">Туман</string>
+    <string name="weather_condition_drizzle">Мряка</string>
+    <string name="weather_condition_rain">Дощ</string>
+    <string name="weather_condition_snow">Сніг</string>
+    <string name="weather_condition_storm">Гроза</string>
+    <string name="weather_condition_unknown">Невідомо</string>
+    <string name="weather_picker_title">Обрати місто</string>
+    <string name="weather_picker_search_hint">Шукати місто</string>
+    <string name="weather_picker_no_results">Міст не знайдено</string>
+    <string name="weather_picker_error">Не вдалося шукати міста. Перевірте з\'єднання.</string>
+    <string name="weather_picker_close">Закрити</string>
+    <string name="weather_unit_celsius">Цельсій</string>
+    <string name="weather_unit_fahrenheit">Фаренгейт</string>
 </resources>

@@ -164,7 +164,11 @@ class QmlRenderModelConverter(private val runtime: QmlRuntime = QmlRuntime()) {
         return expanded.toLongOrNull(16)?.toInt()?.let(::QmlColor)
     }
 
-    private companion object {
+    companion object {
+        /** Builds a converter whose runtime exposes [bindings] as root-scope names. */
+        fun withBindings(bindings: Map<String, Any?>): QmlRenderModelConverter =
+            QmlRenderModelConverter(QmlRuntime(bindings = bindings))
+
         val TRANSPARENT_ITEM_TYPES = setOf(
             "BarWidget",
             "Panel",

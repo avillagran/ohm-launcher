@@ -1,6 +1,8 @@
 // Built-in weather widget for the curated OhmLauncher desktop.
-// The static weather values preserve the original Flutter demo contract; the
-// clock binding remains live and exercises the interpreted QML runtime.
+// OhmLauncher injects a native Weather binding (Map) with the selected city,
+// temperature, condition, unit, and last-update time; double-tapping the
+// widget opens the city picker. When the binding is absent the original
+// static demo values keep the widget renderable, and the clock stays live.
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -13,10 +15,14 @@ BarWidget {
     precision: SystemClock.Minutes
   }
 
-  readonly property string ciudad: "Santiago"
-  readonly property int tempC: 18
-  readonly property string condicion: "Despejado"
-  readonly property string actualizado: Qt.formatTime(clock.date, "HH:mm")
+  // Without the injected binding the interpreter resolves unknown capitalized
+  // references to plain strings, so Weather.unit equals neither "C" nor "F"
+  // and the static fallbacks below still apply.
+  readonly property bool weatherBound: Weather.unit == "C" || Weather.unit == "F"
+  readonly property string ciudad: root.weatherBound ? Weather.city : "Santiago"
+  readonly property string tempText: root.weatherBound ? Weather.tempText : "18°"
+  readonly property string condicion: root.weatherBound ? Weather.condition : "Despejado"
+  readonly property string actualizado: root.weatherBound ? Weather.updated : Qt.formatTime(clock.date, "HH:mm")
 
   Column {
     spacing: 6
@@ -39,7 +45,7 @@ BarWidget {
     Row {
       spacing: 10
       Text {
-        text: root.tempC + "°"
+        text: root.tempText
         color: "#FFFFFF"
         font.pixelSize: 40
         font.bold: true

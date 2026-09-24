@@ -192,4 +192,20 @@
     <string name="sand_clock">Reloj de arena</string>
     <string name="sand_clock_value">Reloj de arena %1$s</string>
     <string name="enter_command">Ingresar comando</string>
+    <string name="weather_condition_clear">Despejado</string>
+    <string name="weather_condition_partly_cloudy">Parcialmente nublado</string>
+    <string name="weather_condition_overcast">Nublado</string>
+    <string name="weather_condition_fog">Niebla</string>
+    <string name="weather_condition_drizzle">Llovizna</string>
+    <string name="weather_condition_rain">Lluvia</string>
+    <string name="weather_condition_snow">Nieve</string>
+    <string name="weather_condition_storm">Tormenta</string>
+    <string name="weather_condition_unknown">Desconocido</string>
+    <string name="weather_picker_title">Elegir ciudad</string>
+    <string name="weather_picker_search_hint">Buscar ciudad</string>
+    <string name="weather_picker_no_results">No se encontraron ciudades</string>
+    <string name="weather_picker_error">No se pudo buscar ciudades. Revisa tu conexión.</string>
+    <string name="weather_picker_close">Cerrar</string>
+    <string name="weather_unit_celsius">Celsius</string>
+    <string name="weather_unit_fahrenheit">Fahrenheit</string>
 </resources>

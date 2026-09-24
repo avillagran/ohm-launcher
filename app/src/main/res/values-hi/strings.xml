@@ -192,4 +192,20 @@
     <string name="sand_clock">रेत घड़ी</string>
     <string name="sand_clock_value">रेत घड़ी %1$s</string>
     <string name="enter_command">कमांड दर्ज करें</string>
+    <string name="weather_condition_clear">साफ़</string>
+    <string name="weather_condition_partly_cloudy">आंशिक बादल</string>
+    <string name="weather_condition_overcast">घने बादल</string>
+    <string name="weather_condition_fog">कोहरा</string>
+    <string name="weather_condition_drizzle">बूंदाबांदी</string>
+    <string name="weather_condition_rain">बारिश</string>
+    <string name="weather_condition_snow">बर्फ़</string>
+    <string name="weather_condition_storm">तूफ़ान</string>
+    <string name="weather_condition_unknown">अज्ञात</string>
+    <string name="weather_picker_title">शहर चुनें</string>
+    <string name="weather_picker_search_hint">शहर खोजें</string>
+    <string name="weather_picker_no_results">कोई शहर नहीं मिला</string>
+    <string name="weather_picker_error">शहर खोज नहीं सके। अपना कनेक्शन जांचें।</string>
+    <string name="weather_picker_close">बंद करें</string>
+    <string name="weather_unit_celsius">सेल्सियस</string>
+    <string name="weather_unit_fahrenheit">फ़ारेनहाइट</string>
 </resources>

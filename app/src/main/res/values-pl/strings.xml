@@ -191,4 +191,20 @@
     <string name="sand_clock">Zegar piaskowy</string>
     <string name="sand_clock_value">Zegar piaskowy %1$s</string>
     <string name="enter_command">Wprowadź polecenie</string>
+    <string name="weather_condition_clear">Bezchmurnie</string>
+    <string name="weather_condition_partly_cloudy">Częściowe zachmurzenie</string>
+    <string name="weather_condition_overcast">Pochmurno</string>
+    <string name="weather_condition_fog">Mgła</string>
+    <string name="weather_condition_drizzle">Mżawka</string>
+    <string name="weather_condition_rain">Deszcz</string>
+    <string name="weather_condition_snow">Śnieg</string>
+    <string name="weather_condition_storm">Burza</string>
+    <string name="weather_condition_unknown">Nieznane</string>
+    <string name="weather_picker_title">Wybierz miasto</string>
+    <string name="weather_picker_search_hint">Szukaj miasta</string>
+    <string name="weather_picker_no_results">Nie znaleziono miast</string>
+    <string name="weather_picker_error">Nie można wyszukać miast. Sprawdź połączenie.</string>
+    <string name="weather_picker_close">Zamknij</string>
+    <string name="weather_unit_celsius">Celsius</string>
+    <string name="weather_unit_fahrenheit">Fahrenheit</string>
 </resources>

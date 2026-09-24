@@ -192,4 +192,20 @@
     <string name="sand_clock">الساعة الرملية</string>
     <string name="sand_clock_value">الساعة الرملية %1$s</string>
     <string name="enter_command">أدخل الأمر</string>
+    <string name="weather_condition_clear">صافٍ</string>
+    <string name="weather_condition_partly_cloudy">غائم جزئيًا</string>
+    <string name="weather_condition_overcast">غائم</string>
+    <string name="weather_condition_fog">ضباب</string>
+    <string name="weather_condition_drizzle">رذاذ</string>
+    <string name="weather_condition_rain">مطر</string>
+    <string name="weather_condition_snow">ثلج</string>
+    <string name="weather_condition_storm">عاصفة</string>
+    <string name="weather_condition_unknown">غير معروف</string>
+    <string name="weather_picker_title">اختر مدينة</string>
+    <string name="weather_picker_search_hint">ابحث عن مدينة</string>
+    <string name="weather_picker_no_results">لم يتم العثور على مدن</string>
+    <string name="weather_picker_error">تعذر البحث عن المدن. تحقق من الاتصال.</string>
+    <string name="weather_picker_close">إغلاق</string>
+    <string name="weather_unit_celsius">مئوية</string>
+    <string name="weather_unit_fahrenheit">فهرنهايت</string>
 </resources>

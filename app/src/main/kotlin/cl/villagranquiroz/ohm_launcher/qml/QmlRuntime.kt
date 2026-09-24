@@ -44,9 +44,11 @@ class QmlRuntime(
     private val clock: () -> Date = { Date() },
     private val locale: Locale = Locale.getDefault(),
     private val timeZone: TimeZone = TimeZone.getDefault(),
+    private val bindings: Map<String, Any?> = emptyMap(),
 ) {
     fun scopeFor(root: QmlElement, parent: QmlScope? = null): QmlScope {
         val scope = QmlScope(parent)
+        bindings.forEach { (name, value) -> scope.define(name, value) }
         val rootValue = QmlElementValue(root, scope, this)
         scope.define("root", rootValue)
         root.id?.let { scope.define(it, rootValue) }

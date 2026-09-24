@@ -192,4 +192,20 @@
     <string name="sand_clock">Sablier</string>
     <string name="sand_clock_value">Sablier %1$s</string>
     <string name="enter_command">Saisir une commande</string>
+    <string name="weather_condition_clear">Dégagé</string>
+    <string name="weather_condition_partly_cloudy">Partiellement nuageux</string>
+    <string name="weather_condition_overcast">Couvert</string>
+    <string name="weather_condition_fog">Brouillard</string>
+    <string name="weather_condition_drizzle">Bruine</string>
+    <string name="weather_condition_rain">Pluie</string>
+    <string name="weather_condition_snow">Neige</string>
+    <string name="weather_condition_storm">Orage</string>
+    <string name="weather_condition_unknown">Inconnu</string>
+    <string name="weather_picker_title">Choisir une ville</string>
+    <string name="weather_picker_search_hint">Rechercher une ville</string>
+    <string name="weather_picker_no_results">Aucune ville trouvée</string>
+    <string name="weather_picker_error">Impossible de rechercher des villes. Vérifiez votre connexion.</string>
+    <string name="weather_picker_close">Fermer</string>
+    <string name="weather_unit_celsius">Celsius</string>
+    <string name="weather_unit_fahrenheit">Fahrenheit</string>
 </resources>
