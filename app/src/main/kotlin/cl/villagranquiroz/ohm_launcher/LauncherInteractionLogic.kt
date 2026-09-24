@@ -158,27 +158,34 @@ object UnifiedLauncherBarPolicy {
 }
 
 /**
- * "Omarchy mode" compact-bar rules.
- *
- * Active by default: the bottom bar stays glued to the Android navigation
- * buttons with only [logo][fav-apps][spacer][apps search][activador]; edge
- * boxes and the in-bar favorites strip are hidden. The fav-apps button opens
- * the Omarchy menu with the favorite apps inside. The activador grows the bar
- * back to the full layout (favorites strip + edge boxes) animatedly, and
- * compressing returns to the compact mode.
+ * The launcher keeps the Omarchy layout visible independently of accessibility.
+ * Legacy box/favorites layouts remain in persisted settings for compatibility,
+ * but their UI is intentionally hidden for now.
  */
 object OmarchyBarModePolicy {
-    fun edgeBoxesVisible(omarchyBarMode: Boolean, widgetEditing: Boolean): Boolean =
-        widgetEditing || !omarchyBarMode
+    const val ALWAYS_OMARCHY_MODE = true
 
-    fun favoritesInBar(omarchyBarMode: Boolean): Boolean = !omarchyBarMode
+    fun edgeBoxesVisible(omarchyBarMode: Boolean, widgetEditing: Boolean): Boolean = false
 
-    fun favAppsButtonVisible(omarchyBarMode: Boolean): Boolean = omarchyBarMode
+    fun shouldRenderEdgeBoxes(
+        hasConfiguredBoxes: Boolean,
+        omarchyBarMode: Boolean,
+        widgetEditing: Boolean,
+    ): Boolean = hasConfiguredBoxes && edgeBoxesVisible(omarchyBarMode, widgetEditing)
 
-    fun spacerVisible(omarchyBarMode: Boolean): Boolean = omarchyBarMode
+    fun favoritesInBar(): Boolean = false
 
-    fun toggleGlyph(omarchyBarMode: Boolean): String =
-        if (omarchyBarMode) NerdGlyph.EXPAND else NerdGlyph.COMPRESS
+    fun favAppsButtonVisible(): Boolean = true
+
+    fun spacerVisible(): Boolean = true
+
+    fun appsLabelVisible(): Boolean = false
+
+    /** The right-side shortcut is only shown while the service is off. */
+    fun accessibilityShortcutVisible(serviceConnected: Boolean): Boolean = !serviceConnected
+
+    /** The Recents action is available only after accessibility is enabled. */
+    fun recentsButtonVisible(serviceConnected: Boolean): Boolean = serviceConnected
 }
 
 object OmarchyBarAnimationPolicy {

@@ -11,7 +11,6 @@ OhmLauncher apporte l’esthétique épurée d’Omarchy à l’écran d’accue
 Votre écran d’accueil, à votre façon
 
 • Gardez vos applications favorites à portée de main et trouvez les autres grâce à la recherche rapide.
-• Organisez applications et raccourcis dans des boîtes latérales configurables.
 • Ajoutez des widgets Android et des plugins locaux pour créer l’agencement qui vous convient.
 • Ouvrez le terminal de style Quake pour accéder rapidement aux commandes compatibles.
 • Animez votre écran avec les fonds TTFX et leurs effets facultatifs réactifs à l’audio.
@@ -30,4 +29,9 @@ Ce service d'accessibilité n'ouvre les applications récentes qu'en réponse à
 
 ## Notes de version
 
-Bienvenue dans la première version d’OhmLauncher. Profitez du mode Omarchy dès le premier lancement, des thèmes et fonds inclus, des favoris, de la recherche rapide, des boîtes latérales, des widgets, des plugins locaux, du terminal façon Quake et des fonds TTFX animés.
+• Les panneaux, fenêtres et commandes TTFX suivent le thème Omarchy actif.
+• Choisissez une couleur de la palette pour les textes de l’horloge, de la météo et de TTFX.
+• Le terminal Quake dispose de dix touches au-dessus du clavier.
+• Davantage d’icônes d’apps utilisent Nerd Fonts.
+• La réaction au son est désactivée par défaut et ne demande l’autorisation qu’à l’activation.
+• Météo : prévisions sur trois jours et cartes ; horloge mondiale interactive.

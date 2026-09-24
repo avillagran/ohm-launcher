@@ -89,7 +89,8 @@ internal class OrbitalActionMenu(
     init {
         isClickable = true
         isFocusable = true
-        setBackgroundColor((backgroundAlpha.coerceIn(0, 255) shl 24) or 0x000B0F14)
+        setBackgroundColor((backgroundAlpha.coerceIn(0, 255) shl 24) or
+            (OmarchyUiTheme.color("dark_background", 0xFF0B0F14.toInt()) and 0x00FFFFFF))
         setOnClickListener { if (dismissOnBackgroundTap) dismiss() }
 
         actions.forEachIndexed { index, item ->
@@ -111,12 +112,13 @@ internal class OrbitalActionMenu(
                     setTextColor(accent)
                     textSize = 22f
                     typeface = nerdFont
-                    background = circle(if (index < 8) 0xF21A2330.toInt() else 0xE6121820.toInt())
+                    background = circle((OmarchyUiTheme.color("lighter_background", 0xFF1A2330.toInt()) and 0x00FFFFFF) or
+                        (if (index < 8) 0xF2000000.toInt() else 0xE6000000.toInt()))
                 }, LinearLayout.LayoutParams(dp(48), dp(48)))
                 addView(TextView(context).apply {
                     text = item.label
                     gravity = Gravity.CENTER
-                    setTextColor(0xFF9AA7B4.toInt())
+                    setTextColor(OmarchyUiTheme.color("muted", 0xFF9AA7B4.toInt()))
                     textSize = 10f
                     maxLines = 2
                 }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(32)))
@@ -132,7 +134,7 @@ internal class OrbitalActionMenu(
             setTextColor(accent)
             textSize = 24f
             typeface = nerdFont
-            background = circle(0xFF101820.toInt())
+            background = circle(OmarchyUiTheme.color("lighter_background", 0xFF101820.toInt()))
             elevation = dp(18).toFloat()
             setOnClickListener { dismiss() }
             if (closeAtRelease) {

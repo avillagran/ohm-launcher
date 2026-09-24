@@ -1,10 +1,14 @@
 package cl.villagranquiroz.ohm_launcher
 
 import android.content.Context
-import android.graphics.Color
+import android.content.res.ColorStateList
 import android.graphics.drawable.GradientDrawable
+import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.widget.EditText
+import android.widget.SeekBar
+import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -50,15 +54,37 @@ object SettingsDialogSurface {
                 22f * dialog.context.resources.displayMetrics.density,
                 dialog.context.resources.displayMetrics.density,
             )
-            setColor(Color.argb((resolved.opacity * 255).roundToInt(), 9, 13, 18))
+            val surface = OmarchyUiTheme.color("background", 0xFF090D12.toInt())
+            setColor((surface and 0x00FFFFFF) or ((resolved.opacity * 255).roundToInt() shl 24))
             setStroke(
                 (dialog.context.resources.displayMetrics.density).roundToInt().coerceAtLeast(1),
-                Color.argb(110, 102, 224, 255),
+                (OmarchyUiTheme.color("accent", 0xFF66E0FF.toInt()) and 0x00FFFFFF) or (110 shl 24),
             )
         }
         window.setBackgroundDrawable(background)
         window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
         window.attributes = window.attributes.apply { dimAmount = resolved.dimAmount }
         window.setLayout(resolved.widthPx, ViewGroup.LayoutParams.WRAP_CONTENT)
+        applyContentColors(window.decorView)
+    }
+
+    private fun applyContentColors(view: View) {
+        val foreground = OmarchyUiTheme.color("foreground", 0xFFE8F1F8.toInt())
+        val muted = OmarchyUiTheme.color("muted", 0xFF9FB3C8.toInt())
+        val accent = OmarchyUiTheme.color("accent", 0xFF66E0FF.toInt())
+        if (view is TextView) {
+            val color = when (view.currentTextColor) {
+                0xFF66E0FF.toInt(), accent -> accent
+                0xFF9FB3C8.toInt(), muted -> muted
+                else -> foreground
+            }
+            view.setTextColor(color)
+            if (view is EditText) view.setHintTextColor(muted)
+        }
+        if (view is SeekBar) {
+            view.progressTintList = ColorStateList.valueOf(accent)
+            view.thumbTintList = ColorStateList.valueOf(accent)
+        }
+        if (view is ViewGroup) for (index in 0 until view.childCount) applyContentColors(view.getChildAt(index))
     }
 }

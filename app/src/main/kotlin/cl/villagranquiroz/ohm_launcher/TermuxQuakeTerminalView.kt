@@ -3,7 +3,6 @@ package cl.villagranquiroz.ohm_launcher
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.graphics.Color
 import android.graphics.Typeface
 import android.text.InputType
 import android.util.AttributeSet
@@ -14,6 +13,7 @@ import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.inputmethod.InputMethodManager
 import android.widget.LinearLayout
+import android.widget.HorizontalScrollView
 import android.widget.TextView
 import com.termux.terminal.TerminalSession
 import com.termux.terminal.TerminalSessionClient
@@ -36,6 +36,8 @@ class TermuxQuakeTerminalView @JvmOverloads constructor(
     private var alt = false
     private lateinit var ctrlButton: TextView
     private lateinit var altButton: TextView
+    private lateinit var toolbar: LinearLayout
+    private lateinit var toolbarScroll: HorizontalScrollView
 
     var onClose: (() -> Unit)? = null
 
@@ -58,11 +60,32 @@ class TermuxQuakeTerminalView @JvmOverloads constructor(
 
     init {
         orientation = VERTICAL
-        setBackgroundColor(BACKGROUND)
         configureTerminal()
         addView(terminal, LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f))
         buildHeader()
+        submitTheme()
         isFocusableInTouchMode = true
+    }
+
+    fun submitTheme() {
+        val background = OmarchyUiTheme.color("background", BACKGROUND)
+        val surface = OmarchyUiTheme.color("dark_background", HEADER)
+        val key = OmarchyUiTheme.color("lighter_background", KEY_BACKGROUND)
+        val foreground = OmarchyUiTheme.color("foreground", FOREGROUND)
+        val accent = OmarchyUiTheme.color("accent", ACCENT)
+        setBackgroundColor(background)
+        terminal.setBackgroundColor(background)
+        toolbarScroll.setBackgroundColor(surface)
+        for (index in 0 until toolbar.childCount) {
+            (toolbar.getChildAt(index) as? TextView)?.apply {
+                setTextColor(foreground)
+                setBackgroundColor(key)
+            }
+        }
+        ctrlButton.setTextColor(if (ctrl) background else foreground)
+        altButton.setTextColor(if (alt) background else foreground)
+        if (ctrl) ctrlButton.setBackgroundColor(accent)
+        if (alt) altButton.setBackgroundColor(accent)
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
@@ -147,7 +170,6 @@ class TermuxQuakeTerminalView @JvmOverloads constructor(
     }
 
     private fun configureTerminal() {
-        terminal.setBackgroundColor(BACKGROUND)
         val scaledDensity = resources.displayMetrics.density * resources.configuration.fontScale
         terminal.setTextSize((14f * scaledDensity).toInt())
         terminal.setTypeface(Typeface.MONOSPACE)
@@ -156,25 +178,29 @@ class TermuxQuakeTerminalView @JvmOverloads constructor(
     }
 
     private fun buildHeader() {
-        val header = LinearLayout(context).apply {
+        toolbar = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(6), dp(3), dp(6), dp(3))
-            setBackgroundColor(HEADER)
         }
         ctrlButton = keyButton("Ctrl") { ctrl = !ctrl; refreshModifiers(); focusInputAndShowKeyboard() }
         altButton = keyButton("Alt") { alt = !alt; refreshModifiers(); focusInputAndShowKeyboard() }
-        header.addView(ctrlButton)
-        header.addView(altButton)
-        header.addView(keyButton("Esc") { write("\u001b") })
-        header.addView(keyButton("Tab") { write("\t") })
-        header.addView(keyButton("↑") { write("\u001b[A") })
-        header.addView(keyButton("↓") { write("\u001b[B") })
-        header.addView(keyButton("←") { write("\u001b[D") })
-        header.addView(keyButton("→") { write("\u001b[C") })
-        header.addView(keyButton("Enter") { write("\r") })
-        header.addView(keyButton("×") { onClose?.invoke() })
-        addView(header, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        toolbar.addView(ctrlButton)
+        toolbar.addView(altButton)
+        toolbar.addView(keyButton("Esc") { write("\u001b") })
+        toolbar.addView(keyButton("Tab") { write("\t") })
+        toolbar.addView(keyButton("↑") { write("\u001b[A") })
+        toolbar.addView(keyButton("↓") { write("\u001b[B") })
+        toolbar.addView(keyButton("←") { write("\u001b[D") })
+        toolbar.addView(keyButton("→") { write("\u001b[C") })
+        toolbar.addView(keyButton("Enter") { write("\r") })
+        toolbar.addView(keyButton("×") { onClose?.invoke() })
+        toolbarScroll = HorizontalScrollView(context).apply {
+            isHorizontalScrollBarEnabled = false
+            isFillViewport = false
+            addView(toolbar)
+        }
+        addView(toolbarScroll, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
     }
 
     private fun write(value: String) {
@@ -184,10 +210,7 @@ class TermuxQuakeTerminalView @JvmOverloads constructor(
     }
 
     private fun refreshModifiers() {
-        ctrlButton.setTextColor(if (ctrl) Color.BLACK else FOREGROUND)
-        altButton.setTextColor(if (alt) Color.BLACK else FOREGROUND)
-        ctrlButton.setBackgroundColor(if (ctrl) ACCENT else KEY_BACKGROUND)
-        altButton.setBackgroundColor(if (alt) ACCENT else KEY_BACKGROUND)
+        submitTheme()
     }
 
     private fun keyButton(label: String, action: () -> Unit): TextView = TextView(context).apply {
@@ -197,12 +220,12 @@ class TermuxQuakeTerminalView @JvmOverloads constructor(
         setTextColor(FOREGROUND)
         textSize = 12f
         typeface = Typeface.DEFAULT_BOLD
-        setPadding(dp(11), dp(8), dp(11), dp(8))
+        setPadding(dp(6), dp(8), dp(6), dp(8))
         setBackgroundColor(KEY_BACKGROUND)
         isClickable = true
         isFocusable = false
         setOnClickListener { action() }
-        layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(5) }
+        layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(2) }
     }
 
     private val sessionClient by lazy { object : TerminalSessionClient {

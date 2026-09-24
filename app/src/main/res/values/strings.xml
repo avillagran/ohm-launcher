@@ -33,9 +33,12 @@
     <string name="menu_system">System</string>
     <string name="menu_home_launcher">HOME launcher</string>
     <string name="menu_gestures">Gestures</string>
+
     <string name="menu_storage">Storage</string>
     <string name="menu_apps">Apps</string>
     <string name="menu_style">Style</string>
+    <string name="menu_theme_background_color">Background widget text color</string>
+    <string name="menu_theme_background_reset">Theme default</string>
     <string name="menu_theme">Theme</string>
     <string name="menu_background">Background</string>
     <string name="menu_sync_style">Sync from Omarchy</string>
@@ -48,6 +51,7 @@
     <string name="menu_not_synced">Not synchronized</string>
     <string name="menu_omarchy_launcher">Open Omarchy menu</string>
     <string name="bar_fav_apps">Fav apps</string>
+    <string name="favorites_empty_action">Open Apps and mark your favorites</string>
     <string name="bar_expand">Expand bar</string>
     <string name="bar_compress">Compress bar</string>
     <string name="bar_recents">Recent apps</string>
@@ -130,6 +134,11 @@
     <string name="ttfx_editor">TTFX editor</string>
 
     <string name="ttfx_show_floating_controls">Show floating desktop controls</string>
+    <string name="ttfx_hide_floating_controls">Hide floating desktop controls</string>
+    <string name="ttfx_mini_open">Open floating TTFX controls</string>
+    <string name="ttfx_mini_close">Collapse floating TTFX controls</string>
+    <string name="ttfx_mini_previous">Previous effect</string>
+    <string name="ttfx_mini_next">Next effect</string>
     <string name="ttfx_live_preview">LIVE PREVIEW</string>
     <string name="ttfx_composition">COMPOSITION</string>
     <string name="ttfx_composition_help">Changes are previewed on the desktop while you edit.</string>
@@ -202,10 +211,32 @@
     <string name="weather_condition_storm">Storm</string>
     <string name="weather_condition_unknown">Unknown</string>
     <string name="weather_picker_title">Choose city</string>
-    <string name="weather_picker_search_hint">Search city</string>
-    <string name="weather_picker_no_results">No cities found</string>
-    <string name="weather_picker_error">Could not search cities. Check your connection.</string>
-    <string name="weather_picker_close">Close</string>
     <string name="weather_unit_celsius">Celsius</string>
     <string name="weather_unit_fahrenheit">Fahrenheit</string>
+    <string name="weather_map_loading">Loading forecast map…</string>
+    <string name="weather_map_error">Could not render the map: %1$s</string>
+    <string name="weather_map_unsupported">Weather map is not available on this device.</string>
+    <string name="weather_map_stale">stale data</string>
+    <string name="weather_map_snapshot">single forecast frame</string>
+    <string name="weather_map_layer_rain">Rain</string>
+    <string name="weather_map_layer_clouds">Clouds</string>
+    <string name="weather_map_layer_temperature">Temperature</string>
+    <string name="weather_map_layer_wind">Wind</string>
+    <string name="weather_map_layer_humidity">Humidity</string>
+    <string name="weather_map_zoom_in">Zoom in</string>
+    <string name="weather_map_zoom_out">Zoom out</string>
+    <string name="weather_map_play">Play forecast</string>
+    <string name="weather_map_pause">Pause forecast</string>
+    <string name="weather_map_no_signal">No measurable values at this location</string>
+    <string name="weather_map_city_info">%1$s · %2$s</string>
+    <string name="weather_map_feels">Feels</string>
+    <string name="world_clock_map_title">World Clock</string>
+    <string name="world_clock_map_loading">Loading world clock map…</string>
+    <string name="world_clock_map_error">Could not load world clock map: %1$s</string>
+    <string name="world_clock_map_unsupported">World clock map is unavailable on this device.</string>
+    <string name="world_clock_add_location">Add location</string>
+    <string name="world_clock_search_location">Search city or time zone</string>
+    <string name="world_clock_no_locations_found">No matching locations</string>
+    <string name="world_clock_saved_locations">Saved locations</string>
+    <string name="world_clock_remove_location">Remove location</string>
 </resources>

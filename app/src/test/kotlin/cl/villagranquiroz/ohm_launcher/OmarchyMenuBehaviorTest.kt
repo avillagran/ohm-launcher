@@ -163,6 +163,25 @@ class OmarchyMenuBehaviorTest {
     }
 
     @Test
+    fun emptyFavoritesShowsAnActionThatCanOpenTheAppsMenu() {
+        val openApps = OmarchyMenuEntry(icon = "apps", label = "Open Apps and mark your favorites")
+
+        assertEquals(
+            listOf(openApps),
+            OmarchyMenuEmptyStatePolicy.entries(emptyList(), queryIsBlank = true, emptyEntry = openApps),
+        )
+        assertEquals(
+            emptyList<OmarchyMenuEntry>(),
+            OmarchyMenuEmptyStatePolicy.entries(emptyList(), queryIsBlank = false, emptyEntry = openApps),
+        )
+        val firefox = OmarchyMenuEntry(icon = "app", label = "Firefox")
+        assertEquals(
+            listOf(firefox),
+            OmarchyMenuEmptyStatePolicy.entries(listOf(firefox), queryIsBlank = true, emptyEntry = openApps),
+        )
+    }
+
+    @Test
     fun appsSearchMenuIsTwentyPercentShorterThanTheFullMenu() {
         assertEquals(720, OmarchyMenuHeightPolicy.maximumHeight(1000, OmarchyMenuMode.FULL))
         assertEquals(576, OmarchyMenuHeightPolicy.maximumHeight(1000, OmarchyMenuMode.APPS_ONLY))

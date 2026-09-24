@@ -1,0 +1,152 @@
+<es-419>
+• Paneles, diálogos y controles TTFX adaptados al tema Omarchy activo.
+• Elige un color de la paleta del tema para el texto de reloj, clima y TTFX.
+• Terminal Quake con diez botones sobre el teclado.
+• Más iconos Nerd Fonts para tus aplicaciones.
+• «Reaccionar al audio» comienza desactivado y pide permiso solo al activarlo.
+• Clima con pronóstico de tres días y mapas; reloj mundial interactivo.
+</es-419>
+<en-US>
+• Panels, dialogs and TTFX controls now match the active Omarchy theme.
+• Choose a theme-palette color for clock, weather and TTFX text.
+• Quake terminal now has ten keys above the keyboard.
+• More app icons use Nerd Fonts.
+• Audio reaction starts off and asks permission only when enabled.
+• Weather adds a three-day forecast and maps; explore the interactive world clock.
+</en-US>
+<ar>
+• تتكيف اللوحات ومربعات الحوار وعناصر تحكم TTFX مع مظهر Omarchy النشط.
+• اختر لونًا من لوحة المظهر لنص الساعة والطقس وTTFX.
+• تتضمن طرفية Quake عشرة أزرار فوق لوحة المفاتيح.
+• تستخدم أيقونات مزيد من التطبيقات خط Nerd Fonts.
+• يبدأ التفاعل مع الصوت معطّلًا، ولا يطلب الإذن إلا عند تفعيله.
+• يعرض الطقس توقعات لثلاثة أيام وخرائط، مع ساعة عالمية تفاعلية.
+</ar>
+<de-DE>
+• Fenster, Dialoge und TTFX-Steuerung passen sich dem aktiven Omarchy-Design an.
+• Wähle eine Designfarbe für Uhr-, Wetter- und TTFX-Text.
+• Das Quake-Terminal bietet zehn Tasten über der Tastatur.
+• Mehr App-Symbole verwenden Nerd Fonts.
+• Die Audioreaktion ist zunächst aus und fragt erst beim Einschalten nach der Berechtigung.
+• Wetter mit Drei-Tage-Vorhersage und Karten; interaktive Weltuhr.
+</de-DE>
+<fr-FR>
+• Les panneaux, fenêtres et commandes TTFX suivent le thème Omarchy actif.
+• Choisissez une couleur de la palette pour les textes de l’horloge, de la météo et de TTFX.
+• Le terminal Quake dispose de dix touches au-dessus du clavier.
+• Davantage d’icônes d’apps utilisent Nerd Fonts.
+• La réaction au son est désactivée par défaut et ne demande l’autorisation qu’à l’activation.
+• Météo : prévisions sur trois jours et cartes ; horloge mondiale interactive.
+</fr-FR>
+<hi-IN>
+• पैनल, डायलॉग और TTFX नियंत्रण अब सक्रिय Omarchy थीम के अनुसार दिखते हैं।
+• घड़ी, मौसम और TTFX के टेक्स्ट के लिए थीम पैलेट से रंग चुनें।
+• Quake टर्मिनल में कीबोर्ड के ऊपर दस बटन हैं।
+• अब अधिक ऐप आइकन Nerd Fonts का उपयोग करते हैं।
+• ऑडियो पर प्रतिक्रिया शुरू में बंद रहती है; चालू करने पर ही अनुमति माँगी जाती है।
+• मौसम में तीन दिन का पूर्वानुमान और मानचित्र; इंटरैक्टिव विश्व घड़ी।
+</hi-IN>
+<id>
+• Panel, dialog, dan kontrol TTFX mengikuti tema Omarchy yang aktif.
+• Pilih warna palet tema untuk teks jam, cuaca, dan TTFX.
+• Terminal Quake memiliki sepuluh tombol di atas papan ketik.
+• Lebih banyak ikon aplikasi menggunakan Nerd Fonts.
+• Reaksi audio awalnya nonaktif; izin baru diminta saat diaktifkan.
+• Cuaca menampilkan prakiraan tiga hari dan peta; jam dunia interaktif.
+</id>
+<it-IT>
+• Pannelli, finestre e controlli TTFX seguono il tema Omarchy attivo.
+• Scegli un colore della palette per il testo di orologio, meteo e TTFX.
+• Il terminale Quake ha dieci tasti sopra la tastiera.
+• Più icone delle app usano Nerd Fonts.
+• La reazione all’audio parte disattivata e chiede il permesso solo quando la attivi.
+• Meteo con previsioni di tre giorni e mappe; orologio mondiale interattivo.
+</it-IT>
+<ja-JP>
+• パネル、ダイアログ、TTFX 操作が現在の Omarchy テーマに対応しました。
+• 時計、天気、TTFX の文字色をテーマのパレットから選べます。
+• Quake ターミナルにキーボード上の10個のキーを追加しました。
+• より多くのアプリアイコンに Nerd Fonts を採用しました。
+• 音声への反応は初期状態でオフになり、有効化したときだけ権限を求めます。
+• 天気に3日間の予報と地図を追加。世界時計も操作できます。
+</ja-JP>
+<ko-KR>
+• 패널, 대화상자, TTFX 컨트롤이 현재 Omarchy 테마를 따릅니다.
+• 시계, 날씨, TTFX의 글자색을 테마 팔레트에서 선택하세요.
+• Quake 터미널에 키보드 위 버튼 10개를 추가했습니다.
+• 더 많은 앱 아이콘에 Nerd Fonts를 적용했습니다.
+• 오디오 반응은 기본적으로 꺼져 있으며 켤 때만 권한을 요청합니다.
+• 날씨에 3일 예보와 지도를 추가하고, 세계 시계를 조작할 수 있습니다.
+</ko-KR>
+<nl-NL>
+• Panelen, dialoogvensters en TTFX-knoppen volgen nu het actieve Omarchy-thema.
+• Kies een paletkleur voor de tekst van klok, weer en TTFX.
+• De Quake-terminal heeft tien toetsen boven het toetsenbord.
+• Meer app-pictogrammen gebruiken Nerd Fonts.
+• Audioreactie staat standaard uit en vraagt pas toestemming bij inschakeling.
+• Weer met driedaagse voorspelling en kaarten; interactieve wereldklok.
+</nl-NL>
+<pl-PL>
+• Panele, okna dialogowe i elementy TTFX dostosowują się do aktywnego motywu Omarchy.
+• Wybierz kolor z palety motywu dla tekstu zegara, pogody i TTFX.
+• Terminal Quake ma dziesięć przycisków nad klawiaturą.
+• Więcej ikon aplikacji korzysta z Nerd Fonts.
+• Reakcja na dźwięk jest początkowo wyłączona; prosi o uprawnienie dopiero po włączeniu.
+• Pogoda z prognozą na trzy dni i mapami; interaktywny zegar światowy.
+</pl-PL>
+<pt-BR>
+• Painéis, diálogos e controles TTFX acompanham o tema Omarchy ativo.
+• Escolha uma cor da paleta do tema para os textos do relógio, clima e TTFX.
+• O terminal Quake tem dez botões acima do teclado.
+• Mais ícones de apps usam Nerd Fonts.
+• A reação ao áudio começa desligada e só pede permissão ao ser ativada.
+• Clima com previsão de três dias e mapas; relógio mundial interativo.
+</pt-BR>
+<ru-RU>
+• Панели, диалоги и элементы TTFX теперь следуют активной теме Omarchy.
+• Выберите цвет палитры темы для текста часов, погоды и TTFX.
+• В терминале Quake появилось десять кнопок над клавиатурой.
+• Для большего числа значков приложений используются Nerd Fonts.
+• Реакция на звук изначально выключена и запрашивает разрешение только при включении.
+• Погода: прогноз на три дня и карты; интерактивные мировые часы.
+</ru-RU>
+<sv-SE>
+• Paneler, dialogrutor och TTFX-kontroller följer nu det aktiva Omarchy-temat.
+• Välj en palettfärg för texten i klockan, vädret och TTFX.
+• Quake-terminalen har tio knappar ovanför tangentbordet.
+• Fler appikoner använder Nerd Fonts.
+• Ljudreaktion är avstängd från början och begär tillstånd först när den aktiveras.
+• Väder med tredygnsprognos och kartor; interaktiv världsklocka.
+</sv-SE>
+<tr-TR>
+• Paneller, iletişim kutuları ve TTFX kontrolleri etkin Omarchy temasına uyum sağlar.
+• Saat, hava durumu ve TTFX metni için tema paletinden renk seçin.
+• Quake terminalinde klavyenin üstünde on tuş bulunur.
+• Daha fazla uygulama simgesi Nerd Fonts kullanır.
+• Sese tepki varsayılan olarak kapalıdır; izin yalnızca açıldığında istenir.
+• Üç günlük hava tahmini ve haritalar; etkileşimli dünya saati.
+</tr-TR>
+<uk-UA>
+• Панелі, діалоги й елементи TTFX відповідають активній темі Omarchy.
+• Оберіть колір палітри теми для тексту годинника, погоди й TTFX.
+• Термінал Quake має десять кнопок над клавіатурою.
+• Більше піктограм програм використовують Nerd Fonts.
+• Реакція на звук спочатку вимкнена й запитує дозвіл лише після ввімкнення.
+• Погода з прогнозом на три дні й картами; інтерактивний світовий годинник.
+</uk-UA>
+<zh-CN>
+• 面板、对话框和 TTFX 控件会跟随当前 Omarchy 主题。
+• 可从主题色板中为时钟、天气和 TTFX 文字选择颜色。
+• Quake 终端在键盘上方提供十个按键。
+• 更多应用图标采用 Nerd Fonts。
+• 音频响应默认关闭，仅在开启时请求权限。
+• 天气新增三日预报和地图；还可使用交互式世界时钟。
+</zh-CN>
+<zh-TW>
+• 面板、對話框及 TTFX 控制項會跟隨目前的 Omarchy 主題。
+• 可從主題色盤選擇時鐘、天氣及 TTFX 文字的顏色。
+• Quake 終端機在鍵盤上方提供十個按鍵。
+• 更多應用程式圖示採用 Nerd Fonts。
+• 音訊反應預設關閉，只有啟用時才要求權限。
+• 天氣新增三日預報及地圖；還可使用互動式世界時鐘。
+</zh-TW>

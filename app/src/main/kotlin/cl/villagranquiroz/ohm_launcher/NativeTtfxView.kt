@@ -209,9 +209,10 @@ class NativeTtfxView @JvmOverloads constructor(
     }
 
     fun submitTheme(palette: OmarchyThemePalette?) {
-        themeAccent = palette
+        val defaultColor = palette
             ?.let { OmarchyDesktopTextPolicy.preferredColor(it.colors) }
             ?.let { runCatching { Color.parseColor(it) }.getOrNull() }
+        themeAccent = OmarchyUiTheme.widgetTextColor(defaultColor ?: Color.WHITE).takeIf { palette != null }
         invalidate()
     }
 

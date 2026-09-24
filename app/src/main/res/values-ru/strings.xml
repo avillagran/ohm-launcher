@@ -33,9 +33,13 @@
     <string name="menu_system">Система</string>
     <string name="menu_home_launcher">Лаунчер главного экрана</string>
     <string name="menu_gestures">Жесты</string>
+
     <string name="menu_storage">Хранилище</string>
     <string name="menu_apps">Приложения</string>
     <string name="menu_style">Стиль</string>
+    <string name="menu_theme_background_color">Цвет текста фоновых виджетов</string>
+    <string name="menu_theme_background_reset">Использовать цвет темы</string>
+
     <string name="menu_theme">Тема</string>
     <string name="menu_background">Фон</string>
     <string name="menu_sync_style">Синхронизировать из Omarchy</string>
@@ -48,6 +52,7 @@
     <string name="menu_not_synced">Не синхронизировано</string>
     <string name="menu_omarchy_launcher">Открыть меню Omarchy</string>
     <string name="bar_fav_apps">Избранные приложения</string>
+    <string name="favorites_empty_action">Откройте Apps и отметьте избранное</string>
     <string name="bar_expand">Развернуть панель</string>
     <string name="bar_compress">Свернуть панель</string>
     <string name="bar_recents">Недавние приложения</string>
@@ -129,6 +134,11 @@
     <string name="setting_ai_prompt">Системная инструкция</string>
     <string name="ttfx_editor">Редактор TTFX</string>
     <string name="ttfx_show_floating_controls">Показывать плавающие элементы управления рабочим столом</string>
+    <string name="ttfx_hide_floating_controls">Скрыть плавающие элементы управления</string>
+    <string name="ttfx_mini_open">Открыть плавающие элементы TTFX</string>
+    <string name="ttfx_mini_close">Свернуть плавающие элементы TTFX</string>
+    <string name="ttfx_mini_previous">Предыдущий эффект</string>
+    <string name="ttfx_mini_next">Следующий эффект</string>
     <string name="ttfx_live_preview">ПРЕДПРОСМОТР В РЕАЛЬНОМ ВРЕМЕНИ</string>
     <string name="ttfx_composition">КОМПОЗИЦИЯ</string>
     <string name="ttfx_composition_help">Изменения отображаются на рабочем столе во время редактирования.</string>
@@ -201,10 +211,32 @@
     <string name="weather_condition_storm">Гроза</string>
     <string name="weather_condition_unknown">Неизвестно</string>
     <string name="weather_picker_title">Выбрать город</string>
-    <string name="weather_picker_search_hint">Найти город</string>
-    <string name="weather_picker_no_results">Города не найдены</string>
-    <string name="weather_picker_error">Не удалось найти города. Проверьте подключение.</string>
-    <string name="weather_picker_close">Закрыть</string>
     <string name="weather_unit_celsius">Цельсий</string>
     <string name="weather_unit_fahrenheit">Фаренгейт</string>
+    <string name="weather_map_loading">Загрузка карты прогноза…</string>
+    <string name="weather_map_error">Не удалось построить карту: %1$s</string>
+    <string name="weather_map_unsupported">Карта погоды недоступна на этом устройстве.</string>
+    <string name="weather_map_stale">устаревшие данные</string>
+    <string name="world_clock_map_title">Мировое время</string>
+    <string name="world_clock_map_loading">Загрузка карты мирового времени…</string>
+    <string name="world_clock_map_error">Не удалось загрузить карту мирового времени: %1$s</string>
+    <string name="world_clock_map_unsupported">Карта мирового времени недоступна на этом устройстве.</string>
+    <string name="weather_map_snapshot">Отдельный момент прогноза</string>
+    <string name="weather_map_layer_rain">Дождь</string>
+    <string name="weather_map_layer_clouds">Облака</string>
+    <string name="weather_map_layer_temperature">Температура</string>
+    <string name="weather_map_layer_wind">Ветер</string>
+    <string name="weather_map_layer_humidity">Влажность</string>
+    <string name="weather_map_zoom_in">Увеличить</string>
+    <string name="weather_map_zoom_out">Уменьшить</string>
+    <string name="weather_map_play">Воспроизвести прогноз</string>
+    <string name="weather_map_pause">Приостановить прогноз</string>
+    <string name="weather_map_no_signal">В этом месте нет измеряемых значений</string>
+    <string name="weather_map_city_info">%1$s · %2$s</string>
+    <string name="weather_map_feels">Ощущается</string>
+    <string name="world_clock_add_location">Добавить место</string>
+    <string name="world_clock_search_location">Поиск города или часового пояса</string>
+    <string name="world_clock_no_locations_found">Подходящие места не найдены</string>
+    <string name="world_clock_saved_locations">Сохранённые места</string>
+    <string name="world_clock_remove_location">Удалить место</string>
 </resources>

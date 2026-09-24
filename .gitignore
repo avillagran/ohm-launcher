@@ -34,3 +34,5 @@ __pycache__/
 # Local captures and diagnostics
 captures/
 *.hprof
+/supernotch-weather/target/
+/playstore/release/artifacts/

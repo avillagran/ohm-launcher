@@ -33,6 +33,18 @@ class EmbeddedToolsInstaller(
         return true
     }
 
+    /** Remove only binaries previously seeded by the direct edition on a Play upgrade. */
+    fun removeInstalledTools() {
+        val marker = filesRoot.resolve(MARKER)
+        if (!marker.isFile) return
+        val bin = filesRoot.resolve("bin")
+        (TOOL_FILES + DROPBEAR_ALIASES).forEach { name ->
+            val file = bin.resolve(name)
+            check(!file.exists() || file.delete()) { "Unable to remove bundled tool: $name" }
+        }
+        check(marker.delete()) { "Unable to clear embedded tools marker" }
+    }
+
     private fun ensureTerminfo() {
         val target = filesRoot.resolve(".terminfo/x/xterm-256color")
         if (!target.isFile) installAsset("terminfo/x/xterm-256color", target)

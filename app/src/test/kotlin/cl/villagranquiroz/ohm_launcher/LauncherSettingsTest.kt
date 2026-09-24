@@ -175,6 +175,27 @@ class LauncherSettingsTest {
     }
 
     @Test
+    fun widgetTextRoleIsValidatedAndDoesNotModifyCanonicalTheme() {
+        val original = LauncherSettings.parse(
+            """{"omarchyTheme":{"colors":{"background":"#1A1B26","accent":"#ABC123"}},"widgetTextColorRole":"accent","themeBackgroundColor":"#000000"}""",
+        )
+        assertEquals("accent", original.widgetTextColorRole)
+        val persisted = LauncherSettings.parse(original.toJson().toString())
+        assertEquals("accent", persisted.widgetTextColorRole)
+        assertFalse(persisted.toJson().has("themeBackgroundColor"))
+        assertEquals("#1A1B26", persisted.raw.getJSONObject("omarchyTheme")
+            .getJSONObject("colors").getString("background"))
+        assertNull(LauncherSettings.parse(persisted.copy(widgetTextColorRole = null).toJson().toString()).widgetTextColorRole)
+        assertNull(OmarchyWidgetTextColorPolicy.normalize("#ABC123", OmarchyThemePalette.fromSettings(persisted.raw)))
+        assertNull(OmarchyWidgetTextColorPolicy.normalize("missing", OmarchyThemePalette.fromSettings(persisted.raw)))
+        val changedTheme = LauncherSettings.parse(persisted.toJson().apply {
+            put("omarchyTheme", org.json.JSONObject("""{"colors":{"accent":"#FF9900"}}"""))
+        })
+        assertEquals("accent", changedTheme.widgetTextColorRole)
+        assertEquals("#FF9900", OmarchyThemePalette.fromSettings(changedTheme.raw)?.color("accent"))
+    }
+
+    @Test
     fun applyOmarchyThemeToSystemSerializationLeavesUnknownFieldsAndOmarchyThemeUntouched() {
         val parsed = LauncherSettings.parse(
             """{

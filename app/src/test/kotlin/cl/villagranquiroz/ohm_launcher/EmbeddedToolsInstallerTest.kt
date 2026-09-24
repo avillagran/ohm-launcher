@@ -43,4 +43,21 @@ class EmbeddedToolsInstallerTest {
         assertFalse(installer.install(listOf("armeabi-v7a")))
         assertFalse(root.resolve(EmbeddedToolsInstaller.MARKER).exists())
     }
+
+    @Test
+    fun removesBundledDirectToolsOnPlayUpgradeWithoutDeletingUserFiles() {
+        val root = temporary.newFolder("direct-upgrade")
+        val installer = EmbeddedToolsInstaller(root) { ByteArrayInputStream("binary".toByteArray()) }
+        assertTrue(installer.install(listOf("arm64-v8a")))
+        root.resolve("bin/custom-tool").writeText("user data")
+
+        installer.removeInstalledTools()
+
+        assertFalse(root.resolve("bin/tmux").exists())
+        assertFalse(root.resolve("bin/dropbearmulti").exists())
+        assertFalse(root.resolve("bin/ssh").exists())
+        assertFalse(root.resolve("bin/herdr").exists())
+        assertFalse(root.resolve(EmbeddedToolsInstaller.MARKER).exists())
+        assertEquals("user data", root.resolve("bin/custom-tool").readText())
+    }
 }

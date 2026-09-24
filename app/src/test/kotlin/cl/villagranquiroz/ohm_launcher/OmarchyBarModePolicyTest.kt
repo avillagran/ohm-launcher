@@ -1,7 +1,6 @@
 package cl.villagranquiroz.ohm_launcher
 
 import org.json.JSONObject
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -32,29 +31,59 @@ class OmarchyBarModePolicyTest {
     }
 
     @Test
-    fun omarchyBarModeHidesEdgeBoxesUnlessWidgetEditing() {
+    fun edgeBoxesStayHiddenEvenDuringWidgetEditing() {
         assertFalse(OmarchyBarModePolicy.edgeBoxesVisible(omarchyBarMode = true, widgetEditing = false))
-        assertTrue(OmarchyBarModePolicy.edgeBoxesVisible(omarchyBarMode = false, widgetEditing = false))
-        assertTrue(OmarchyBarModePolicy.edgeBoxesVisible(omarchyBarMode = true, widgetEditing = true))
+        assertFalse(OmarchyBarModePolicy.edgeBoxesVisible(omarchyBarMode = false, widgetEditing = false))
+        assertFalse(OmarchyBarModePolicy.edgeBoxesVisible(omarchyBarMode = true, widgetEditing = true))
     }
 
     @Test
-    fun favoritesStayInBarOnlyOutsideOmarchyMode() {
-        assertFalse(OmarchyBarModePolicy.favoritesInBar(omarchyBarMode = true))
-        assertTrue(OmarchyBarModePolicy.favoritesInBar(omarchyBarMode = false))
+    fun savedEdgeBoxesAreNeverRenderedDuringStartupOrAfterReturningToLauncher() {
+        assertFalse(
+            OmarchyBarModePolicy.shouldRenderEdgeBoxes(
+                hasConfiguredBoxes = true,
+                omarchyBarMode = true,
+                widgetEditing = false,
+            ),
+        )
+        assertFalse(
+            OmarchyBarModePolicy.shouldRenderEdgeBoxes(
+                hasConfiguredBoxes = true,
+                omarchyBarMode = false,
+                widgetEditing = true,
+            ),
+        )
+        assertFalse(
+            OmarchyBarModePolicy.shouldRenderEdgeBoxes(
+                hasConfiguredBoxes = false,
+                omarchyBarMode = true,
+                widgetEditing = false,
+            ),
+        )
     }
 
     @Test
-    fun compactBarShowsFavAppsButtonAndSpacer() {
-        assertTrue(OmarchyBarModePolicy.favAppsButtonVisible(omarchyBarMode = true))
-        assertFalse(OmarchyBarModePolicy.favAppsButtonVisible(omarchyBarMode = false))
-        assertTrue(OmarchyBarModePolicy.spacerVisible(omarchyBarMode = true))
-        assertFalse(OmarchyBarModePolicy.spacerVisible(omarchyBarMode = false))
+    fun favoriteStripStaysHiddenButFavoritesButtonIsVisible() {
+        assertFalse(OmarchyBarModePolicy.favoritesInBar())
+        assertTrue(OmarchyBarModePolicy.favAppsButtonVisible())
     }
 
     @Test
-    fun activadorGlyphPointsToTheStateItWillEnter() {
-        assertEquals(NerdGlyph.EXPAND, OmarchyBarModePolicy.toggleGlyph(omarchyBarMode = true))
-        assertEquals(NerdGlyph.COMPRESS, OmarchyBarModePolicy.toggleGlyph(omarchyBarMode = false))
+    fun omarchyLayoutIsAlwaysOnAndIndependentOfAccessibility() {
+        assertTrue(OmarchyBarModePolicy.ALWAYS_OMARCHY_MODE)
+        assertTrue(OmarchyBarModePolicy.spacerVisible())
+        assertFalse(OmarchyBarModePolicy.appsLabelVisible())
+        assertFalse(OmarchyBarModePolicy.accessibilityShortcutVisible(serviceConnected = true))
+        assertTrue(OmarchyBarModePolicy.accessibilityShortcutVisible(serviceConnected = false))
+        assertTrue(OmarchyBarModePolicy.recentsButtonVisible(serviceConnected = true))
+        assertFalse(OmarchyBarModePolicy.recentsButtonVisible(serviceConnected = false))
+    }
+
+    @Test
+    fun omarchyModeIsIndependentOfAccessibilityServiceState() {
+        // Accessibility only controls the right-side shortcut and system nav;
+        // it must never change the user's selected launcher layout.
+        assertTrue(OmarchyBarModePolicy.accessibilityShortcutVisible(serviceConnected = false))
+        assertFalse(OmarchyBarModePolicy.accessibilityShortcutVisible(serviceConnected = true))
     }
 }

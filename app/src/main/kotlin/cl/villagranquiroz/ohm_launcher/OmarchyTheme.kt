@@ -134,7 +134,7 @@ data class OmarchyThemeGeometry(val cornerRadius: Float) {
 
 object OmarchyThemeShapePolicy {
     fun surfaceRadius(requested: Float, palette: OmarchyThemePalette?): Float {
-        val canonical = palette?.geometry?.cornerRadius ?: return requested.coerceAtLeast(0f)
+        val canonical = palette?.geometry?.cornerRadius ?: 0f
         return minOf(requested.coerceAtLeast(0f), canonical)
     }
 }

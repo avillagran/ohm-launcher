@@ -19,9 +19,9 @@ android {
         minSdk = 24
         targetSdk = 36
         // Google Play requires a new internal code for every uploaded bundle.
-        // The public release remains 0.0.4.
-        versionCode = 9
-        versionName = "0.0.4"
+        // The public release is 0.0.5.
+        versionCode = 11
+        versionName = "0.0.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -65,6 +65,11 @@ android {
 
     buildFeatures {
         buildConfig = true
+    }
+
+    sourceSets {
+        getByName("debug").assets.directories.add("src/direct/assets")
+        getByName("release").assets.directories.add("src/direct/assets")
     }
 
     externalNativeBuild {

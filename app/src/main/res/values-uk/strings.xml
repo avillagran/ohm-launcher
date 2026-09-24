@@ -33,9 +33,13 @@
     <string name="menu_system">Система</string>
     <string name="menu_home_launcher">HOME-лаунчер</string>
     <string name="menu_gestures">Жести</string>
+
     <string name="menu_storage">Сховище</string>
     <string name="menu_apps">Apps</string>
     <string name="menu_style">Стиль</string>
+    <string name="menu_theme_background_color">Колір тексту фонових віджетів</string>
+    <string name="menu_theme_background_reset">Використати колір теми</string>
+
     <string name="menu_theme">Тема</string>
     <string name="menu_background">Фон</string>
     <string name="menu_sync_style">Синхронізувати з Omarchy</string>
@@ -48,6 +52,7 @@
     <string name="menu_not_synced">Не синхронізовано</string>
     <string name="menu_omarchy_launcher">Відкрити меню Omarchy</string>
     <string name="bar_fav_apps">Fav apps</string>
+    <string name="favorites_empty_action">Відкрийте Apps і позначте улюблені</string>
     <string name="bar_expand">Розгорнути панель</string>
     <string name="bar_compress">Згорнути панель</string>
     <string name="bar_recents">Нещодавні програми</string>
@@ -130,6 +135,11 @@
     <string name="ttfx_editor">Редактор TTFX</string>
 
     <string name="ttfx_show_floating_controls">Показувати рухомі елементи керування робочим столом</string>
+    <string name="ttfx_hide_floating_controls">Приховати рухомі елементи керування</string>
+    <string name="ttfx_mini_open">Відкрити рухомі елементи TTFX</string>
+    <string name="ttfx_mini_close">Згорнути рухомі елементи TTFX</string>
+    <string name="ttfx_mini_previous">Попередній ефект</string>
+    <string name="ttfx_mini_next">Наступний ефект</string>
     <string name="ttfx_live_preview">ПОПЕРЕДНІЙ ПЕРЕГЛЯД</string>
     <string name="ttfx_composition">КОМПОЗИЦІЯ</string>
     <string name="ttfx_composition_help">Під час редагування зміни відображаються на робочому столі.</string>
@@ -202,10 +212,32 @@
     <string name="weather_condition_storm">Гроза</string>
     <string name="weather_condition_unknown">Невідомо</string>
     <string name="weather_picker_title">Обрати місто</string>
-    <string name="weather_picker_search_hint">Шукати місто</string>
-    <string name="weather_picker_no_results">Міст не знайдено</string>
-    <string name="weather_picker_error">Не вдалося шукати міста. Перевірте з\'єднання.</string>
-    <string name="weather_picker_close">Закрити</string>
     <string name="weather_unit_celsius">Цельсій</string>
     <string name="weather_unit_fahrenheit">Фаренгейт</string>
+    <string name="weather_map_loading">Завантаження карти прогнозу…</string>
+    <string name="weather_map_error">Не вдалося побудувати карту: %1$s</string>
+    <string name="weather_map_unsupported">Карта погоди недоступна на цьому пристрої.</string>
+    <string name="weather_map_stale">застарілі дані</string>
+    <string name="world_clock_map_title">Світовий годинник</string>
+    <string name="world_clock_map_loading">Завантаження мапи світового часу…</string>
+    <string name="world_clock_map_error">Не вдалося завантажити мапу світового часу: %1$s</string>
+    <string name="world_clock_map_unsupported">Мапа світового часу недоступна на цьому пристрої.</string>
+    <string name="weather_map_snapshot">Окремий момент прогнозу</string>
+    <string name="weather_map_layer_rain">Дощ</string>
+    <string name="weather_map_layer_clouds">Хмари</string>
+    <string name="weather_map_layer_temperature">Температура</string>
+    <string name="weather_map_layer_wind">Вітер</string>
+    <string name="weather_map_layer_humidity">Вологість</string>
+    <string name="weather_map_zoom_in">Збільшити</string>
+    <string name="weather_map_zoom_out">Зменшити</string>
+    <string name="weather_map_play">Відтворити прогноз</string>
+    <string name="weather_map_pause">Призупинити прогноз</string>
+    <string name="weather_map_no_signal">У цьому місці немає вимірюваних значень</string>
+    <string name="weather_map_city_info">%1$s · %2$s</string>
+    <string name="weather_map_feels">Відчувається</string>
+    <string name="world_clock_add_location">Додати місце</string>
+    <string name="world_clock_search_location">Шукати місто або часовий пояс</string>
+    <string name="world_clock_no_locations_found">Відповідних місць не знайдено</string>
+    <string name="world_clock_saved_locations">Збережені місця</string>
+    <string name="world_clock_remove_location">Видалити місце</string>
 </resources>

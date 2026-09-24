@@ -1,7 +1,6 @@
 package cl.villagranquiroz.ohm_launcher
 
 import android.content.Context
-import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
@@ -21,6 +20,10 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.SwitchCompat
 import androidx.core.widget.doAfterTextChanged
 
+internal object TtfxAudioPermissionPolicy {
+    fun shouldRequest(checked: Boolean): Boolean = checked
+}
+
 object TtfxSettingsDialog {
     val effects = listOf(
         "beams", "binarypath", "blackhole", "bouncyballs", "bubbles", "burn",
@@ -36,17 +39,22 @@ object TtfxSettingsDialog {
         current: TtfxConfig,
         panelOpacity: Double = 0.86,
         onPreview: (TtfxConfig) -> Unit = {},
+        onAudioEnabledRequested: ((Boolean) -> Unit) -> Unit,
         onSave: (TtfxConfig) -> Unit,
     ) {
         val density = context.resources.displayMetrics.density
         fun dp(value: Int) = (value * density).toInt()
-        val accent = 0xFF66E0FF.toInt()
-        val foreground = 0xFFE8F1F8.toInt()
-        val muted = 0xFF9FB3C8.toInt()
+        val accent = OmarchyUiTheme.color("accent", 0xFF66E0FF.toInt())
+        val foreground = OmarchyUiTheme.color("foreground", 0xFFE8F1F8.toInt())
+        val muted = OmarchyUiTheme.color("muted", 0xFF9FB3C8.toInt())
+        val themeBackground = OmarchyUiTheme.color("background", 0xFF090D12.toInt())
+        val surface = OmarchyUiTheme.color("lighter_background", 0xFF151D26.toInt())
+        fun withAlpha(color: Int, alpha: Int) = (color and 0x00FFFFFF) or (alpha shl 24)
         val session = TtfxEditorSession(current, onPreview)
         val preview = NativeTtfxView(context)
+        preview.submitTheme(OmarchyUiTheme.currentPalette)
         val previewCard = FrameLayout(context).apply {
-            background = rounded(0xFF090D12.toInt(), dp(18).toFloat(), 0x8066E0FF.toInt(), dp(1), density)
+            background = rounded(themeBackground, dp(18).toFloat(), withAlpha(accent, 0x80), dp(1), density)
             clipToOutline = true
             addView(preview, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(136)))
             addView(TextView(context).apply {
@@ -55,7 +63,7 @@ object TtfxSettingsDialog {
                 textSize = 10f
                 typeface = Typeface.DEFAULT_BOLD
                 setPadding(dp(10), dp(7), dp(10), dp(7))
-                background = rounded(0xCC101820.toInt(), dp(10).toFloat(), 0x5566E0FF, dp(1), density)
+                background = rounded(withAlpha(themeBackground, 0xCC), dp(10).toFloat(), withAlpha(accent, 0x55), dp(1), density)
             }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply {
                 setMargins(dp(8), dp(8), dp(8), dp(8))
             })
@@ -81,14 +89,20 @@ object TtfxSettingsDialog {
             setHintTextColor(muted)
             setSingleLine(true)
             setPadding(dp(14), dp(10), dp(14), dp(10))
-            background = rounded(0xFF151D26.toInt(), dp(14).toFloat(), 0x5566E0FF, dp(1), density)
+            background = rounded(surface, dp(14).toFloat(), withAlpha(accent, 0x55), dp(1), density)
         }
         val effect = Spinner(context).apply {
-            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, effects).apply {
+            adapter = object : ArrayAdapter<String>(context, android.R.layout.simple_spinner_item, effects) {
+                override fun getView(position: Int, convertView: android.view.View?, parent: ViewGroup): android.view.View =
+                    super.getView(position, convertView, parent).also { (it as? TextView)?.setTextColor(foreground) }
+
+                override fun getDropDownView(position: Int, convertView: android.view.View?, parent: ViewGroup): android.view.View =
+                    super.getDropDownView(position, convertView, parent).also { (it as? TextView)?.setTextColor(foreground) }
+            }.apply {
                 setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
             }
             setSelection(effects.indexOf(current.effect).coerceAtLeast(0))
-            background = rounded(0xFF151D26.toInt(), dp(14).toFloat(), 0x5566E0FF, dp(1), density)
+            background = rounded(surface, dp(14).toFloat(), withAlpha(accent, 0x55), dp(1), density)
         }
         val audio = SwitchCompat(context).apply {
             this.text = context.getString(R.string.ttfx_react_audio)
@@ -145,7 +159,15 @@ object TtfxSettingsDialog {
         }
         enabled.setOnCheckedChangeListener { _, _ -> updateLive() }
         floatingControls.setOnCheckedChangeListener { _, _ -> updateLive() }
-        audio.setOnCheckedChangeListener { _, _ -> updateLive() }
+        var dialogActive = true
+        audio.setOnCheckedChangeListener { _, checked ->
+            updateLive()
+            if (TtfxAudioPermissionPolicy.shouldRequest(checked)) {
+                onAudioEnabledRequested { granted ->
+                    if (dialogActive && !granted) audio.isChecked = false
+                }
+            }
+        }
         text.doAfterTextChanged { updateLive(debounce = true) }
         effect.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, position: Int, id: Long) = updateLive()
@@ -170,6 +192,7 @@ object TtfxSettingsDialog {
             }
             .create()
         dialog.setOnDismissListener {
+            dialogActive = false
             handler.removeCallbacksAndMessages(null)
             session.cancel()
         }

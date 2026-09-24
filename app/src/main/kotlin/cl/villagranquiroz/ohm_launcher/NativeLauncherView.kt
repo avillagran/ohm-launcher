@@ -133,8 +133,13 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     private var dragSourceEdge: EdgePosition? = null
     private var orbitalMenu: OrbitalActionMenu? = null
     private var omarchyMenu: OmarchyMenuOverlay? = null
-    private var weatherPicker: WeatherCityPickerOverlay? = null
+    private var weatherPicker: OmarchyMenuOverlay? = null
+    private var weatherMap: WeatherMapOverlay? = null
+    private var clockMap: ClockMapOverlay? = null
     private val weatherController: WeatherWidgetController by lazy { WeatherWidgetController(context) }
+    private val weatherMapController: WeatherMapController by lazy { WeatherMapController(context) }
+    private val clockMapController: ClockMapController by lazy { ClockMapController(context) }
+    private var weatherMapRequestGeneration = 0
     private var themeSelector: OmarchyThemeSelectorOverlay? = null
     private var edgeBoxSettingsMenuId: String? = null
 
@@ -156,6 +161,13 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             clockHandler.postDelayed(this, 1000)
         }
     }
+
+    /** True while any menu or map overlay is up; flings
+     *  on their scrims still reach this view's detector, so actions behind an
+     *  open overlay (e.g. the console) must be gated on this. */
+    private fun overlayMenuOpen(): Boolean =
+        omarchyMenu?.isOpen == true || weatherPicker?.isOpen == true ||
+            weatherMap?.parent != null || clockMap?.parent != null
 
     private val gestures = GestureDetector(
         context,
@@ -202,7 +214,10 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                             showFavoriteAppsMenu(focusInput = false)
                         }
                         LauncherVerticalAction.CLOSE_DRAWER -> true.also { showDrawer(false) }
-                        LauncherVerticalAction.OPEN_QUAKE -> true.also { onQuakeRequested?.invoke() }
+                        // A fling on the menu scrim passes through to this detector;
+                        // never open the console while a menu overlay is up.
+                        LauncherVerticalAction.OPEN_QUAKE ->
+                            if (overlayMenuOpen()) true else true.also { onQuakeRequested?.invoke() }
                         LauncherVerticalAction.CLOSE_QUAKE, LauncherVerticalAction.NONE -> false
                     }
                 }
@@ -272,6 +287,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
 
         favorites.orientation = LinearLayout.HORIZONTAL
         favorites.gravity = Gravity.CENTER_VERTICAL
+        edgeLayer.visibility = GONE
         edgeLayer.setOnDragListener { _, event -> handleEdgeBoxDrag(event) }
         desktopLayer.addView(edgeLayer, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         ttfxMini.apply {
@@ -540,8 +556,10 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         ) return
         settings = value
         omarchyTheme = theme
+        OmarchyUiTheme.apply(value)
         OmarchyThemeShapeState.apply(theme)
         ttfx.submitTheme(omarchyTheme)
+        ttfxMini.submitTheme()
         applyThemeChrome()
         applyFavoriteBarSettings()
         applyCommandBarSettings(forceFromSetting = true)
@@ -627,7 +645,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             favorites.visibility = GONE
             commandContainer.visibility = GONE
         } else {
-            edgeLayer.visibility = VISIBLE
+            edgeLayer.visibility = GONE
             ttfxMini.submit(config.desktops[desktopIndex].ttfx)
             commandContainer.visibility = VISIBLE
             applyFavoriteBarSettings()
@@ -710,7 +728,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             content.addCentered(renderWidget(WidgetNode(raw.optString("type", "container"), raw)))
         }
         if (desktop.widgets.isEmpty() && runtimeWidgets.isEmpty()) {
-            val desktopText = themeColor("desktop_text", themeColor("accent", 0xFFBDEFFF.toInt()))
+            val desktopText = widgetTextColor(themeColor("desktop_text", themeColor("accent", 0xFFBDEFFF.toInt())))
             content.addCentered(LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
@@ -724,7 +742,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         "clock" -> {
             val format = node.raw.optString("format", "HH:mm")
             val size = node.raw.optDouble("fontSize", node.raw.optDouble("size", 58.0)).toFloat()
-            val color = themeColor("desktop_text", themeColor("accent", parseColor(node.raw.optString("color"), 0xFFBDEFFF.toInt())))
+            val color = widgetTextColor(themeColor("desktop_text", themeColor("accent", parseColor(node.raw.optString("color"), 0xFFBDEFFF.toInt()))))
             if (ClockStylePolicy.isParticle(node.raw.optString("style"))) {
                 ParticleClockView(
                     context = context,
@@ -742,7 +760,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         "text" -> label(
             node.raw.optString("text", node.raw.optString("value", "")),
             node.raw.optDouble("fontSize", node.raw.optDouble("size", 18.0)).toFloat(),
-            parseColor(node.raw.optString("color"), Color.WHITE),
+            widgetTextColor(parseColor(node.raw.optString("color"), Color.WHITE)),
         )
         "container" -> renderContainer(node.raw)
         "tiling_layout" -> renderTiling(node.raw)
@@ -760,7 +778,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                     manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY),
                 ),
                 16f,
-                themeColor("desktop_text", themeColor("accent", 0xFF66E0FF.toInt())),
+                widgetTextColor(themeColor("desktop_text", themeColor("accent", 0xFF66E0FF.toInt()))),
             )
         }
         "apps_grid" -> appStrip(apps.take(node.raw.optInt("limit", 8)))
@@ -870,11 +888,52 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             wrapper.setOnLongClickListener(startDrag)
             child.setOnLongClickListener(startDrag)
             if (node.raw.optString("pluginId") == WEATHER_PLUGIN_ID) {
+                // GestureDetector handles fast double-taps and long-press drag;
+                // a manual second-chance window covers slower human double-taps
+                // and defers the single-tap map until the double window expires.
                 val detector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
-                    override fun onDown(e: MotionEvent): Boolean = true
+                    private var lastTapUpAt = 0L
+                    private var lastTapUpX = 0f
+                    private var lastTapUpY = 0f
+                    private var pendingMap: Runnable? = null
+
+                    private fun cancelPendingMap() {
+                        pendingMap?.let(wrapper::removeCallbacks)
+                        pendingMap = null
+                    }
+
+                    override fun onDown(e: MotionEvent): Boolean {
+                        cancelPendingMap()
+                        return true
+                    }
 
                     override fun onDoubleTap(e: MotionEvent): Boolean {
+                        lastTapUpAt = 0L
                         showWeatherCityPicker()
+                        return true
+                    }
+
+                    override fun onSingleTapUp(e: MotionEvent): Boolean {
+                        val now = e.eventTime
+                        val withinWindow = lastTapUpAt != 0L &&
+                            now - lastTapUpAt <= WEATHER_DOUBLE_TAP_WINDOW_MS &&
+                            abs(e.x - lastTapUpX) <= dp(48) &&
+                            abs(e.y - lastTapUpY) <= dp(48)
+                        if (withinWindow) {
+                            lastTapUpAt = 0L
+                            showWeatherCityPicker()
+                        } else {
+                            lastTapUpAt = now
+                            lastTapUpX = e.x
+                            lastTapUpY = e.y
+                            val openMap = Runnable {
+                                pendingMap = null
+                                lastTapUpAt = 0L
+                                showWeatherMap()
+                            }
+                            pendingMap = openMap
+                            wrapper.postDelayed(openMap, WEATHER_DOUBLE_TAP_WINDOW_MS + 50L)
+                        }
                         return true
                     }
 
@@ -883,6 +942,22 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                     }
                 })
                 wrapper.setOnTouchListener { _, event -> detector.onTouchEvent(event) }
+                child.setOnTouchListener { _, event -> detector.onTouchEvent(event) }
+            } else if (node.type == "clock" || node.raw.optString("pluginId") == CLOCK_PLUGIN_ID) {
+                val detector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
+                    override fun onDown(event: MotionEvent): Boolean = true
+
+                    override fun onSingleTapUp(event: MotionEvent): Boolean {
+                        showClockMap()
+                        return true
+                    }
+
+                    override fun onLongPress(event: MotionEvent) {
+                        wrapper.performLongClick()
+                    }
+                })
+                wrapper.setOnTouchListener { _, event -> detector.onTouchEvent(event) }
+                child.setOnTouchListener { _, event -> detector.onTouchEvent(event) }
             }
         }
         if (settings.showTapBoxes && !widgetEditing) {
@@ -981,7 +1056,15 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 renderWidget(WidgetNode(raw.optString("type", "container"), raw))
             } else {
                 val bindings = if (id == WEATHER_PLUGIN_ID) {
-                    weatherController.bindings().also {
+                    weatherController.bindings().toMutableMap().also { values ->
+                        values["Color"] = mapOf(
+                            "foreground" to qmlColor(widgetTextColor(themeColor("foreground", Color.WHITE))),
+                            "muted" to qmlColor(
+                                themeColor("muted", alphaColor(themeColor("foreground", Color.WHITE), 0xB2)),
+                            ),
+                            "accent" to qmlColor(widgetTextColor(themeColor("accent", 0xFF66E0FF.toInt()))),
+                            "surface" to qmlColor(themeColor("lighter_background", themeColor("background", Color.BLACK))),
+                        )
                         weatherController.refreshIfStale { post { renderDesktop() } }
                     }
                 } else {
@@ -992,6 +1075,8 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         }
             .getOrElse { label(context.getString(R.string.plugin_error, id), 12f, 0xFFFF6B7A.toInt()) }
     }
+
+    private fun qmlColor(color: Int): String = String.format(Locale.ROOT, "#%08X", color)
 
     private fun renderSystemWidget(raw: org.json.JSONObject): View {
         val appWidgetId = raw.optInt("appWidgetId", -1)
@@ -1079,7 +1164,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         val iconSize = UnifiedLauncherBarPolicy.favoriteIconSize(availableWidth, fixedButtonsWidth, resolved.size)
         resolved.forEach { app ->
             val icon = ImageView(context).apply {
-                setImageDrawable(context.packageManager.getActivityIcon(android.content.ComponentName(app.packageName, app.activityName)))
+                setImageDrawable(AppCatalog.icon(context, app))
                 val padding = (iconSize * .14f).roundToInt()
                 setPadding(padding, padding, padding, padding)
                 contentDescription = app.label
@@ -1096,7 +1181,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         )
         if (updateVisibility) {
             favoritesScroll.visibility = if (
-                favorites.childCount > 0 && OmarchyBarModePolicy.favoritesInBar(settings.omarchyBarMode)
+                favorites.childCount > 0 && OmarchyBarModePolicy.favoritesInBar()
             ) VISIBLE else GONE
         }
     }
@@ -1106,9 +1191,16 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     }
 
     private fun renderEdgeBoxes() {
+        edgeLayer.visibility = GONE
         edgeLayer.removeAllViews()
         trashDropTarget = null
         edgeGroups.clear()
+        if (!OmarchyBarModePolicy.shouldRenderEdgeBoxes(
+                hasConfiguredBoxes = config.edgeBoxes.any { it.visible },
+                omarchyBarMode = OmarchyBarModePolicy.ALWAYS_OMARCHY_MODE,
+                widgetEditing = widgetEditing,
+            )
+        ) return
         EdgePosition.entries.forEach { edge ->
             val boxes = config.edgeBoxes.filter { it.visible && it.edge == edge }
             if (boxes.isEmpty()) return@forEach
@@ -1728,9 +1820,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 val iconSize = settings.boxItemSize.toInt()
                 val iconPad = (iconSize + 9) / 10
                 val icon = ImageView(context).apply {
-                    setImageDrawable(runCatching {
-                        context.packageManager.getActivityIcon(android.content.ComponentName(app.packageName, app.activityName))
-                    }.getOrNull())
+                    setImageDrawable(AppCatalog.icon(context, app))
                     contentDescription = app.label
                     setPadding(dp(iconPad), dp(iconPad), dp(iconPad), dp(iconPad))
                     setOnClickListener { AppCatalog.launch(context, app) }
@@ -1759,7 +1849,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         val row = LinearLayout(context).apply { gravity = Gravity.CENTER }
         items.forEach { app ->
             val icon = ImageView(context).apply {
-                setImageDrawable(context.packageManager.getActivityIcon(android.content.ComponentName(app.packageName, app.activityName)))
+                setImageDrawable(AppCatalog.icon(context, app))
                 setPadding(dp(6), dp(6), dp(6), dp(6))
                 setOnClickListener { AppCatalog.launch(context, app) }
             }
@@ -1819,7 +1909,13 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             typeface = NerdFont.load(context)
             textSize = 18f
             gravity = Gravity.CENTER
-            setOnClickListener { onOmarchyBarModeChanged?.invoke(!settings.omarchyBarMode) }
+            // This is only an accessibility setup shortcut; changing its state
+            // never changes the always-Omarchy launcher layout.
+            setOnClickListener {
+                if (!gestureServiceConnected()) {
+                    (context as? MainActivity)?.requestAccessibilityForOmarchyBar()
+                }
+            }
         }
         commandRecents.apply {
             text = NerdGlyph.SQUARE
@@ -1861,7 +1957,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             if (animateNextNavigationInset && previousBottom != null && previousBottom != navigationBottom) {
                 animateNextNavigationInset = false
                 val distance = kotlin.math.abs(previousBottom - navigationBottom).toFloat()
-                view.translationY = if (settings.omarchyBarMode) -distance else distance
+                view.translationY = if (effectiveOmarchyBarMode()) -distance else distance
                 view.animate()
                     .translationY(0f)
                     .setDuration(220)
@@ -1910,9 +2006,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 }
             }
             val rowIcon = ImageView(context).apply {
-                setImageDrawable(runCatching {
-                    context.packageManager.getActivityIcon(android.content.ComponentName(app.packageName, app.activityName))
-                }.getOrNull())
+                setImageDrawable(AppCatalog.icon(context, app))
             }
             row.addView(
                 AppIconWithBadge.wrap(context, rowIcon, app.packageName, iconSizeDp = 36).root,
@@ -1970,29 +2064,49 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         }
     }
 
+    private fun gestureServiceConnected(): Boolean =
+        if (BuildConfig.PLAY_STORE_DISTRIBUTION) OmarchyNavigationService.instance != null
+        else OhmGestureAccessibilityService.instance != null
+
+    private fun effectiveOmarchyBarMode(): Boolean =
+        OmarchyBarModePolicy.ALWAYS_OMARCHY_MODE
+
+    /** Right-side shortcut: only visible while the gesture service is off. */
+    private fun refreshAccessibilityShortcut() {
+        val visible = OmarchyBarModePolicy.accessibilityShortcutVisible(gestureServiceConnected())
+        commandToggle.visibility = if (visible) VISIBLE else GONE
+        commandToggleSlot.visibility = if (visible) VISIBLE else GONE
+        commandToggle.text = NerdGlyph.HAND
+        commandToggle.contentDescription = context.getString(R.string.menu_gestures)
+    }
+
+    /** Re-applies the bar after the gesture service connects/disconnects. */
+    fun refreshGestureServiceState() {
+        refreshAccessibilityShortcut()
+        applyCommandBarSettings()
+        applyOmarchyBarMode()
+    }
+
     private fun applyCommandBarSettings(forceFromSetting: Boolean = false) {
         commandCollapsed = false
-        commandToggle.text = OmarchyBarModePolicy.toggleGlyph(settings.omarchyBarMode)
-        commandToggle.contentDescription = context.getString(
-            if (settings.omarchyBarMode) R.string.bar_expand else R.string.bar_compress,
-        )
+        refreshAccessibilityShortcut()
         commandBar.visibility = VISIBLE
         commandBar.orientation = LinearLayout.HORIZONTAL
         commandMenu.layoutParams = LinearLayout.LayoutParams(dp(46), dp(46))
-        commandAppsLabel.visibility = if (settings.omarchyBarMode) GONE else VISIBLE
-        commandApps.layoutParams = LinearLayout.LayoutParams(
-            dp(if (settings.omarchyBarMode) 28 else 100),
-            dp(46),
-        )
+        commandFavApps.visibility = if (OmarchyBarModePolicy.favAppsButtonVisible()) VISIBLE else GONE
+        favoritesScroll.visibility = if (OmarchyBarModePolicy.favoritesInBar()) VISIBLE else GONE
+        commandSpacer.visibility = if (OmarchyBarModePolicy.spacerVisible()) VISIBLE else GONE
+        commandAppsLabel.visibility = if (OmarchyBarModePolicy.appsLabelVisible()) VISIBLE else GONE
+        commandApps.layoutParams = LinearLayout.LayoutParams(dp(46), dp(46))
         commandContainer.layoutParams = LayoutParams(MATCH_PARENT, dp(52) + commandContainer.paddingBottom, Gravity.BOTTOM)
         commandContainer.visibility = VISIBLE
         ViewCompat.requestApplyInsets(commandContainer)
         if (forceFromSetting) post { renderFavorites(updateVisibility = !edgeModeAnimationRunning) }
     }
 
-    /** Omarchy mode: compact bar without edge boxes/favorites; activador restores the full layout. */
+    /** Omarchy mode is always compact, independent of accessibility state. */
     private fun applyOmarchyBarMode(animate: Boolean = false) {
-        val mode = settings.omarchyBarMode
+        val mode = OmarchyBarModePolicy.ALWAYS_OMARCHY_MODE
         if (animate) animateNextNavigationInset = true
         // The settings file observer can submit the same mode while its visual
         // transition is still running. Do not snap the edge groups to their end state.
@@ -2058,7 +2172,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                         .start()
                 }
                 edgeLayer.postDelayed({
-                    if (edgeModeAnimationGeneration == edgeAnimationGeneration && settings.omarchyBarMode) {
+                    if (edgeModeAnimationGeneration == edgeAnimationGeneration && effectiveOmarchyBarMode()) {
                         edgeLayer.visibility = GONE
                         edgeModeAnimationRunning = false
                     }
@@ -2075,14 +2189,13 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 group.alpha = 1f
             }
         }
-        commandFavApps.visibility =
-            if (OmarchyBarModePolicy.favAppsButtonVisible(mode)) VISIBLE else GONE
-        commandSpacer.visibility =
-            if (OmarchyBarModePolicy.spacerVisible(mode)) VISIBLE else GONE
-        commandRecents.visibility = if (mode) VISIBLE else GONE
-        commandAppsLabel.visibility = if (mode) GONE else VISIBLE
-        commandApps.layoutParams = LinearLayout.LayoutParams(dp(if (mode) 28 else 100), dp(46))
-        val favoritesVisible = favorites.childCount > 0 && OmarchyBarModePolicy.favoritesInBar(mode)
+        commandFavApps.visibility = if (OmarchyBarModePolicy.favAppsButtonVisible()) VISIBLE else GONE
+        commandSpacer.visibility = if (OmarchyBarModePolicy.spacerVisible()) VISIBLE else GONE
+        commandRecents.visibility =
+            if (OmarchyBarModePolicy.recentsButtonVisible(gestureServiceConnected())) VISIBLE else GONE
+        commandAppsLabel.visibility = if (OmarchyBarModePolicy.appsLabelVisible()) VISIBLE else GONE
+        commandApps.layoutParams = LinearLayout.LayoutParams(dp(46), dp(46))
+        val favoritesVisible = favorites.childCount > 0 && OmarchyBarModePolicy.favoritesInBar()
         if (animate && favorites.childCount > 0) {
             animateFavoriteBar(favoritesVisible, edgeAnimationGeneration)
         } else {
@@ -2096,10 +2209,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 }
             }
         }
-        commandToggle.text = OmarchyBarModePolicy.toggleGlyph(mode)
-        commandToggle.contentDescription = context.getString(
-            if (mode) R.string.bar_expand else R.string.bar_compress,
-        )
+        refreshAccessibilityShortcut()
     }
 
     private fun animateFavoriteBar(show: Boolean, generation: Int) {
@@ -2137,7 +2247,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             }
         }
         favoritesScroll.postDelayed({
-            if (edgeModeAnimationGeneration != generation || !settings.omarchyBarMode) return@postDelayed
+            if (edgeModeAnimationGeneration != generation || !effectiveOmarchyBarMode()) return@postDelayed
             favoritesScroll.visibility = GONE
             for (index in 0 until favorites.childCount) {
                 favorites.getChildAt(index).apply {
@@ -2172,7 +2282,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         val muted = themeColor("muted", 0xFF74869A.toInt())
         val surface = themeColor("lighter_background", 0xFF151D26.toInt())
         val dark = themeColor("dark_background", 0xFF0B0F14.toInt())
-        title.setTextColor(desktopText)
+        title.setTextColor(widgetTextColor(desktopText))
         commandBar.background = rounded(dark, 0f, dark)
         commandContainer.setBackgroundColor(dark)
         commandInput.setTextColor(foreground)
@@ -2188,6 +2298,13 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             }
         }
         drawer.setBackgroundColor(alphaColor(dark, 0xF2))
+        drawerSearch.setTextColor(foreground)
+        drawerSearch.setHintTextColor(muted)
+        drawerSearch.background = rounded(surface, dp(20).toFloat(), alphaColor(accent, 0x44))
+        drawerPickerConfirm.setTextColor(accent)
+        drawerPickerCancel.setTextColor(themeColor("urgent", 0xFFFF6B7A.toInt()))
+        appAdapter.notifyDataSetChanged()
+        edgeBoxPickerAdapter.notifyDataSetChanged()
     }
 
     private fun commandButton(title: String, action: () -> Unit): TextView = label(title, 11f, Color.WHITE).apply {
@@ -2222,6 +2339,14 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             return true
         }
         themeSelector?.let {
+            it.close()
+            return true
+        }
+        clockMap?.let {
+            it.close()
+            return true
+        }
+        weatherMap?.let {
             it.close()
             return true
         }
@@ -2408,15 +2533,68 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
 
 
     private val WEATHER_PLUGIN_ID = "io.github.ohm.demo.weather"
+    private val CLOCK_PLUGIN_ID = "io.github.ohm.demo.clock"
+    private val WEATHER_DOUBLE_TAP_WINDOW_MS = 400L
+
+    private fun weatherPickerEntries(): List<OmarchyMenuEntry> {
+        val snapshot = weatherController.currentState()
+        fun unitEntry(unit: String, labelRes: Int) = OmarchyMenuEntry(
+            icon = if (snapshot.unit == unit) NerdGlyph.CHECK_SQUARE else NerdGlyph.SQUARE,
+            label = context.getString(labelRes),
+            detail = snapshot.temperatureC
+                ?.let { "${WeatherApi.displayTemperature(it, unit)}°" },
+            action = {
+                weatherController.setUnit(unit) { renderDesktop() }
+                weatherPicker?.updateRootEntries(weatherPickerEntries())
+            },
+            staysOpen = true,
+        )
+        return listOf(
+            OmarchyMenuEntry(
+                icon = NerdGlyph.HOME,
+                label = snapshot.city,
+                action = {
+                    weatherController.refresh { renderDesktop() }
+                    weatherPicker?.updateRootEntries(weatherPickerEntries())
+                },
+                staysOpen = true,
+            ),
+            unitEntry("C", R.string.weather_unit_celsius),
+            unitEntry("F", R.string.weather_unit_fahrenheit),
+        )
+    }
 
     private fun showWeatherCityPicker() {
         if (widgetEditing) setWidgetEditing(false)
-        if (orbitalMenu != null || omarchyMenu != null || weatherPicker != null) return
+        if (orbitalMenu != null || omarchyMenu != null || weatherPicker != null || weatherMap != null || clockMap != null) return
         val foreground = themeColor("foreground", 0xFFC0CAF5.toInt())
         val accent = themeColor("accent", 0xFF7AA2F7.toInt())
-        val overlay = WeatherCityPickerOverlay(
+        val overlay = OmarchyMenuOverlay(
             context = context,
-            colors = WeatherCityPickerOverlay.Colors(
+            rootEntries = weatherPickerEntries(),
+            rootTitle = context.getString(R.string.weather_picker_title),
+            asyncSearch = { query, onResults ->
+                weatherController.searchCities(query) { candidates ->
+                    onResults(
+                        candidates.map { candidate ->
+                            OmarchyMenuEntry(
+                                icon = NerdGlyph.SEARCH,
+                                label = candidate.name,
+                                detail = listOf(candidate.admin1, candidate.country)
+                                    .filter(String::isNotBlank)
+                                    .joinToString(", "),
+                                action = {
+                                    weatherController.applyCandidate(
+                                        candidate,
+                                        weatherController.currentState().unit,
+                                    ) { renderDesktop() }
+                                },
+                            )
+                        },
+                    )
+                }
+            },
+            colors = OmarchyMenuOverlay.Colors(
                 background = themeColor("background", 0xFF1A1B26.toInt()),
                 foreground = foreground,
                 border = alphaColor(foreground, 0x66),
@@ -2425,12 +2603,158 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 selectedText = accent,
                 muted = themeColor("muted", 0xFF565F89.toInt()),
             ),
-            controller = weatherController,
-            onApplied = { renderDesktop() },
             onDismissed = { weatherPicker = null },
         ).also { addView(it, LayoutParams(MATCH_PARENT, MATCH_PARENT)) }
         weatherPicker = overlay
-        overlay.post { overlay.requestFocus() }
+        overlay.focusInput()
+    }
+
+    private fun showWeatherMap() {
+        if (widgetEditing) setWidgetEditing(false)
+        if (orbitalMenu != null || omarchyMenu != null || weatherPicker != null || weatherMap != null || clockMap != null) return
+        val state = weatherController.currentState()
+        val view = weatherMapController.viewSettings()
+        val foreground = themeColor("foreground", 0xFFC0CAF5.toInt())
+        lateinit var overlay: WeatherMapOverlay
+        overlay = WeatherMapOverlay(
+            context = context,
+            colors = WeatherMapOverlay.Colors(
+                background = themeColor("background", 0xFF1A1B26.toInt()),
+                foreground = foreground,
+                accent = themeColor("accent", 0xFF7AA2F7.toInt()),
+                border = alphaColor(foreground, 0x66),
+                scrim = alphaColor(themeColor("dark_background", 0xFF16161E.toInt()), 0xB0),
+                muted = themeColor("muted", 0xFF565F89.toInt()),
+            ),
+            shapePalette = omarchyTheme,
+            cityName = state.city,
+            cityInfo = weatherMapCityInfo(state),
+            cityMetrics = weatherMapCityMetrics(state),
+            initialLayer = view.layer,
+            initialZoom = view.zoom,
+            onViewChanged = { layer, zoom ->
+                loadWeatherMap(overlay, state.latitude, state.longitude, layer, zoom)
+            },
+            onDismissed = { weatherMap = null },
+        ).also { addView(it, LayoutParams(MATCH_PARENT, MATCH_PARENT)) }
+        weatherMap = overlay
+        if (!WeatherMapController.isSupported) {
+            overlay.showError(context.getString(R.string.weather_map_unsupported))
+            return
+        }
+        loadWeatherMap(overlay, state.latitude, state.longitude, view.layer, view.zoom)
+        weatherController.refreshIfStale {
+            if (weatherMap === overlay && overlay.parent != null) {
+                val refreshed = weatherController.currentState()
+                overlay.updateCityInfo(
+                    refreshed.city,
+                    weatherMapCityInfo(refreshed),
+                    weatherMapCityMetrics(refreshed),
+                )
+                renderDesktop()
+            }
+        }
+    }
+
+    private fun weatherMapCityInfo(state: WeatherWidgetState): String {
+        val temperature = state.temperatureC?.let {
+            "${WeatherApi.displayTemperature(it, state.unit)}°${state.unit}"
+        }.orEmpty()
+        val condition = state.conditionKey?.let {
+            context.getString(WeatherWidgetController.conditionKeyToStringRes(it))
+        }.orEmpty()
+        if (temperature.isBlank() && condition.isBlank()) return ""
+        return context.getString(R.string.weather_map_city_info, temperature, condition)
+    }
+
+    private fun weatherMapCityMetrics(state: WeatherWidgetState): String = buildList {
+        state.apparentTemperatureC?.let {
+            add("${context.getString(R.string.weather_map_feels)} ${WeatherApi.displayTemperature(it, state.unit)}°${state.unit}")
+        }
+        state.windSpeedKmh?.let {
+            add("${context.getString(R.string.weather_map_layer_wind)} ${it.toInt()} km/h")
+        }
+        state.humidityPercent?.let {
+            add("${context.getString(R.string.weather_map_layer_humidity)} $it%")
+        }
+    }.joinToString(" · ")
+
+    private fun loadWeatherMap(
+        overlay: WeatherMapOverlay,
+        latitude: Double,
+        longitude: Double,
+        layer: String,
+        zoom: Int,
+    ) {
+        if (weatherMap !== overlay || overlay.parent == null) return
+        val requestGeneration = ++weatherMapRequestGeneration
+        weatherMapController.renderMap(
+            latitude,
+            longitude,
+            layer,
+            zoom,
+            onCacheMiss = {
+                if (weatherMap === overlay && overlay.parent != null && requestGeneration == weatherMapRequestGeneration) {
+                    overlay.showLoading()
+                }
+            },
+        ) { result ->
+            if (weatherMap !== overlay || overlay.parent == null || requestGeneration != weatherMapRequestGeneration) return@renderMap
+            when (result) {
+                is WeatherMapController.Result.Success -> overlay.showChart(result.chart)
+                is WeatherMapController.Result.Failure ->
+                    overlay.showError(context.getString(R.string.weather_map_error, result.message))
+                WeatherMapController.Result.Unsupported ->
+                    overlay.showError(context.getString(R.string.weather_map_unsupported))
+            }
+        }
+    }
+
+    private fun showClockMap() {
+        if (widgetEditing) setWidgetEditing(false)
+        if (orbitalMenu != null || omarchyMenu != null || weatherPicker != null || weatherMap != null || clockMap != null) return
+        val foreground = themeColor("foreground", 0xFFC0CAF5.toInt())
+        lateinit var overlay: ClockMapOverlay
+        overlay = ClockMapOverlay(
+            context = context,
+            colors = ClockMapOverlay.Colors(
+                background = themeColor("background", 0xFF1A1B26.toInt()),
+                foreground = foreground,
+                accent = themeColor("accent", 0xFF7AA2F7.toInt()),
+                urgent = themeColor("urgent", 0xFFF7768E.toInt()),
+                border = alphaColor(foreground, 0x66),
+                scrim = alphaColor(themeColor("dark_background", 0xFF16161E.toInt()), 0xB0),
+                muted = themeColor("muted", 0xFF565F89.toInt()),
+            ),
+            shapePalette = omarchyTheme,
+            controller = clockMapController,
+            onDismissed = { clockMap = null },
+            onRefreshRequested = { refreshClockMap(overlay) },
+        ).also { addView(it, LayoutParams(MATCH_PARENT, MATCH_PARENT)) }
+        clockMap = overlay
+        if (!ClockMapController.isSupported) {
+            overlay.showError(context.getString(R.string.world_clock_map_unsupported))
+        } else {
+            refreshClockMap(overlay)
+        }
+    }
+
+    private fun refreshClockMap(overlay: ClockMapOverlay) {
+        if (clockMap !== overlay || overlay.parent == null) return
+        overlay.showLoading()
+        clockMapController.refresh { result ->
+            if (clockMap !== overlay || overlay.parent == null) return@refresh
+            when (result) {
+                is ClockMapController.Result.Success -> overlay.showClocks(result.clocks)
+                is ClockMapController.Result.ZoneOptions -> Unit
+                is ClockMapController.Result.Failure -> overlay.showError(
+                    context.getString(R.string.world_clock_map_error, result.message),
+                )
+                ClockMapController.Result.Unsupported -> overlay.showError(
+                    context.getString(R.string.world_clock_map_unsupported),
+                )
+            }
+        }
     }
 
     private fun showOmarchyLauncherMenu(trigger: OmarchyMenuOpenTrigger = OmarchyMenuOpenTrigger.LOGO_TAP) {
@@ -2450,7 +2774,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         val appEntries = menuApps.map(::appEntry)
         val syncedTheme = omarchyTheme
         val notSynced = context.getString(R.string.menu_not_synced)
-        val entries = listOf(
+        fun buildEntries(): List<OmarchyMenuEntry> = listOf(
             OmarchyMenuEntry(NerdGlyph.APPS, context.getString(R.string.menu_apps), children = appEntries),
             OmarchyMenuEntry(
                 NerdGlyph.STYLE,
@@ -2469,6 +2793,12 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                         action = activity::showOmarchyBackgroundSelector,
                     ),
                     OmarchyMenuEntry(
+                        NerdGlyph.TUNE,
+                        context.getString(R.string.menu_theme_background_color),
+                        detail = settings.widgetTextColorRole ?: context.getString(R.string.menu_theme_background_reset),
+                        action = activity::showWidgetTextColorPicker,
+                    ),
+                    OmarchyMenuEntry(
                         NerdGlyph.SYNC,
                         context.getString(R.string.menu_sync_style),
                         action = activity::syncStyleFromOmarchy,
@@ -2485,19 +2815,20 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                         action = { setWidgetEditing(!widgetEditing) },
                     ),
                     OmarchyMenuEntry(NerdGlyph.DESKTOP, context.getString(R.string.menu_desktop), action = { activity.showDesktopSettings(desktopIndex) }),
+                    OmarchyMenuEntry(
+                        NerdGlyph.DESKTOP,
+                        context.getString(R.string.menu_desktops),
+                        children = buildList {
+                            add(OmarchyMenuEntry(NerdGlyph.LEFT, context.getString(R.string.menu_add_left), action = { activity.addDesktop(desktopIndex, desktopIndex) }))
+                            add(OmarchyMenuEntry(NerdGlyph.RIGHT, context.getString(R.string.menu_add_right), action = { activity.addDesktop(desktopIndex + 1, desktopIndex) }))
+                            add(OmarchyMenuEntry(NerdGlyph.TUNE, context.getString(R.string.menu_adjust), action = { activity.showDesktopSettings(desktopIndex) }))
+                            if (config.desktops.size > 1) add(OmarchyMenuEntry(NerdGlyph.TRASH, context.getString(R.string.menu_delete), action = { activity.deleteDesktop(desktopIndex) }))
+                        },
+                    ),
                     OmarchyMenuEntry(NerdGlyph.SETTINGS, context.getString(R.string.menu_launcher), action = { activity.showLauncherSettings() }),
                 ),
             ),
-            OmarchyMenuEntry(
-                NerdGlyph.DESKTOP,
-                context.getString(R.string.menu_desktops),
-                children = buildList {
-                    add(OmarchyMenuEntry(NerdGlyph.LEFT, context.getString(R.string.menu_add_left), action = { activity.addDesktop(desktopIndex, desktopIndex) }))
-                    add(OmarchyMenuEntry(NerdGlyph.RIGHT, context.getString(R.string.menu_add_right), action = { activity.addDesktop(desktopIndex + 1, desktopIndex) }))
-                    add(OmarchyMenuEntry(NerdGlyph.TUNE, context.getString(R.string.menu_adjust), action = { activity.showDesktopSettings(desktopIndex) }))
-                    if (config.desktops.size > 1) add(OmarchyMenuEntry(NerdGlyph.TRASH, context.getString(R.string.menu_delete), action = { activity.deleteDesktop(desktopIndex) }))
-                },
-            ),
+
             OmarchyMenuEntry(
                 NerdGlyph.ADD,
                 context.getString(R.string.menu_add),
@@ -2505,10 +2836,8 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                     OmarchyMenuEntry(NerdGlyph.WIDGETS, context.getString(R.string.menu_android_widget), action = { activity.showSystemWidgetPicker(desktopIndex) }),
                     OmarchyMenuEntry(NerdGlyph.PUZZLE, context.getString(R.string.menu_plugin), action = { activity.showPluginPicker(desktopIndex) }),
                     OmarchyMenuEntry(NerdGlyph.BELL, context.getString(R.string.omarchy_notify), action = { activity.addOmarchyNotifyWidget(desktopIndex) }),
-                    OmarchyMenuEntry(NerdGlyph.BOX, context.getString(R.string.menu_box), action = { activity.showAddEdgeBoxDialog() }),
                 ),
             ),
-            OmarchyMenuEntry(NerdGlyph.PUZZLE, context.getString(R.string.menu_plugins), action = { activity.showPluginManager() }),
             OmarchyMenuEntry(
                 NerdGlyph.LINK,
                 context.getString(R.string.menu_omarchy),
@@ -2525,6 +2854,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 NerdGlyph.SETTINGS,
                 context.getString(R.string.menu_system),
                 children = buildList {
+                    add(OmarchyMenuEntry(NerdGlyph.PUZZLE, context.getString(R.string.menu_plugins), action = { activity.showPluginManager() }))
                     if (OmarchySystemMenuPolicy.showDefaultLauncherShortcut(activity.isDefaultLauncher())) {
                         add(OmarchyMenuEntry(NerdGlyph.HOME, context.getString(R.string.menu_home_launcher), action = { activity.requestDefaultLauncher() }))
                     }
@@ -2538,6 +2868,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
                 },
             ),
         )
+        val entries = buildEntries()
         val foreground = themeColor("foreground", 0xFFC0CAF5.toInt())
         val muted = themeColor("muted", 0xFF565F89.toInt())
         val accent = themeColor("accent", 0xFF7AA2F7.toInt())
@@ -2578,6 +2909,11 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             focusInput = focusInput,
             showFavoriteToggle = false,
             allowReorder = true,
+            emptyEntry = OmarchyMenuEntry(
+                icon = NerdGlyph.APPS,
+                label = context.getString(R.string.favorites_empty_action),
+                action = ::showAppsSearchMenu,
+            ),
         )
     }
 
@@ -2587,6 +2923,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         focusInput: Boolean,
         showFavoriteToggle: Boolean,
         allowReorder: Boolean = false,
+        emptyEntry: OmarchyMenuEntry? = null,
     ) {
         if (widgetEditing) setWidgetEditing(false)
         if (orbitalMenu != null || omarchyMenu != null) return
@@ -2622,6 +2959,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             searchEntries = appEntries,
             rootTitle = rootTitle,
             mode = OmarchyMenuMode.APPS_ONLY,
+            emptyEntry = emptyEntry,
             colors = OmarchyMenuOverlay.Colors(
                 background = themeColor("background", 0xFF1A1B26.toInt()),
                 foreground = foreground,
@@ -2750,8 +3088,9 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     private fun surfaceRadius(requestedPx: Float): Float =
         OmarchyThemeShapeState.surfaceRadiusPx(requestedPx, resources.displayMetrics.density)
 
-    private fun themeColor(role: String, fallback: Int): Int =
-        omarchyTheme?.color(role)?.let { runCatching { Color.parseColor(it) }.getOrNull() } ?: fallback
+    private fun themeColor(role: String, fallback: Int): Int = OmarchyUiTheme.color(role, fallback)
+
+    private fun widgetTextColor(fallback: Int): Int = OmarchyUiTheme.widgetTextColor(fallback)
 
     private fun alphaColor(color: Int, alpha: Int): Int = (color and 0x00FFFFFF) or (alpha.coerceIn(0, 255) shl 24)
 
@@ -2852,13 +3191,10 @@ private class AppAdapter(
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
         val app = apps[position]
+        holder.label.setTextColor(OmarchyUiTheme.color("foreground", Color.WHITE))
         holder.label.text = app.label
         holder.itemView.isSelected = favorites.contains("${app.packageName}/${app.activityName}")
-        holder.icon.setImageDrawable(
-            runCatching {
-                context.packageManager.getActivityIcon(android.content.ComponentName(app.packageName, app.activityName))
-            }.getOrNull(),
-        )
+        holder.icon.setImageDrawable(AppCatalog.icon(context, app))
         holder.itemView.setOnClickListener { onClick(app) }
         holder.itemView.setOnLongClickListener { onLongClick(app, holder.itemView) }
     }
@@ -2910,15 +3246,13 @@ private class EdgeBoxAppPickerAdapter(
     override fun onBindViewHolder(holder: Holder, position: Int) {
         val app = apps[position]
         val selected = selection.isSelected(app)
+        holder.label.setTextColor(OmarchyUiTheme.color("foreground", Color.WHITE))
         holder.label.text = app.label
-        holder.icon.setImageDrawable(
-            runCatching {
-                context.packageManager.getActivityIcon(android.content.ComponentName(app.packageName, app.activityName))
-            }.getOrNull(),
-        )
+        holder.icon.setImageDrawable(AppCatalog.icon(context, app))
         holder.check.text = if (selected) NerdGlyph.CHECK_SQUARE else NerdGlyph.SQUARE
-        holder.check.setTextColor(if (selected) 0xFF66E0FF.toInt() else 0xFF74869A.toInt())
-        holder.itemView.setBackgroundColor(if (selected) 0x3328C7D9 else Color.TRANSPARENT)
+        val accent = OmarchyUiTheme.color("accent", 0xFF66E0FF.toInt())
+        holder.check.setTextColor(if (selected) accent else OmarchyUiTheme.color("muted", 0xFF74869A.toInt()))
+        holder.itemView.setBackgroundColor(if (selected) (accent and 0x00FFFFFF) or 0x33000000 else Color.TRANSPARENT)
         holder.itemView.setOnClickListener {
             val changedPosition = holder.adapterPosition
             if (changedPosition == RecyclerView.NO_POSITION) return@setOnClickListener

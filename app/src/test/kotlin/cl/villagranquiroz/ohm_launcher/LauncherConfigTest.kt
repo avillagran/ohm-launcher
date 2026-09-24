@@ -1,6 +1,7 @@
 package cl.villagranquiroz.ohm_launcher
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -77,6 +78,8 @@ class LauncherConfigTest {
         assertEquals(2, desktop.ttfx.resolution)
         assertEquals(14, desktop.gridColumns)
         assertEquals(10, desktop.gridRows)
+        assertFalse(desktop.ttfx.audio)
+        assertFalse(LauncherConfig.parse(ConfigStorage.DEFAULT_CONFIG).desktops.single().ttfx.audio)
     }
 
     @Test

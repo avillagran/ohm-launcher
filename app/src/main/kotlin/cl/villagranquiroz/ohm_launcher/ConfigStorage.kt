@@ -96,7 +96,7 @@ class ConfigStorage(
                 "ttfxTextSize":7,
                 "ttfxTextX":0.5,
                 "ttfxTextY":0.4,
-                "ttfxAudio":true,
+                "ttfxAudio":false,
                 "ttfxIntensity":2,
                 "ttfxSpeed":4.7,
                 "ttfxResolution":3,

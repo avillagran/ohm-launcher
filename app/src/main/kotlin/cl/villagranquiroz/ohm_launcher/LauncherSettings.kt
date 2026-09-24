@@ -59,6 +59,7 @@ data class LauncherSettings(
     val boxItemSize: Double,
     val barRadius: Double,
     val settingsPanelOpacity: Double,
+    val widgetTextColorRole: String?,
     val language: LauncherLanguage,
     val favoritesBarVisible: Boolean,
     val favoritesBarPosition: LauncherEdge,
@@ -98,6 +99,8 @@ data class LauncherSettings(
         result.put("boxItemSize", boxItemSize)
         result.put("barRadius", barRadius)
         result.put("settingsPanelOpacity", settingsPanelOpacity)
+        result.remove("themeBackgroundColor")
+        result.put("widgetTextColorRole", widgetTextColorRole ?: JSONObject.NULL)
         result.put("language", language.wireValue)
         result.put("favoritesBarVisible", favoritesBarVisible)
         result.put("favoritesBarPosition", favoritesBarPosition.wireValue)
@@ -150,6 +153,10 @@ data class LauncherSettings(
                 boxItemSize = (root.finiteNumber("boxItemSize") ?: 48.0).coerceIn(36.0, 72.0),
                 barRadius = (root.finiteNumber("barRadius") ?: 18.0).coerceIn(0.0, 28.0),
                 settingsPanelOpacity = (root.finiteNumber("settingsPanelOpacity") ?: 0.86).coerceIn(0.5, 1.0),
+                widgetTextColorRole = OmarchyWidgetTextColorPolicy.normalize(
+                    root.opt("widgetTextColorRole") as? String,
+                    OmarchyThemePalette.fromSettings(root),
+                ),
                 language = LauncherLanguage.fromWireValue(root.opt("language")) ?: LauncherLanguage.AUTO,
                 favoritesBarVisible = root.boolean("favoritesBarVisible") ?: true,
                 favoritesBarPosition = LauncherEdge.fromWireValue(root.opt("favoritesBarPosition")) ?: LauncherEdge.BOTTOM,

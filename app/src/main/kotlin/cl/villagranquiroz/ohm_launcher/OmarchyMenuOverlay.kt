@@ -44,6 +44,8 @@ internal data class OmarchyMenuEntry(
     val trailingIcon: (() -> String)? = null,
     val trailingContentDescription: (() -> String)? = null,
     val trailingAction: (() -> Unit)? = null,
+    /** When true, running [action] keeps the menu open (toggles, live refresh). */
+    val staysOpen: Boolean = false,
 )
 
 internal object OmarchyMenuSearch {
@@ -71,6 +73,15 @@ internal object OmarchyMenuSearch {
         val applicationMatches = additionalEntries.filter(::matches)
         return menuMatches + applicationMatches
     }
+}
+
+internal object OmarchyMenuEmptyStatePolicy {
+    fun entries(
+        visibleEntries: List<OmarchyMenuEntry>,
+        queryIsBlank: Boolean,
+        emptyEntry: OmarchyMenuEntry?,
+    ): List<OmarchyMenuEntry> =
+        if (visibleEntries.isEmpty() && queryIsBlank && emptyEntry != null) listOf(emptyEntry) else visibleEntries
 }
 
 /** Enter (hardware or IME) executes the first visible entry, dmenu-style. */
@@ -208,6 +219,13 @@ internal class OmarchyMenuOverlay(
     private val searchEntries: List<OmarchyMenuEntry> = emptyList(),
     private val rootTitle: String? = null,
     private val mode: OmarchyMenuMode = OmarchyMenuMode.FULL,
+    private val emptyEntry: OmarchyMenuEntry? = null,
+    /**
+     * Optional asynchronous search provider. When set, typing no longer filters
+     * local entries: the handler receives the query and posts matching entries
+     * back (e.g. network-backed city suggestions).
+     */
+    private val asyncSearch: ((String, (List<OmarchyMenuEntry>) -> Unit) -> Unit)? = null,
     private val colors: Colors,
     private val onEntriesReordered: ((List<OmarchyMenuEntry>) -> Unit)? = null,
     private val onDismissed: () -> Unit,
@@ -238,6 +256,10 @@ internal class OmarchyMenuOverlay(
     private var imeBottomInset = 0
     private var visibleEntries: List<OmarchyMenuEntry> = emptyList()
     private var appsOnlyInputBottomOnScreen: Int? = null
+    private val asyncHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var asyncGeneration = 0
+    private var asyncResults: List<OmarchyMenuEntry>? = null
+    private var asyncQuery: String = ""
     private var backDispatcher: OnBackInvokedDispatcher? = null
     private val backCallback = OnBackInvokedCallback {
         if (header.hasFocus()) {
@@ -333,7 +355,12 @@ internal class OmarchyMenuOverlay(
             addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(value: CharSequence?, start: Int, count: Int, after: Int) = Unit
                 override fun onTextChanged(value: CharSequence?, start: Int, before: Int, count: Int) {
-                    renderRows(value?.toString().orEmpty())
+                    val query = value?.toString().orEmpty()
+                    if (asyncSearch != null) {
+                        scheduleAsyncSearch(query)
+                    } else {
+                        renderRows(query)
+                    }
                     post(::updateCardLayout)
                 }
                 override fun afterTextChanged(value: Editable?) = Unit
@@ -395,6 +422,7 @@ internal class OmarchyMenuOverlay(
 
     override fun onDetachedFromWindow() {
         removeCallbacks(imeProbe)
+        asyncHandler.removeCallbacksAndMessages(ASYNC_SEARCH_TOKEN)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             backDispatcher?.unregisterOnBackInvokedCallback(backCallback)
             backDispatcher = null
@@ -437,8 +465,8 @@ internal class OmarchyMenuOverlay(
         if (width <= 0 || height <= 0) return
         val cardWidth = min(dp(420), (width - dp(32)).coerceAtLeast(dp(280)))
         val query = header.text?.toString().orEmpty()
-        val visibleEntries = if (query.isBlank()) levels.last().entries else
-            OmarchyMenuSearch.results(rootEntries, searchEntries, query, searchMode())
+        // Height derives from the rows renderRows() last submitted, so async
+        // search results resize the card exactly like local filtering does.
         val fixedHeight = dp(12 + 44 + 16)
         val maximumHeight = OmarchyMenuHeightPolicy.maximumHeight(height, mode)
         var visibleRowsHeight = 0
@@ -517,6 +545,9 @@ internal class OmarchyMenuOverlay(
 
     fun close() = dismiss()
 
+    /** True while the overlay is attached (shown or dismissing). */
+    val isOpen: Boolean get() = parent != null
+
     fun focusInput() {
         header.requestFocus()
         header.setSelection(header.text?.length ?: 0)
@@ -538,10 +569,50 @@ internal class OmarchyMenuOverlay(
 
     private fun renderRows(query: String) {
         val normalized = query.trim().lowercase()
-        val visible = if (normalized.isEmpty()) levels.last().entries else
+        val matchingEntries = if (asyncSearch != null) {
+            // Async mode: root entries stay visible until results arrive;
+            // an explicit empty list means "searched, nothing found".
+            if (normalized.isEmpty()) levels.last().entries else asyncResults ?: levels.last().entries
+        } else if (normalized.isEmpty()) {
+            levels.last().entries
+        } else {
             OmarchyMenuSearch.results(rootEntries, searchEntries, normalized, searchMode())
+        }
+        val visible = OmarchyMenuEmptyStatePolicy.entries(matchingEntries, normalized.isEmpty(), emptyEntry)
         visibleEntries = visible
         rowAdapter.submit(visible)
+    }
+
+    private fun scheduleAsyncSearch(query: String) {
+        val normalized = query.trim()
+        asyncQuery = normalized
+        if (normalized.isEmpty()) {
+            asyncGeneration++
+            asyncResults = null
+            renderRows("")
+            return
+        }
+        val generation = ++asyncGeneration
+        asyncHandler.removeCallbacksAndMessages(ASYNC_SEARCH_TOKEN)
+        asyncHandler.postAtTime({
+            if (generation != asyncGeneration) return@postAtTime
+            asyncSearch?.invoke(normalized) { results ->
+                post {
+                    if (generation != asyncGeneration) return@post
+                    asyncResults = results
+                    renderRows(asyncQuery)
+                    updateCardLayout()
+                }
+            }
+        }, ASYNC_SEARCH_TOKEN, android.os.SystemClock.uptimeMillis() + ASYNC_SEARCH_DEBOUNCE_MS)
+    }
+
+    /** Re-renders the root level from [newEntries], keeping the current query/level state. */
+    fun updateRootEntries(newEntries: List<OmarchyMenuEntry>) {
+        if (levels.isEmpty()) return
+        levels[0] = Level("", newEntries)
+        renderRows(header.text?.toString().orEmpty())
+        post(::updateCardLayout)
     }
 
     /** Enter runs the first visible entry (dmenu-style): submenus open, actions execute. */
@@ -549,7 +620,9 @@ internal class OmarchyMenuOverlay(
         val entry = OmarchyMenuEnterPolicy.firstVisible(visibleEntries) ?: return
         when {
             OmarchyMenuEnterPolicy.shouldOpen(entry) -> open(entry)
-            OmarchyMenuEnterPolicy.shouldRun(entry) -> entry.action?.let { dismiss(it) }
+            OmarchyMenuEnterPolicy.shouldRun(entry) -> entry.action?.let {
+                if (entry.staysOpen) it.invoke() else dismiss(it)
+            }
         }
     }
 
@@ -647,6 +720,7 @@ internal class OmarchyMenuOverlay(
         setOnClickListener {
             when {
                 entry.children.isNotEmpty() -> open(entry)
+                entry.action != null && entry.staysOpen -> entry.action.invoke()
                 entry.action != null -> dismiss(entry.action)
             }
         }
@@ -740,7 +814,8 @@ internal class OmarchyMenuOverlay(
     private fun panelBackground() = GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
         setColor(this@OmarchyMenuOverlay.colors.background)
-        cornerRadius = 0f
+        val density = resources.displayMetrics.density
+        cornerRadius = OmarchyThemeShapeState.surfaceRadiusPx(dp(16).toFloat(), density)
         setStroke(dp(1), this@OmarchyMenuOverlay.colors.border)
     }
 
@@ -762,6 +837,9 @@ internal class OmarchyMenuOverlay(
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private companion object {
+        private const val ASYNC_SEARCH_DEBOUNCE_MS = 300L
+        private val ASYNC_SEARCH_TOKEN = Any()
+
         val iconExecutor = Executors.newFixedThreadPool(2) { task ->
             Thread(task, "ohm-menu-icons").apply { priority = Thread.MIN_PRIORITY }
         }

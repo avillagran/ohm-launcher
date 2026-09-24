@@ -52,6 +52,7 @@ object AppCatalog {
     }
 
     fun icon(context: Context, app: InstalledApp): Drawable? {
+        AppNerdIconPolicy.glyphFor(app.packageName)?.let { return AppNerdIconDrawable(context, it) }
         val key = "${app.packageName}/${app.activityName}"
         iconCache.get(key)?.let { return it.newDrawable(context.resources) }
         val icon = runCatching {

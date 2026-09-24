@@ -33,9 +33,13 @@
     <string name="menu_system">النظام</string>
     <string name="menu_home_launcher">مشغّل HOME</string>
     <string name="menu_gestures">الإيماءات</string>
+
     <string name="menu_storage">التخزين</string>
     <string name="menu_apps">التطبيقات</string>
     <string name="menu_style">النمط</string>
+    <string name="menu_theme_background_color">Background widget text color</string>
+    <string name="menu_theme_background_reset">استخدام لون السمة</string>
+
     <string name="menu_theme">المظهر</string>
     <string name="menu_background">الخلفية</string>
     <string name="menu_sync_style">مزامنة من Omarchy</string>
@@ -48,6 +52,7 @@
     <string name="menu_not_synced">غير متزامن</string>
     <string name="menu_omarchy_launcher">فتح قائمة Omarchy</string>
     <string name="bar_fav_apps">التطبيقات المفضلة</string>
+    <string name="favorites_empty_action">افتح Apps وحدد تطبيقاتك المفضلة</string>
     <string name="bar_expand">توسيع الشريط</string>
     <string name="bar_compress">طي الشريط</string>
     <string name="bar_recents">التطبيقات الأخيرة</string>
@@ -130,6 +135,11 @@
     <string name="ttfx_editor">محرر TTFX</string>
 
     <string name="ttfx_show_floating_controls">إظهار عناصر التحكم العائمة على سطح المكتب</string>
+    <string name="ttfx_hide_floating_controls">إخفاء عناصر التحكم العائمة</string>
+    <string name="ttfx_mini_open">فتح عناصر تحكم TTFX العائمة</string>
+    <string name="ttfx_mini_close">طي عناصر تحكم TTFX العائمة</string>
+    <string name="ttfx_mini_previous">التأثير السابق</string>
+    <string name="ttfx_mini_next">التأثير التالي</string>
     <string name="ttfx_live_preview">معاينة مباشرة</string>
     <string name="ttfx_composition">التركيب</string>
     <string name="ttfx_composition_help">تظهر التغييرات على سطح المكتب أثناء التحرير.</string>
@@ -202,10 +212,32 @@
     <string name="weather_condition_storm">عاصفة</string>
     <string name="weather_condition_unknown">غير معروف</string>
     <string name="weather_picker_title">اختر مدينة</string>
-    <string name="weather_picker_search_hint">ابحث عن مدينة</string>
-    <string name="weather_picker_no_results">لم يتم العثور على مدن</string>
-    <string name="weather_picker_error">تعذر البحث عن المدن. تحقق من الاتصال.</string>
-    <string name="weather_picker_close">إغلاق</string>
     <string name="weather_unit_celsius">مئوية</string>
     <string name="weather_unit_fahrenheit">فهرنهايت</string>
+    <string name="weather_map_loading">جارٍ تحميل خريطة التوقعات…</string>
+    <string name="weather_map_error">تعذّر رسم الخريطة: %1$s</string>
+    <string name="weather_map_unsupported">خريطة الطقس غير متوفرة على هذا الجهاز.</string>
+    <string name="weather_map_stale">بيانات قديمة</string>
+    <string name="world_clock_map_title">الساعة العالمية</string>
+    <string name="world_clock_map_loading">جارٍ تحميل خريطة الساعة العالمية…</string>
+    <string name="world_clock_map_error">تعذر تحميل خريطة الساعة العالمية: %1$s</string>
+    <string name="world_clock_map_unsupported">خريطة الساعة العالمية غير متاحة على هذا الجهاز.</string>
+    <string name="weather_map_snapshot">لحظة واحدة من التوقعات</string>
+    <string name="weather_map_layer_rain">المطر</string>
+    <string name="weather_map_layer_clouds">السحب</string>
+    <string name="weather_map_layer_temperature">درجة الحرارة</string>
+    <string name="weather_map_layer_wind">الرياح</string>
+    <string name="weather_map_layer_humidity">الرطوبة</string>
+    <string name="weather_map_zoom_in">تكبير</string>
+    <string name="weather_map_zoom_out">تصغير</string>
+    <string name="weather_map_play">تشغيل التوقعات</string>
+    <string name="weather_map_pause">إيقاف التوقعات مؤقتًا</string>
+    <string name="weather_map_no_signal">لا توجد قيم قابلة للقياس في هذا الموقع</string>
+    <string name="weather_map_city_info">%1$s · %2$s</string>
+    <string name="weather_map_feels">المحسوسة</string>
+    <string name="world_clock_add_location">إضافة موقع</string>
+    <string name="world_clock_search_location">ابحث عن مدينة أو منطقة زمنية</string>
+    <string name="world_clock_no_locations_found">لا توجد مواقع مطابقة</string>
+    <string name="world_clock_saved_locations">المواقع المحفوظة</string>
+    <string name="world_clock_remove_location">إزالة الموقع</string>
 </resources>

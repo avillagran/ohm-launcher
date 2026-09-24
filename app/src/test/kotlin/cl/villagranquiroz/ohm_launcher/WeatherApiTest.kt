@@ -64,6 +64,44 @@ class WeatherApiTest {
     }
 
     @Test
+    fun parsesTheCityDetailsShownByTheOriginalWeatherPanel() {
+        val current = WeatherApi.parseCurrentWeatherDetails(
+            """{"current":{"temperature_2m":18.3,"apparent_temperature":16.8,"relative_humidity_2m":71,"wind_speed_10m":12.4,"weather_code":2}}""",
+        )!!
+
+        assertEquals(18.3, current.temperatureC, 0.001)
+        assertEquals(16.8, current.apparentTemperatureC!!, 0.001)
+        assertEquals(71, current.humidityPercent)
+        assertEquals(12.4, current.windSpeedKmh!!, 0.001)
+    }
+
+    @Test
+    fun parsesThreeUpcomingDaysWithSupernotchNerdFontIcons() {
+        val current = WeatherApi.parseCurrentWeatherDetails(
+            """{"current":{"time":"2026-09-24T12:00","temperature_2m":18.3,"weather_code":2,"is_day":1},"daily":{"time":["2026-09-24","2026-09-25","2026-09-26","2026-09-27"],"temperature_2m_max":[19,20,21,22],"temperature_2m_min":[8,9,10,11],"weather_code":[2,0,61,95]}}""",
+        )!!
+
+        assertEquals("", current.icon)
+        assertEquals(3, current.forecast.size)
+        assertEquals("2026-09-25", current.forecast[0].date)
+        assertEquals(20.0, current.forecast[0].maximumTemperatureC, 0.001)
+        assertEquals(9.0, current.forecast[0].minimumTemperatureC, 0.001)
+        assertEquals("", current.forecast[0].icon)
+        assertEquals("", current.forecast[1].icon)
+        assertEquals("", current.forecast[2].icon)
+    }
+
+    @Test
+    fun mapsOpenMeteoConditionsToTheBundledNerdFont() {
+        assertEquals("", WeatherApi.weatherCodeToNerdFontIcon(0, isDay = false))
+        assertEquals("", WeatherApi.weatherCodeToNerdFontIcon(2, isDay = false))
+        assertEquals("", WeatherApi.weatherCodeToNerdFontIcon(3))
+        assertEquals("", WeatherApi.weatherCodeToNerdFontIcon(65))
+        assertEquals("", WeatherApi.weatherCodeToNerdFontIcon(73))
+        assertEquals("", WeatherApi.weatherCodeToNerdFontIcon(99))
+    }
+
+    @Test
     fun currentWeatherParsingReturnsNullWhenIncomplete() {
         assertNull(WeatherApi.parseCurrentWeather("{}"))
         assertNull(WeatherApi.parseCurrentWeather("""{"current":{"weather_code":0}}"""))
@@ -120,6 +158,8 @@ class WeatherApiTest {
         assertTrue(url.startsWith("https://api.open-meteo.com/v1/forecast?"))
         assertTrue(url.contains("latitude=-33.0472"))
         assertTrue(url.contains("longitude=-71.6127"))
-        assertTrue(url.contains("current=temperature_2m%2Cweather_code"))
+        assertTrue(url.contains("current=temperature_2m%2Capparent_temperature%2Crelative_humidity_2m%2Cwind_speed_10m%2Cweather_code"))
+        assertTrue(url.contains("daily=temperature_2m_max%2Ctemperature_2m_min%2Cweather_code"))
+        assertTrue(url.contains("forecast_days=4"))
     }
 }

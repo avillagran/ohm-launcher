@@ -34,6 +34,14 @@ class WeatherWidgetStoreTest {
             temperatureC = 21.4,
             conditionKey = "clear",
             updatedMillis = 1_720_000_000_000L,
+            apparentTemperatureC = 19.7,
+            humidityPercent = 66,
+            windSpeedKmh = 8.2,
+            weatherIcon = "",
+            forecast = listOf(
+                WeatherForecastDay("2026-09-25", 20.0, 9.0, ""),
+                WeatherForecastDay("2026-09-26", 21.0, 10.0, ""),
+            ),
         )
 
         store.save(state)

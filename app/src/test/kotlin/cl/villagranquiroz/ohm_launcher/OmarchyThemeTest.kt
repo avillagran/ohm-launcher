@@ -66,6 +66,16 @@ class OmarchyThemeTest {
     }
 
     @Test
+    fun omarchySurfacesDefaultToTheSquareMenuShapeUnlessThemeDefinesRadius() {
+        val palette = OmarchyThemePalette.parse(
+            JSONObject("""{"name":"Omarchy","colors":{"accent":"#ffffff"}}"""),
+        )
+
+        assertEquals(0f, OmarchyThemeShapePolicy.surfaceRadius(24f, palette), 0f)
+        assertEquals(0f, OmarchyThemeShapePolicy.surfaceRadius(24f, null), 0f)
+    }
+
+    @Test
     fun roundTripsCanonicalOmarchyBackgroundMetadata() {
         val palette = OmarchyThemePalette.parse(
             JSONObject(

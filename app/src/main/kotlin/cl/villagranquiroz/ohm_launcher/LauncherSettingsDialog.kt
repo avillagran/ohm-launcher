@@ -31,11 +31,6 @@ object LauncherSettingsDialog {
             setPadding(dp(context, 20), dp(context, 8), dp(context, 20), dp(context, 8))
         }
         val textScale = slider(context, column, context.getString(R.string.setting_text_scale), 80, 140, (current.textScale * 100).toInt())
-        val boxSpacing = slider(context, column, context.getString(R.string.setting_box_spacing), 0, 20, (current.boxSpacing * 10).toInt())
-        val boxRadius = slider(context, column, context.getString(R.string.setting_box_radius), 0, 28, current.boxRadius.toInt())
-        val boxBorderVisible = check(context, column, context.getString(R.string.setting_box_border_visible), current.boxBorderVisible)
-        val boxBorderWidth = slider(context, column, context.getString(R.string.setting_box_border_width), 0, 8, current.boxBorderWidth.toInt())
-        val boxIconSize = slider(context, column, context.getString(R.string.setting_box_icon_size), 36, 72, current.boxItemSize.toInt())
         val barRadius = slider(context, column, context.getString(R.string.setting_bar_radius), 0, 28, current.barRadius.toInt())
         val panelOpacity = slider(
             context,
@@ -89,11 +84,6 @@ object LauncherSettingsDialog {
 
         fun settingsFromControls() = current.copy(
             textScale = sliderValue(textScale) / 100.0,
-            boxSpacing = sliderValue(boxSpacing) / 10.0,
-            boxRadius = sliderValue(boxRadius).toDouble(),
-            boxBorderVisible = boxBorderVisible.isChecked,
-            boxBorderWidth = sliderValue(boxBorderWidth).toDouble(),
-            boxItemSize = sliderValue(boxIconSize).toDouble(),
             barRadius = sliderValue(barRadius).toDouble(),
             settingsPanelOpacity = sliderValue(panelOpacity) / 100.0,
             gestureNavigationEnabled = gestureNavigation.isChecked,
@@ -117,7 +107,7 @@ object LauncherSettingsDialog {
             session.update(value)
             dialog?.let { SettingsDialogSurface.apply(it, value.settingsPanelOpacity) }
         }
-        listOf(textScale, boxSpacing, boxRadius, boxBorderWidth, boxIconSize, barRadius, panelOpacity).forEach { seek ->
+        listOf(textScale, barRadius, panelOpacity).forEach { seek ->
             seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) {
                     if (fromUser) updateLive()
@@ -126,7 +116,7 @@ object LauncherSettingsDialog {
                 override fun onStopTrackingTouch(bar: SeekBar?) = Unit
             })
         }
-        listOf(gestureNavigation, tapBoxes, apiEnabled, preferTermux, quake, boxBorderVisible, applySystemTheme)
+        listOf(gestureNavigation, tapBoxes, apiEnabled, preferTermux, quake, applySystemTheme)
             .forEach { it.setOnCheckedChangeListener { _, _ -> updateLive() } }
         listOf(language).forEach { spinner ->
             spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {

@@ -93,7 +93,7 @@ data class TtfxConfig(
             textSize = json.optInt("ttfxTextSize", 3).coerceIn(1, 12),
             textX = json.optDouble("ttfxTextX", 0.5).coerceIn(0.0, 1.0),
             textY = json.optDouble("ttfxTextY", 0.5).coerceIn(0.0, 1.0),
-            audio = json.optBoolean("ttfxAudio", true),
+            audio = json.optBoolean("ttfxAudio", false),
             intensity = json.optInt("ttfxIntensity", 5).coerceIn(0, 10),
             speed = json.optDouble("ttfxSpeed", 1.0).coerceIn(0.2, 5.0),
             resolution = json.optInt("ttfxResolution", 2).coerceIn(1, 8),

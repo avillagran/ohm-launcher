@@ -11,7 +11,6 @@ OhmLauncher, Omarchy’nin sade ve odaklı görünümünü Android ana ekranın�
 Ana ekranınız, sizin tarzınız
 
 • Favori uygulamalarınızı elinizin altında tutun ve hızlı aramayla istediğiniz uygulamayı bulun.
-• Uygulamaları ve kısayolları yapılandırılabilir kenar kutularında düzenleyin.
 • Size uygun bir düzen için Android widget’ları ve yerel eklentiler ekleyin.
 • Desteklenen komutlara hızla ulaşmak için Quake tarzı terminali açın.
 • Animasyonlu TTFX arka planları ve isteğe bağlı, sese duyarlı efektlerle ekranınızı canlandırın.
@@ -30,4 +29,9 @@ Bu erişilebilirlik hizmeti, yalnızca o düğmeye doğrudan bastığınızda so
 
 ## Sürüm notları
 
-OhmLauncher’ın ilk sürümüne hoş geldiniz. İlk açılıştan itibaren Omarchy modu, hazır temalar ve arka planlar, favori uygulamalar, hızlı arama, kenar kutuları, widget’lar, yerel eklentiler, Quake tarzı terminal ve animasyonlu TTFX arka planları sizi bekliyor.
+• Paneller, iletişim kutuları ve TTFX kontrolleri etkin Omarchy temasına uyum sağlar.
+• Saat, hava durumu ve TTFX metni için tema paletinden renk seçin.
+• Quake terminalinde klavyenin üstünde on tuş bulunur.
+• Daha fazla uygulama simgesi Nerd Fonts kullanır.
+• Sese tepki varsayılan olarak kapalıdır; izin yalnızca açıldığında istenir.
+• Üç günlük hava tahmini ve haritalar; etkileşimli dünya saati.

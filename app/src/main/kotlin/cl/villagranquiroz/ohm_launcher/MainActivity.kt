@@ -66,6 +66,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var bleScanner: OmarchyBleScanner
     private var pendingAppWidget: PendingAppWidget? = null
     private var audioPermissionRequested = false
+    private var pendingAudioPermission: ((Boolean) -> Unit)? = null
     private var watcher: FileObserver? = null
     private val pluginWatchers = mutableListOf<FileObserver>()
     private var apiServer: LocalApiServer? = null
@@ -119,6 +120,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
     private val audioPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        audioPermissionRequested = false
+        pendingAudioPermission?.invoke(granted)
+        pendingAudioPermission = null
         if (granted) root.refreshAudioCapture()
     }
     private val bluetoothPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
@@ -149,7 +153,9 @@ class MainActivity : AppCompatActivity() {
             }
         })
         runCatching {
-            EmbeddedToolsInstaller(filesDir, assets::open).install(Build.SUPPORTED_ABIS.toList())
+            val installer = EmbeddedToolsInstaller(filesDir, assets::open)
+            if (distributionPolicy.playStore) installer.removeInstalledTools()
+            else installer.install(Build.SUPPORTED_ABIS.toList())
         }.onFailure { error ->
             android.util.Log.e("OhmLauncher", "Unable to install embedded tools", error)
         }
@@ -217,6 +223,7 @@ class MainActivity : AppCompatActivity() {
             )
         }
         root.submitSettings(currentSettings)
+        quakeTerminal.submitTheme()
         applyCompactSystemNavigation(currentSettings.omarchyBarMode)
         currentConfig = runCatching { storage.read(configRoot) }.getOrElse { currentConfig }
         root.submitConfig(currentConfig)
@@ -373,7 +380,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showRemoteControlPermissionDialog() {
-        AlertDialog.Builder(this)
+        themedDialog()
             .setTitle(R.string.remote_control_permission)
             .setMessage(R.string.remote_control_permission_message)
             .setPositiveButton(R.string.enable) { _, _ -> openAccessibilitySettings() }
@@ -429,7 +436,7 @@ class MainActivity : AppCompatActivity() {
                 gravity = Gravity.CENTER
             })
         }
-        AlertDialog.Builder(this)
+        themedDialog()
             .setTitle(R.string.connect_omarchy)
             .setView(view)
             .setPositiveButton(R.string.copy) { _, _ ->
@@ -456,7 +463,7 @@ class MainActivity : AppCompatActivity() {
                 if (peers.isEmpty()) {
                     Toast.makeText(this, R.string.no_nearby_omarchy, Toast.LENGTH_LONG).show()
                 } else {
-                    AlertDialog.Builder(this)
+                    themedDialog()
                         .setTitle(R.string.nearby_omarchy)
                         .setItems(peers.map { "${it.name} · ${it.rssi} dBm" }.toTypedArray(), null)
                         .setPositiveButton(android.R.string.ok, null)
@@ -483,7 +490,7 @@ class MainActivity : AppCompatActivity() {
     fun showWidgetMenu(desktopIndex: Int, widgetIndex: Int) {
         val widgets = currentConfig.desktops.getOrNull(desktopIndex)?.widgets ?: return
         val widget = widgets.getOrNull(widgetIndex) ?: return
-        AlertDialog.Builder(this)
+        themedDialog()
             .setTitle(widget.type)
             .setItems(arrayOf(
                 getString(R.string.move_up),
@@ -546,13 +553,13 @@ class MainActivity : AppCompatActivity() {
             setSingleLine(true)
             setPadding(32, 18, 32, 18)
         }
-        AlertDialog.Builder(this)
+        themedDialog()
             .setTitle(R.string.add_box_title)
             .setView(name)
             .setPositiveButton(R.string.choose_edge) { _, _ ->
                 val value = name.text.toString()
                 val edges = EdgePosition.entries
-                AlertDialog.Builder(this)
+                themedDialog()
                     .setTitle(R.string.box_position)
                     .setItems(edges.map(::edgeLabel).toTypedArray()) { _, index ->
                         editDesktopConfig { DesktopConfigEditor.appendEdgeBox(it, value, edges[index]) }
@@ -579,7 +586,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun confirmRemoveEdgeBoxItem(boxId: String, itemIndex: Int, label: String) {
-        AlertDialog.Builder(this)
+        themedDialog()
             .setTitle(R.string.remove_application)
             .setMessage(getString(R.string.remove_application_confirm, label.ifBlank { getString(R.string.menu_app_generic) }))
             .setPositiveButton(R.string.remove) { _, _ ->
@@ -590,7 +597,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun confirmRemoveEdgeBox(id: String, name: String) {
-        AlertDialog.Builder(this)
+        themedDialog()
             .setTitle(R.string.remove_box)
             .setMessage(getString(R.string.remove_box_confirm, name))
             .setPositiveButton(R.string.delete) { _, _ -> mutateEdgeBox(id, remove = true) { it } }
@@ -612,13 +619,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun setOmarchyBarMode(enabled: Boolean) {
-        if (
-            distributionPolicy.allowCompactSystemNavigation &&
-            CompactNavigationPolicy.shouldRequestPermission(enabled, compactNavigationServiceConnected())
-        ) {
-            showCompactNavigationDisclosure()
-            return
-        }
         val previous = currentSettings
         val updated = previous.copy(omarchyBarMode = enabled)
         currentSettings = updated
@@ -639,7 +639,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun applyCompactSystemNavigation(compact: Boolean) {
         val compactAllowed = distributionPolicy.allowCompactSystemNavigation &&
-            CompactNavigationPolicy.shouldHideSystemNavigation(compact, compactNavigationServiceConnected())
+            CompactNavigationPolicy.shouldHideSystemNavigation(
+                OmarchyBarModePolicy.ALWAYS_OMARCHY_MODE,
+                compactNavigationServiceConnected(),
+            )
         val navigationBackground = systemNavigationBackground(currentSettings)
         @Suppress("DEPRECATION")
         window.navigationBarColor = navigationBackground
@@ -662,6 +665,9 @@ class MainActivity : AppCompatActivity() {
             View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
                 View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
         }
+        // Accessibility only controls the right-side shortcut; Omarchy layout
+        // stays unchanged whether the service is connected or not.
+        root.refreshGestureServiceState()
     }
 
     private fun performCompactNavigation(action: String) {
@@ -691,8 +697,12 @@ class MainActivity : AppCompatActivity() {
         else OhmGestureAccessibilityService.instance != null
 
 
+    fun requestAccessibilityForOmarchyBar() {
+        if (!compactNavigationServiceConnected()) showCompactNavigationDisclosure()
+    }
+
     private fun showCompactNavigationDisclosure() {
-        AlertDialog.Builder(this)
+        themedDialog()
             .setTitle(R.string.omarchy_navigation_disclosure_title)
             .setMessage(R.string.omarchy_navigation_disclosure_message)
             .setNegativeButton(android.R.string.cancel, null)
@@ -811,6 +821,7 @@ class MainActivity : AppCompatActivity() {
             current = desktop.ttfx,
             panelOpacity = currentSettings.settingsPanelOpacity,
             onPreview = { root.previewTtfx(index, it) },
+            onAudioEnabledRequested = ::ensureAudioPermission,
         ) { settings ->
             io.execute {
                 runCatching {
@@ -824,9 +835,51 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun themedDialog(): OmarchyDialogBuilder =
+        OmarchyDialogBuilder(this) { currentSettings.settingsPanelOpacity }
+
+    fun showWidgetTextColorPicker() {
+        val palette = OmarchyThemePalette.fromSettings(currentSettings.raw)
+        val roles = palette?.colors?.keys?.sorted().orEmpty()
+        val labels = arrayOf(getString(R.string.menu_theme_background_reset)) +
+            roles.map { role -> "$role  ·  ${palette?.color(role)}" }
+        themedDialog()
+            .setTitle(R.string.menu_theme_background_color)
+            .setSingleChoiceItems(labels, roles.indexOf(currentSettings.widgetTextColorRole) + 1) { dialog, selected ->
+                saveWidgetTextColorRole(roles.getOrNull(selected - 1))
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun saveWidgetTextColorRole(role: String?) {
+        val validated = OmarchyWidgetTextColorPolicy.normalize(
+            role, OmarchyThemePalette.fromSettings(currentSettings.raw),
+        )
+        val previous = currentSettings
+        val updated = LauncherSettings.parse(previous.copy(widgetTextColorRole = validated).toJson())
+        currentSettings = updated
+        root.submitSettings(updated, animateTheme = false)
+        quakeTerminal.submitTheme()
+        io.execute {
+            runCatching {
+                settingsStore.updateRaw { document ->
+                    document.remove("themeBackgroundColor")
+                    document.put("widgetTextColorRole", validated ?: JSONObject.NULL)
+                }
+            }.onFailure { error ->
+                runOnUiThread {
+                    currentSettings = previous
+                    root.submitSettings(previous, animateTheme = false)
+                    root.showConfigError(error.message.orEmpty())
+                }
+            }
+        }
+    }
+
     fun saveDesktopTtfx(index: Int, settings: TtfxConfig) {
         editDesktopConfig { DesktopConfigEditor.updateTtfx(it, index, settings) }
-        if (settings.audio) ensureAudioPermission()
     }
 
     fun showPluginPicker(desktopIndex: Int) {
@@ -835,7 +888,7 @@ class MainActivity : AppCompatActivity() {
             root.showConfigError(getString(R.string.no_plugins))
             return
         }
-        AlertDialog.Builder(this)
+        themedDialog()
             .setTitle(R.string.add_plugin)
             .setItems(plugins.map { it.manifest?.name ?: it.id }.toTypedArray()) { _, position ->
                 appendPluginWidget(plugins[position], desktopIndex)
@@ -848,7 +901,7 @@ class MainActivity : AppCompatActivity() {
         val active = pluginRepository.discover()
         val disabled = pluginRepository.discoverDisabled()
         val entries = active.map { it to true } + disabled.map { it to false }
-        AlertDialog.Builder(this)
+        themedDialog()
             .setTitle(R.string.plugins)
             .setItems(entries.map { (plugin, enabled) ->
                 val state = when {
@@ -868,7 +921,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showPluginActions(plugin: Plugin, enabled: Boolean) {
         if (!plugin.isValid) {
-            AlertDialog.Builder(this)
+            themedDialog()
                 .setTitle(getString(R.string.invalid_plugin, plugin.manifest?.name ?: plugin.id))
                 .setMessage(plugin.validationErrors.joinToString("\n"))
                 .setPositiveButton(if (enabled) R.string.disable_plugin else R.string.enable_plugin) { _, _ ->
@@ -886,7 +939,7 @@ class MainActivity : AppCompatActivity() {
         val toggle = getString(if (enabled) R.string.disable_plugin else R.string.enable_plugin)
         val actions = if (enabled) arrayOf(getString(R.string.add_to_desktop), toggle, getString(R.string.delete))
         else arrayOf(toggle, getString(R.string.delete))
-        AlertDialog.Builder(this)
+        themedDialog()
             .setTitle(plugin.manifest?.name ?: plugin.id)
             .setItems(actions) { _, action ->
                 when {
@@ -896,7 +949,7 @@ class MainActivity : AppCompatActivity() {
                         reloadPlugins()
                         Toast.makeText(this, if (enabled) R.string.plugin_disabled else R.string.plugin_enabled, Toast.LENGTH_SHORT).show()
                     }
-                    else -> AlertDialog.Builder(this)
+                    else -> themedDialog()
                         .setTitle(R.string.delete_plugin)
                         .setMessage(plugin.id)
                         .setPositiveButton(R.string.delete) { _, _ ->
@@ -939,7 +992,7 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 result.onSuccess { entries ->
                     val installable = entries.filter { !it.isSuite && it.repoUrl.isNotBlank() }
-                    AlertDialog.Builder(this)
+                    themedDialog()
                         .setTitle(R.string.marketplace_title)
                         .setItems(installable.map { it.name }.toTypedArray()) { _, position ->
                             installMarketplace(installable[position])
@@ -974,7 +1027,7 @@ class MainActivity : AppCompatActivity() {
             root.showConfigError(getString(R.string.no_android_widgets))
             return
         }
-        AlertDialog.Builder(this)
+        themedDialog()
             .setTitle(R.string.add_android_widget)
             .setItems(providers.map(AppWidgetProviderDto::label).toTypedArray()) { _, position ->
                 val provider = providers[position]
@@ -1177,6 +1230,7 @@ class MainActivity : AppCompatActivity() {
     }.getOrDefault(IntArray(0))
 
     private fun applySystemTheme(settings: LauncherSettings) {
+        quakeTerminal.submitTheme()
         val palette = OmarchyThemePalette.fromSettings(settings.raw)
         val darkIcons = palette?.useDarkSystemIcons == true
         val navigationBackground = systemNavigationBackground(settings)
@@ -1210,6 +1264,7 @@ class MainActivity : AppCompatActivity() {
         if (open && !currentSettings.quakeTerminal) return
         runOnUiThread {
             if (open) {
+                quakeTerminal.submitTheme()
                 root.setQuakeVisible(true)
                 quakeTerminal.animate().cancel()
                 val panelHeight = quakeTerminal.height.takeIf { it > 0 }
@@ -1285,13 +1340,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun ensureAudioPermission() {
+    private fun ensureAudioPermission(onResult: (Boolean) -> Unit) {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
             root.refreshAudioCapture()
+            onResult(true)
             return
         }
         if (!audioPermissionRequested) {
             audioPermissionRequested = true
+            pendingAudioPermission = onResult
             audioPermission.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
@@ -1310,24 +1367,41 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun seedBuiltInPlugins() {
+        val seedStateDirectory = filesDir.resolve("builtin-plugin-seed-state").apply { mkdirs() }
         BUILT_IN_PLUGINS.forEach { (id, files) ->
             val destination = pluginRepository.pluginsDirectory.resolve(id)
-            if (destination.exists()) return@forEach
-            val temporary = pluginRepository.pluginsDirectory.resolve(".$id.tmp")
             runCatching {
-                temporary.deleteRecursively()
-                temporary.mkdirs()
+                destination.mkdirs()
+                val stateFile = seedStateDirectory.resolve("$id.json")
+                val previousHashes = stateFile.takeIf(File::isFile)?.let { JSONObject(it.readText()) } ?: JSONObject()
+                val currentHashes = JSONObject()
                 files.forEach { name ->
-                    assets.open("plugins/$id/$name").use { input ->
-                        temporary.resolve(name).outputStream().use(input::copyTo)
+                    val bundledBytes = assets.open("plugins/$id/$name").use { it.readBytes() }
+                    val target = destination.resolve(name)
+                    val existingHash = target.takeIf(File::isFile)?.let { BuiltInPluginSeedPolicy.sha256(it.readBytes()) }
+                    val previousHash = previousHashes.optString(name).takeIf(String::isNotBlank)
+                    val bundledHash = BuiltInPluginSeedPolicy.sha256(bundledBytes)
+                    val legacyHashes = LEGACY_BUILT_IN_ASSET_HASHES["$id/$name"].orEmpty()
+                    if (BuiltInPluginSeedPolicy.shouldReplace(existingHash, previousHash, bundledHash, legacyHashes)) {
+                        target.parentFile?.mkdirs()
+                        val temporary = target.resolveSibling(".${target.name}.seed.tmp")
+                        try {
+                            temporary.writeBytes(bundledBytes)
+                            if (!temporary.renameTo(target)) temporary.copyTo(target, overwrite = true)
+                        } finally {
+                            temporary.delete()
+                        }
                     }
+                    currentHashes.put(name, bundledHash)
                 }
-                pluginRepository.pluginsDirectory.mkdirs()
-                check(
-                    temporary.renameTo(destination) ||
-                        temporary.copyRecursively(destination).also { temporary.deleteRecursively() },
-                )
-            }.onFailure { temporary.deleteRecursively() }
+                val temporaryState = stateFile.resolveSibling("${stateFile.name}.tmp")
+                try {
+                    temporaryState.writeText(currentHashes.toString())
+                    if (!temporaryState.renameTo(stateFile)) temporaryState.copyTo(stateFile, overwrite = true)
+                } finally {
+                    temporaryState.delete()
+                }
+            }
         }
     }
 
@@ -1862,6 +1936,12 @@ class MainActivity : AppCompatActivity() {
         private val BUILT_IN_PLUGINS = mapOf(
             "io.github.ohm.demo.clock" to listOf("manifest.json", "BarWidget.json", "Panel.json"),
             "io.github.ohm.demo.weather" to listOf("manifest.json", "BarWidget.qml"),
+        )
+        private val LEGACY_BUILT_IN_ASSET_HASHES = mapOf(
+            "io.github.ohm.demo.weather/BarWidget.qml" to setOf(
+                "179e093fa88d0f8a7442c5f1dac69bd5acaeea01d543b583e57a287a05711982",
+                "f8245722eba2d3536f8caa95b2d72aa25cf9ee9b074f0e215d7e99c8aaa6a57f",
+            ),
         )
     }
 }

@@ -33,9 +33,13 @@
     <string name="menu_system">Sistema</string>
     <string name="menu_home_launcher">Launcher della schermata Home</string>
     <string name="menu_gestures">Gesti</string>
+
     <string name="menu_storage">Archiviazione</string>
     <string name="menu_apps">App</string>
     <string name="menu_style">Stile</string>
+    <string name="menu_theme_background_color">Colore testo dei widget di sfondo</string>
+    <string name="menu_theme_background_reset">Usa il colore del tema</string>
+
     <string name="menu_theme">Tema</string>
     <string name="menu_background">Sfondo</string>
     <string name="menu_sync_style">Sincronizza da Omarchy</string>
@@ -48,6 +52,7 @@
     <string name="menu_not_synced">Non sincronizzato</string>
     <string name="menu_omarchy_launcher">Apri il menu Omarchy</string>
     <string name="bar_fav_apps">App preferite</string>
+    <string name="favorites_empty_action">Apri Apps e contrassegna i preferiti</string>
     <string name="bar_expand">Espandi la barra</string>
     <string name="bar_compress">Comprimi la barra</string>
     <string name="bar_recents">App recenti</string>
@@ -130,6 +135,11 @@
     <string name="ttfx_editor">Editor TTFX</string>
 
     <string name="ttfx_show_floating_controls">Mostra i controlli flottanti del desktop</string>
+    <string name="ttfx_hide_floating_controls">Nascondi i controlli flottanti del desktop</string>
+    <string name="ttfx_mini_open">Apri i controlli TTFX flottanti</string>
+    <string name="ttfx_mini_close">Riduci i controlli TTFX flottanti</string>
+    <string name="ttfx_mini_previous">Effetto precedente</string>
+    <string name="ttfx_mini_next">Effetto successivo</string>
     <string name="ttfx_live_preview">ANTEPRIMA LIVE</string>
     <string name="ttfx_composition">COMPOSIZIONE</string>
     <string name="ttfx_composition_help">Le modifiche vengono visualizzate in anteprima sul desktop durante la modifica.</string>
@@ -202,10 +212,32 @@
     <string name="weather_condition_storm">Temporale</string>
     <string name="weather_condition_unknown">Sconosciuto</string>
     <string name="weather_picker_title">Scegli città</string>
-    <string name="weather_picker_search_hint">Cerca città</string>
-    <string name="weather_picker_no_results">Nessuna città trovata</string>
-    <string name="weather_picker_error">Impossibile cercare città. Controlla la connessione.</string>
-    <string name="weather_picker_close">Chiudi</string>
     <string name="weather_unit_celsius">Celsius</string>
     <string name="weather_unit_fahrenheit">Fahrenheit</string>
+    <string name="weather_map_loading">Caricamento mappa delle previsioni…</string>
+    <string name="weather_map_error">Impossibile disegnare la mappa: %1$s</string>
+    <string name="weather_map_unsupported">La mappa meteo non è disponibile su questo dispositivo.</string>
+    <string name="weather_map_stale">dati datati</string>
+    <string name="world_clock_map_title">Orologio mondiale</string>
+    <string name="world_clock_map_loading">Caricamento della mappa degli orologi mondiali…</string>
+    <string name="world_clock_map_error">Impossibile caricare la mappa degli orologi: %1$s</string>
+    <string name="world_clock_map_unsupported">La mappa degli orologi non è disponibile su questo dispositivo.</string>
+    <string name="weather_map_snapshot">Istante singolo delle previsioni</string>
+    <string name="weather_map_layer_rain">Pioggia</string>
+    <string name="weather_map_layer_clouds">Nuvole</string>
+    <string name="weather_map_layer_temperature">Temperatura</string>
+    <string name="weather_map_layer_wind">Vento</string>
+    <string name="weather_map_layer_humidity">Umidità</string>
+    <string name="weather_map_zoom_in">Ingrandisci</string>
+    <string name="weather_map_zoom_out">Riduci</string>
+    <string name="weather_map_play">Riproduci previsioni</string>
+    <string name="weather_map_pause">Metti in pausa le previsioni</string>
+    <string name="weather_map_no_signal">Nessun valore misurabile in questa posizione</string>
+    <string name="weather_map_city_info">%1$s · %2$s</string>
+    <string name="weather_map_feels">Percepita</string>
+    <string name="world_clock_add_location">Aggiungi località</string>
+    <string name="world_clock_search_location">Cerca città o fuso orario</string>
+    <string name="world_clock_no_locations_found">Nessuna località corrispondente</string>
+    <string name="world_clock_saved_locations">Località salvate</string>
+    <string name="world_clock_remove_location">Rimuovi località</string>
 </resources>

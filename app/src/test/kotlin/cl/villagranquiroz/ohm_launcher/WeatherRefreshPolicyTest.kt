@@ -13,7 +13,34 @@ class WeatherRefreshPolicyTest {
     }
 
     @Test
-    fun refreshesWhenDataIsOlderThanThirtyMinutes() {
+    fun refreshesFreshCurrentDataWhenForecastIsMissing() {
+        assertEquals(
+            true,
+            WeatherRefreshPolicy.shouldRefresh(
+                updatedMillis = now,
+                hasTemperature = true,
+                nowMillis = now,
+                hasForecast = false,
+            ),
+        )
+    }
+
+    @Test
+    fun suppressesRepeatedRetriesDuringTheRetryWindow() {
+        assertEquals(
+            false,
+            WeatherRefreshPolicy.shouldRefresh(
+                updatedMillis = 0,
+                hasTemperature = false,
+                nowMillis = now,
+                retryAfterMillis = now + 1,
+            ),
+        )
+    }
+
+    @Test
+    fun refreshesWhenDataIsTenMinutesOld() {
+        assertEquals(10L * 60L * 1000L, WeatherRefreshPolicy.STALE_MILLIS)
         assertEquals(
             true,
             WeatherRefreshPolicy.shouldRefresh(
@@ -29,7 +56,7 @@ class WeatherRefreshPolicyTest {
     }
 
     @Test
-    fun keepsFreshDataWithoutRefreshing() {
+    fun keepsDataFreshUntilTenMinutes() {
         assertEquals(
             false,
             WeatherRefreshPolicy.shouldRefresh(
