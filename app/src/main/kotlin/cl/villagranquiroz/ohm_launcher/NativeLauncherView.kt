@@ -328,6 +328,7 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         val routeLauncherGestures = LauncherGestureGate.routeToDesktop(
             widgetEditing = widgetEditing,
             selectorVisible = themeSelector != null,
+            modalInputVisible = (0 until childCount).any { getChildAt(it) is FluxTouchpadView },
         )
         if (routeLauncherGestures) {
             if (!quakeVisible && (drawerVisible || edgeBoxAppSelection != null)) updateDrawerDrag(event)
@@ -532,7 +533,6 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     fun submitSettings(value: LauncherSettings, animateTheme: Boolean = true) {
         val previousTheme = omarchyTheme
         val nextTheme = OmarchyThemePalette.fromSettings(value.raw)
-        android.util.Log.e("OHM-DEBUG-theme", "submit animate=$animateTheme previous=${previousTheme?.name} next=${nextTheme?.name} target=${themeTransitionTarget?.name}")
         if (OmarchyThemeTransitionPolicy.shouldQueueForActiveTransition(themeTransitionTarget, nextTheme)) {
             pendingThemeSettings = value
             return
@@ -545,7 +545,6 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
     }
 
     private fun applySettingsNow(value: LauncherSettings, theme: OmarchyThemePalette?) {
-        android.util.Log.e("OHM-DEBUG-theme", "apply now theme=${theme?.name}")
         val barModeChanged = settings.omarchyBarMode != value.omarchyBarMode
         if (
             OmarchyBarAnimationPolicy.ignoreDuplicateSubmission(
@@ -2757,6 +2756,55 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         }
     }
 
+    private var fluxMediaOverlay: OmarchyMenuOverlay? = null
+
+    internal fun updateFluxMediaEntries(entries: List<OmarchyMenuEntry>) {
+        fluxMediaOverlay?.updateRootEntries(entries)
+    }
+
+    internal fun closeFluxMediaMenu() { fluxMediaOverlay?.close() }
+
+    internal fun showFluxActionMenu(title: String, entries: List<OmarchyMenuEntry>, mediaView: Boolean = false,
+                                    onCancelled: () -> Unit): Boolean {
+        if (omarchyMenu != null || orbitalMenu != null) return false
+        dismissCommandInput()
+        val foreground = themeColor("foreground", 0xFFC0CAF5.toInt())
+        var chosen = false
+        lateinit var overlay: OmarchyMenuOverlay
+        overlay = OmarchyMenuOverlay(
+            context = context,
+            rootEntries = entries.map { entry -> entry.copy(action = {
+                if (!mediaView) chosen = true
+                entry.action?.invoke()
+            }) },
+            rootTitle = title,
+            colors = OmarchyMenuOverlay.Colors(
+                background = themeColor("background", 0xFF1A1B26.toInt()),
+                foreground = foreground,
+                border = alphaColor(foreground, 0x66),
+                scrim = alphaColor(themeColor("dark_background", 0xFF16161E.toInt()), 0xB0),
+                selectedBackground = themeColor("lighter_background", 0xFF24283B.toInt()),
+                selectedText = themeColor("accent", 0xFF7AA2F7.toInt()),
+                muted = themeColor("muted", 0xFF565F89.toInt()),
+            ),
+            onDismissed = {
+                if (omarchyMenu === overlay) omarchyMenu = null
+                if (fluxMediaOverlay === overlay) fluxMediaOverlay = null
+                // The overlay runs the chosen action after its dismissal callback.
+                post { if (mediaView || !chosen) onCancelled() }
+            },
+        )
+        omarchyMenu = overlay
+        if (mediaView) fluxMediaOverlay = overlay
+        addView(overlay, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        overlay.post { overlay.requestFocus() }
+        return true
+    }
+
+    internal fun refreshFluxMenu() {
+        omarchyMenu?.refreshDynamicEntries()
+    }
+
     private fun showOmarchyLauncherMenu(trigger: OmarchyMenuOpenTrigger = OmarchyMenuOpenTrigger.LOGO_TAP) {
         if (widgetEditing) setWidgetEditing(false)
         if (orbitalMenu != null || omarchyMenu != null) return
@@ -2774,6 +2822,19 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
         val appEntries = menuApps.map(::appEntry)
         val syncedTheme = omarchyTheme
         val notSynced = context.getString(R.string.menu_not_synced)
+        val omarchyChildren: () -> List<OmarchyMenuEntry> = { buildList {
+            if (activity.hasLinkedOmarchyPeer() && PeerActionPolicy.supports(
+                    PeerTransport.OMARCHY_LINK, PeerAction.SEND_TEXT, BuildConfig.PLAY_STORE_DISTRIBUTION)) {
+                add(OmarchyMenuEntry(NerdGlyph.LINK, context.getString(R.string.peer_share_title), action = activity::shareTextWithPeer))
+            }
+            if (!BuildConfig.PLAY_STORE_DISTRIBUTION) addAll(activity.fluxMenuEntries())
+            add(OmarchyMenuEntry(NerdGlyph.DOWN, context.getString(R.string.menu_install_omarchy_link), action = { activity.openOmarchyLinkInstallationPage() }))
+            add(OmarchyMenuEntry(NerdGlyph.CAMERA, context.getString(R.string.menu_read_qr), action = { activity.readOmarchyQr() }))
+            if (!BuildConfig.PLAY_STORE_DISTRIBUTION) {
+                add(OmarchyMenuEntry(NerdGlyph.BLUETOOTH, context.getString(R.string.menu_bluetooth), action = { activity.scanOmarchyBluetooth() }))
+                add(OmarchyMenuEntry(NerdGlyph.QR, context.getString(R.string.menu_show_qr), action = { activity.showOmarchyQr() }))
+            }
+        } }
         fun buildEntries(): List<OmarchyMenuEntry> = listOf(
             OmarchyMenuEntry(NerdGlyph.APPS, context.getString(R.string.menu_apps), children = appEntries),
             OmarchyMenuEntry(
@@ -2841,14 +2902,8 @@ class NativeLauncherView(context: Context) : FrameLayout(context) {
             OmarchyMenuEntry(
                 NerdGlyph.LINK,
                 context.getString(R.string.menu_omarchy),
-                children = buildList {
-                    add(OmarchyMenuEntry(NerdGlyph.DOWN, context.getString(R.string.menu_install_omarchy_link), action = { activity.openOmarchyLinkInstallationPage() }))
-                    add(OmarchyMenuEntry(NerdGlyph.CAMERA, context.getString(R.string.menu_read_qr), action = { activity.readOmarchyQr() }))
-                    if (!BuildConfig.PLAY_STORE_DISTRIBUTION) {
-                        add(OmarchyMenuEntry(NerdGlyph.BLUETOOTH, context.getString(R.string.menu_bluetooth), action = { activity.scanOmarchyBluetooth() }))
-                        add(OmarchyMenuEntry(NerdGlyph.QR, context.getString(R.string.menu_show_qr), action = { activity.showOmarchyQr() }))
-                    }
-                },
+                children = omarchyChildren(),
+                childrenProvider = omarchyChildren,
             ),
             OmarchyMenuEntry(
                 NerdGlyph.SETTINGS,

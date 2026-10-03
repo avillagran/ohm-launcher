@@ -71,6 +71,11 @@ internal class OmarchyThemeSelectorOverlay(
         private val imagePaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
         private val shadePaint = Paint(Paint.ANTI_ALIAS_FLAG)
         private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+        private val customIconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+        }
+        private val customIconPath = Path()
         private val path = Path()
         private val executor = Executors.newFixedThreadPool(2) { runnable ->
             Thread(runnable, "omarchy-theme-preview").apply { priority = Thread.MIN_PRIORITY }
@@ -150,7 +155,12 @@ internal class OmarchyThemeSelectorOverlay(
             canvas.save()
             canvas.clipPath(path)
             canvas.drawColor(colors.background)
-            cache.get(catalog.themes[index].id)?.let { bitmap -> drawCenterCrop(canvas, bitmap, bounds) }
+            val choice = catalog.themes[index]
+            if (choice.previewPath == CUSTOM_BACKGROUND_PREVIEW) {
+                drawCustomBackgroundIcon(canvas, bounds, selected)
+            } else {
+                cache.get(choice.id)?.let { bitmap -> drawCenterCrop(canvas, bitmap, bounds) }
+            }
             if (!selected) {
                 shadePaint.color = alpha(colors.background, 0.42f)
                 canvas.drawPath(path, shadePaint)
@@ -160,6 +170,43 @@ internal class OmarchyThemeSelectorOverlay(
             borderPaint.color = if (selected) colors.selectedBorder else colors.unselectedBorder
             borderPaint.strokeWidth = dp(if (selected) 3f else 1f)
             canvas.drawPath(path, borderPaint)
+        }
+
+        private fun drawCustomBackgroundIcon(canvas: Canvas, bounds: RectF, selected: Boolean) {
+            val iconWidth = minOf(bounds.width() * 0.5f, bounds.height() * 0.62f)
+            val iconHeight = iconWidth * 0.72f
+            val frame = RectF(
+                bounds.centerX() - iconWidth / 2f,
+                bounds.centerY() - iconHeight / 2f,
+                bounds.centerX() + iconWidth / 2f,
+                bounds.centerY() + iconHeight / 2f,
+            )
+            customIconPaint.color = colors.foreground
+            customIconPaint.style = Paint.Style.STROKE
+            customIconPaint.strokeWidth = minOf(dp(2.5f), iconWidth * 0.055f)
+            canvas.drawRect(frame, customIconPaint)
+
+            customIconPath.reset()
+            customIconPath.moveTo(frame.left + iconWidth * 0.14f, frame.bottom - iconHeight * 0.18f)
+            customIconPath.lineTo(frame.left + iconWidth * 0.4f, frame.top + iconHeight * 0.42f)
+            customIconPath.lineTo(frame.left + iconWidth * 0.61f, frame.top + iconHeight * 0.68f)
+            customIconPath.lineTo(frame.left + iconWidth * 0.73f, frame.top + iconHeight * 0.54f)
+            customIconPath.lineTo(frame.right - iconWidth * 0.1f, frame.bottom - iconHeight * 0.18f)
+            canvas.drawPath(customIconPath, customIconPaint)
+            customIconPaint.style = Paint.Style.FILL
+            canvas.drawCircle(frame.right - iconWidth * 0.22f, frame.top + iconHeight * 0.25f,
+                iconWidth * 0.055f, customIconPaint)
+
+            val radius = iconWidth * 0.17f
+            val plusX = frame.right
+            val plusY = frame.bottom
+            customIconPaint.color = colors.background
+            canvas.drawCircle(plusX, plusY, radius * 1.15f, customIconPaint)
+            customIconPaint.color = if (selected) colors.selectedBorder else colors.foreground
+            customIconPaint.style = Paint.Style.STROKE
+            canvas.drawCircle(plusX, plusY, radius, customIconPaint)
+            canvas.drawLine(plusX - radius * 0.5f, plusY, plusX + radius * 0.5f, plusY, customIconPaint)
+            canvas.drawLine(plusX, plusY - radius * 0.5f, plusX, plusY + radius * 0.5f, customIconPaint)
         }
 
         private fun drawCenterCrop(canvas: Canvas, bitmap: Bitmap, bounds: RectF) {
@@ -192,6 +239,7 @@ internal class OmarchyThemeSelectorOverlay(
 
         private fun loadPreview(index: Int) {
             val choice = catalog.themes[index]
+            if (choice.previewPath == CUSTOM_BACKGROUND_PREVIEW) return
             if (cache.get(choice.id) != null || !pending.add(choice.id)) return
             executor.execute {
                 val bitmap = previewLoader(choice)?.let(::decodeSampled)
@@ -396,8 +444,9 @@ internal class OmarchyThemeSelectorOverlay(
     private fun alpha(color: Int, alpha: Float): Int =
         Color.argb((Color.alpha(color) * alpha).roundToInt().coerceIn(0, 255), Color.red(color), Color.green(color), Color.blue(color))
 
-    private companion object {
-        const val DRAG_SMOOTHING = 0.42f
-        const val MAX_PREVIEW_PIXELS = 24_000_000L
+    companion object {
+        const val CUSTOM_BACKGROUND_PREVIEW = "ohm://custom-background"
+        private const val DRAG_SMOOTHING = 0.42f
+        private const val MAX_PREVIEW_PIXELS = 24_000_000L
     }
 }

@@ -26,12 +26,3 @@ OhmLauncher, AccessibilityService API'sini kullanan isteğe bağlı bir erişile
 Hizmet varsayılan olarak devre dışıdır. Uygulama içi bir açıklamanın ardından Android'in Erişilebilirlik ayarlarından etkinleştirebilir ve istediğiniz zaman kapatabilirsiniz. OhmLauncher bu hizmet olmadan tamamen çalışır ve hizmet etkin olmadığı sürece normal sistem gezinmesi görünür kalır.
 
 Bu erişilebilirlik hizmeti, yalnızca o düğmeye doğrudan bastığınızda son kullanılanlar görünümünü açar. Hareket yapamaz, diğer uygulamaların pencere içeriğini veya metnini okuyamaz ve alamaz, girdilerinizi izlemez, cihazınızı uzaktan kontrol etmez ve hiçbir veri toplamaz, saklamaz veya paylaşmaz.
-
-## Sürüm notları
-
-• Paneller, iletişim kutuları ve TTFX kontrolleri etkin Omarchy temasına uyum sağlar.
-• Saat, hava durumu ve TTFX metni için tema paletinden renk seçin.
-• Quake terminalinde klavyenin üstünde on tuş bulunur.
-• Daha fazla uygulama simgesi Nerd Fonts kullanır.
-• Sese tepki varsayılan olarak kapalıdır; izin yalnızca açıldığında istenir.
-• Üç günlük hava tahmini ve haritalar; etkileşimli dünya saati.

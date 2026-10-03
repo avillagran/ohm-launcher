@@ -49,6 +49,8 @@
     <string name="theme_selector_apply_failed">無法套用 Omarchy 主題</string>
     <string name="background_selector_unavailable">無法從 Omarchy 載入背景</string>
     <string name="background_selector_apply_failed">無法套用 Omarchy 背景</string>
+    <string name="background_selector_loading">正在載入主題桌布…</string>
+    <string name="background_selector_custom">自訂</string>
     <string name="menu_not_synced">尚未同步</string>
     <string name="menu_omarchy_launcher">開啟 Omarchy 選單</string>
     <string name="bar_fav_apps">最愛的應用程式</string>
@@ -239,4 +241,5 @@
     <string name="world_clock_no_locations_found">找不到相符地點</string>
     <string name="world_clock_saved_locations">已儲存的地點</string>
     <string name="world_clock_remove_location">移除地點</string>
+    <string name="flux_wallpaper_choose">為手機和 Omarchy 選擇桌布</string>
 </resources>

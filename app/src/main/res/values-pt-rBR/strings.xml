@@ -49,6 +49,8 @@
     <string name="theme_selector_apply_failed">Não foi possível aplicar o tema do Omarchy</string>
     <string name="background_selector_unavailable">Não foi possível carregar os planos de fundo do Omarchy</string>
     <string name="background_selector_apply_failed">Não foi possível aplicar o plano de fundo do Omarchy</string>
+    <string name="background_selector_loading">Carregando fundos do tema…</string>
+    <string name="background_selector_custom">Personalizado</string>
     <string name="menu_not_synced">Não sincronizado</string>
     <string name="menu_omarchy_launcher">Abrir menu do Omarchy</string>
     <string name="bar_fav_apps">Apps favoritos</string>
@@ -240,4 +242,5 @@
     <string name="world_clock_no_locations_found">Nenhum local correspondente</string>
     <string name="world_clock_saved_locations">Locais salvos</string>
     <string name="world_clock_remove_location">Remover local</string>
+    <string name="flux_wallpaper_choose">Escolher fundo para o telefone e Omarchy</string>
 </resources>

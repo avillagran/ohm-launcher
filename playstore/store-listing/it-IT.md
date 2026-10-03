@@ -26,12 +26,3 @@ OhmLauncher include un servizio di accessibilità facoltativo che utilizza l'API
 Il servizio è disabilitato per impostazione predefinita. Puoi attivarlo nelle impostazioni di Accessibilità di Android dopo una spiegazione nell'app e disattivarlo in qualsiasi momento. OhmLauncher funziona completamente senza di esso e mantiene visibile la normale navigazione di sistema ogni volta che il servizio non è attivo.
 
 Questo servizio di accessibilità apre le app recenti solo in risposta alla tua pressione diretta su quel pulsante. Non può eseguire gesti, non può leggere o recuperare contenuti delle finestre o testo da altre app, non monitora i tuoi input, non controlla il dispositivo da remoto e non raccoglie, archivia o condivide alcun dato.
-
-## Note di rilascio
-
-• Pannelli, finestre e controlli TTFX seguono il tema Omarchy attivo.
-• Scegli un colore della palette per il testo di orologio, meteo e TTFX.
-• Il terminale Quake ha dieci tasti sopra la tastiera.
-• Più icone delle app usano Nerd Fonts.
-• La reazione all’audio parte disattivata e chiede il permesso solo quando la attivi.
-• Meteo con previsioni di tre giorni e mappe; orologio mondiale interattivo.

@@ -46,7 +46,11 @@ internal data class OmarchyMenuEntry(
     val trailingAction: (() -> Unit)? = null,
     /** When true, running [action] keeps the menu open (toggles, live refresh). */
     val staysOpen: Boolean = false,
-)
+    /** Resolved only when entering (and refreshing) a live submenu. */
+    val childrenProvider: (() -> List<OmarchyMenuEntry>)? = null,
+) {
+    fun resolvedChildren(): List<OmarchyMenuEntry> = childrenProvider?.invoke() ?: children
+}
 
 internal object OmarchyMenuSearch {
     fun results(
@@ -61,7 +65,7 @@ internal object OmarchyMenuSearch {
             entries.forEach { entry ->
                 add(if (entry.detail == null && path.isNotEmpty()) entry.copy(detail = path) else entry)
                 val childPath = listOf(path, entry.label).filter(String::isNotEmpty).joinToString(" › ")
-                addAll(flatten(entry.children, childPath))
+                addAll(flatten(entry.resolvedChildren(), childPath))
             }
         }
         fun matches(entry: OmarchyMenuEntry): Boolean =
@@ -88,7 +92,7 @@ internal object OmarchyMenuEmptyStatePolicy {
 internal object OmarchyMenuEnterPolicy {
     fun firstVisible(visible: List<OmarchyMenuEntry>): OmarchyMenuEntry? = visible.firstOrNull()
 
-    fun shouldOpen(entry: OmarchyMenuEntry): Boolean = entry.children.isNotEmpty()
+    fun shouldOpen(entry: OmarchyMenuEntry): Boolean = entry.childrenProvider != null || entry.children.isNotEmpty()
 
     fun shouldRun(entry: OmarchyMenuEntry): Boolean = entry.action != null
 }
@@ -240,7 +244,8 @@ internal class OmarchyMenuOverlay(
         val muted: Int,
     )
 
-    private data class Level(val title: String, val entries: List<OmarchyMenuEntry>)
+    private data class Level(val title: String, val entries: List<OmarchyMenuEntry>,
+                             val provider: (() -> List<OmarchyMenuEntry>)? = null)
 
     private val levels = mutableListOf(Level("", rootEntries))
     private val card = LinearLayout(context)
@@ -576,7 +581,7 @@ internal class OmarchyMenuOverlay(
         } else if (normalized.isEmpty()) {
             levels.last().entries
         } else {
-            OmarchyMenuSearch.results(rootEntries, searchEntries, normalized, searchMode())
+            OmarchyMenuSearch.results(levels.first().entries, searchEntries, normalized, searchMode())
         }
         val visible = OmarchyMenuEmptyStatePolicy.entries(matchingEntries, normalized.isEmpty(), emptyEntry)
         visibleEntries = visible
@@ -611,6 +616,15 @@ internal class OmarchyMenuOverlay(
     fun updateRootEntries(newEntries: List<OmarchyMenuEntry>) {
         if (levels.isEmpty()) return
         levels[0] = Level("", newEntries)
+        renderRows(header.text?.toString().orEmpty())
+        post(::updateCardLayout)
+    }
+
+    /** Refreshes the visible live level without navigating away or changing its query. */
+    fun refreshDynamicEntries() {
+        val level = levels.lastOrNull() ?: return
+        val provider = level.provider ?: return
+        levels[levels.lastIndex] = level.copy(entries = provider())
         renderRows(header.text?.toString().orEmpty())
         post(::updateCardLayout)
     }
@@ -684,7 +698,7 @@ internal class OmarchyMenuOverlay(
             }
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f).apply { leftMargin = dp(12) })
 
-        if (entry.children.isNotEmpty()) {
+        if (OmarchyMenuEnterPolicy.shouldOpen(entry)) {
             addView(TextView(context).apply {
                 text = "›"
                 textSize = 21f
@@ -719,7 +733,7 @@ internal class OmarchyMenuOverlay(
 
         setOnClickListener {
             when {
-                entry.children.isNotEmpty() -> open(entry)
+                OmarchyMenuEnterPolicy.shouldOpen(entry) -> open(entry)
                 entry.action != null && entry.staysOpen -> entry.action.invoke()
                 entry.action != null -> dismiss(entry.action)
             }
@@ -778,7 +792,7 @@ internal class OmarchyMenuOverlay(
     }
 
     private fun open(entry: OmarchyMenuEntry) {
-        levels += Level(entry.label, entry.children)
+        levels += Level(entry.label, entry.resolvedChildren(), entry.childrenProvider)
         header.text?.clear()
         updateHeader()
         renderRows("")

@@ -49,6 +49,8 @@
     <string name="theme_selector_apply_failed">Det gick inte att använda Omarchy-temat</string>
     <string name="background_selector_unavailable">Det gick inte att läsa in bakgrunder från Omarchy</string>
     <string name="background_selector_apply_failed">Det gick inte att använda Omarchy-bakgrunden</string>
+    <string name="background_selector_loading">Läser in temats bakgrunder…</string>
+    <string name="background_selector_custom">Egen bakgrund</string>
     <string name="menu_not_synced">Inte synkroniserad</string>
     <string name="menu_omarchy_launcher">Öppna Omarchy-menyn</string>
     <string name="bar_fav_apps">Fav apps</string>
@@ -240,4 +242,5 @@
     <string name="world_clock_no_locations_found">Inga matchande platser</string>
     <string name="world_clock_saved_locations">Sparade platser</string>
     <string name="world_clock_remove_location">Ta bort plats</string>
+    <string name="flux_wallpaper_choose">Välj bakgrund för telefonen och Omarchy</string>
 </resources>

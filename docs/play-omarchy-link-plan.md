@@ -1,6 +1,8 @@
 # Google Play Omarchy Link expansion plan
 
-This document defines the widest Omarchy Link feature set intended for the Google Play build without weakening the full GitHub distribution.
+This is a future expansion plan, not the feature set shipped in 0.0.6. The current Play edition permits authenticated QR pairing and theme/background synchronization only; clipboard, file transfer, screen sharing and Flux remain excluded. See `playstore/CHECKLIST.md` and `playstore/data-safety.md` for the current artifact boundary.
+
+The sections below describe potential expansion after implementation and separate validation.
 
 ## Distribution boundary
 
@@ -122,7 +124,7 @@ The public listing must describe user benefits, not policy or implementation det
 
 ## Release gates
 
-- Keep public `versionName` at `0.0.4` unless explicitly changed by the user.
+- Set `versionName` only for an explicitly requested new public version.
 - Increment only `versionCode` for every replacement AAB consumed by Play.
 - Run the complete JVM and Python suites, merged-manifest audit, APK/AAB builds, signing verification, and real peer tests.
 - Verify QR pairing and every admitted feature on a physical phone and Omarchy computer.

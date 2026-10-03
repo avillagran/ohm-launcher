@@ -26,12 +26,3 @@ OhmLauncher bevat een optionele toegankelijkheidsservice die de AccessibilitySer
 De service is standaard uitgeschakeld. U activeert hem in de Android-instellingen voor toegankelijkheid na een uitleg in de app en kunt hem op elk moment weer uitschakelen. OhmLauncher werkt volledig zonder de service en houdt de normale systeemnavegatie zichtbaar zolang de service niet is geactiveerd.
 
 Deze toegankelijkheidsservice opent Recents alleen als reactie op uw directe druk op die knop. Hij kan geen gebaren uitvoeren, kan vensterinhoud of tekst van andere apps niet lezen of ophalen, controleert uw invoer niet, bedient uw apparaat niet op afstand en verzamelt, bewaart of deelt geen gegevens.
-
-## Releaseopmerkingen
-
-• Panelen, dialoogvensters en TTFX-knoppen volgen nu het actieve Omarchy-thema.
-• Kies een paletkleur voor de tekst van klok, weer en TTFX.
-• De Quake-terminal heeft tien toetsen boven het toetsenbord.
-• Meer app-pictogrammen gebruiken Nerd Fonts.
-• Audioreactie staat standaard uit en vraagt pas toestemming bij inschakeling.
-• Weer met driedaagse voorspelling en kaarten; interactieve wereldklok.

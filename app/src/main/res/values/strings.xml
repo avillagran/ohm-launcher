@@ -48,6 +48,8 @@
     <string name="theme_selector_apply_failed">Could not apply the Omarchy theme</string>
     <string name="background_selector_unavailable">Could not load backgrounds from Omarchy</string>
     <string name="background_selector_apply_failed">Could not apply the Omarchy background</string>
+    <string name="background_selector_loading">Loading theme backgrounds…</string>
+    <string name="background_selector_custom">Custom</string>
     <string name="menu_not_synced">Not synchronized</string>
     <string name="menu_omarchy_launcher">Open Omarchy menu</string>
     <string name="bar_fav_apps">Fav apps</string>
@@ -239,4 +241,5 @@
     <string name="world_clock_no_locations_found">No matching locations</string>
     <string name="world_clock_saved_locations">Saved locations</string>
     <string name="world_clock_remove_location">Remove location</string>
+    <string name="flux_wallpaper_choose">Choose wallpaper for phone and Omarchy</string>
 </resources>

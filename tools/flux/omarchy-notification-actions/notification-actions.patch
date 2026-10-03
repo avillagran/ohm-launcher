@@ -1,0 +1,295 @@
+diff --git a/NotificationLogic.js b/NotificationLogic.js
+--- a/NotificationLogic.js
++++ b/NotificationLogic.js
+@@ -178,6 +178,21 @@
+ 
+ function shouldRenderCompactGlyph(glyph, iconSource, singleLineToast) {
+   return String(glyph || "").length > 0 && String(iconSource || "").length === 0 && !!singleLineToast
++}
++
++// Keep QObject-backed NotificationAction objects out of ListModel roles.
++// Only explicit action labels/identifiers are drawn; the service resolves
++// the live action again when a button is clicked.
++function explicitActionsJson(actions) {
++  var choices = []
++  for (var i = 0; actions && i < actions.length; i++) {
++    var action = actions[i]
++    if (!action) continue
++    var identifier = String(action.identifier || "")
++    if (!identifier || identifier === "default") continue
++    choices.push({ identifier: identifier, label: String(action.text || identifier) })
++  }
++  return JSON.stringify(choices)
+ }
+ 
+ function snapshotOf(notification, timestamp) {
+@@ -195,6 +210,8 @@
+     image: n.image || "",
+     glyph: glyphFromHints(n.hints),
+     execArgv: execArgvFromHints(n.hints),
++    actionsJson: explicitActionsJson(n.actions),
++    actionToken: "",
+     urgency: n.urgency,
+     expireTimeout: expireTimeout,
+     timestamp: timestamp === undefined ? Date.now() : timestamp
+@@ -203,7 +220,7 @@
+ 
+ // Everything the popup card draws, and therefore everything an in-place
+ // update has to write through to the row and its file.
+-var POPUP_ROLES = ["app", "appIcon", "summary", "body", "image", "glyph", "execArgv", "urgency", "expireTimeout"]
++var POPUP_ROLES = ["app", "appIcon", "summary", "body", "image", "glyph", "execArgv", "actionsJson", "urgency", "expireTimeout"]
+ 
+ function popupRoles() {
+   return POPUP_ROLES
+@@ -246,6 +263,9 @@
+     image: e.image || "",
+     glyph: e.glyph || "",
+     execArgv: e.execArgv || "",
++    // Restored/history notifications have no live server action owner.
++    actionsJson: "[]",
++    actionToken: "",
+     urgency: typeof e.urgency === "number" ? e.urgency : normalUrgency,
+     expireTimeout: 0,
+     timestamp: e.timestamp || 0
+@@ -459,6 +479,7 @@
+     execArgvFromHints: execArgvFromHints,
+     parseExecArgv: parseExecArgv,
+     shouldRenderCompactGlyph: shouldRenderCompactGlyph,
++    explicitActionsJson: explicitActionsJson,
+     snapshotOf: snapshotOf,
+     popupRoles: popupRoles,
+     popupRowChanged: popupRowChanged,
+diff --git a/Service.qml b/Service.qml
+--- a/Service.qml
++++ b/Service.qml
+@@ -57,6 +57,18 @@
+   // and the next read of that role segfaults in QQmlListModel::data. A JS
+   // map only holds a wrapper, which degrades to a catchable error instead.
+   property var liveRefs: ({})
++  // Tokens identify the exact live notification generation, independently of
++  // server ids (which may be reused). Never persist QObject action references.
++  property var actionRefs: ({})
++  property double nextActionToken: 0
++
++  function trackActionOwner(notification) {
++    // Stop allocating rather than reuse a token once doubles lose precision.
++    if (nextActionToken >= 9007199254740991) return ""
++    var token = String(++nextActionToken)
++    actionRefs[token] = notification
++    return token
++  }
+ 
+   // PersistentProperties handles in-process QML reloads. The on-disk
+   // notifications.json file is the cross-restart backstop — its `dnd` key
+@@ -159,12 +171,23 @@
+     // captured for the popup card.
+     notification.tracked = true
+     var snapshot = snapshotOf(notification)
++    snapshot.actionToken = trackActionOwner(notification)
+     liveRefs[snapshot.originalId] = notification
+     // Guard the delete: a newer notification may have reused this originalId
+     // (freedesktop replaces_id) and taken over the map slot.
+     notification.closed.connect(function() {
++      // The deferred insertion below may not have run yet.
++      snapshot.actionsJson = "[]"
+       if (service.liveRefs[snapshot.originalId] === notification)
+         delete service.liveRefs[snapshot.originalId]
++      if (service.actionRefs[snapshot.actionToken] === notification)
++        delete service.actionRefs[snapshot.actionToken]
++      for (var i = 0; i < popupModel.count; i++) {
++        var row = popupModel.get(i)
++        if (row && row.actionToken === snapshot.actionToken) {
++          popupModel.setProperty(i, "actionsJson", "[]")
++        }
++      }
+     })
+ 
+     // DND bypass rules: chat apps abuse urgency=critical to force
+@@ -179,6 +202,7 @@
+         return
+       }
+       delete liveRefs[snapshot.originalId]
++      delete actionRefs[snapshot.actionToken]
+       notification.tracked = false
+       return
+     }
+@@ -222,6 +246,9 @@
+   // The id may have been reused and the object torn down meanwhile.
+   function releaseSilenced(notification, originalId) {
+     if (liveRefs[originalId] === notification) delete liveRefs[originalId]
++    for (var token in actionRefs) {
++      if (actionRefs[token] === notification) delete actionRefs[token]
++    }
+     try {
+       notification.tracked = false
+     } catch (e) {
+@@ -234,7 +261,7 @@
+   // about after the popup exists.
+   readonly property var updateSignals: [
+     "summaryChanged", "bodyChanged", "appNameChanged", "appIconChanged",
+-    "imageChanged", "urgencyChanged", "expireTimeoutChanged", "hintsChanged"
++    "imageChanged", "urgencyChanged", "expireTimeoutChanged", "hintsChanged", "actionsChanged"
+   ]
+ 
+   // A client that updates a notification through replaces_id does not produce
+@@ -318,7 +345,7 @@
+     removePopup(index, "expire")
+   }
+ 
+-  function removePopup(index, reason) {
++  function removePopup(index, reason, expectedRef) {
+     if (index < 0 || index >= popupModel.count) return
+     var entry = popupModel.get(index)
+     var originalId = entry ? entry.originalId : -1
+@@ -327,6 +354,9 @@
+     // id would dismiss that unrelated notification at the server.
+     var restored = isRestoredRow(entry)
+     var ref = !restored && originalId >= 0 ? liveRefs[originalId] : null
++    // An action can synchronously close its notification or reuse its id.
++    // Removing its old card must never dismiss that new notification.
++    if (expectedRef !== undefined && ref !== expectedRef) ref = null
+     // The popup is leaving the screen — for any reason — so its file must not
+     // survive to the next shell restart. It becomes the newest history entry
+     // instead. Rows that never had a file (a history replay, the empty-history
+@@ -350,6 +380,45 @@
+ 
+   function clearPopups() {
+     while (popupModel.count > 0) dismissPopup(0)
++  }
++
++  // Buttons carry only a scalar token and identifier. Resolve both against
++  // the exact current live owner; a restored row or a stale click is inert.
++  function invokePopupAction(token, identifier) {
++    if (!token || !identifier || identifier === "default") return
++    var ref = actionRefs[token]
++    if (!ref) return
++    var entry = null
++    for (var i = 0; i < popupModel.count; i++) {
++      var row = popupModel.get(i)
++      if (row && row.actionToken === token && !isRestoredRow(row)) {
++        entry = row
++        break
++      }
++    }
++    if (!entry || liveRefs[entry.originalId] !== ref) return
++    var invoked = false
++    try {
++      for (var a = 0; ref.actions && a < ref.actions.length; a++) {
++        var action = ref.actions[a]
++        if (action && action.identifier === identifier) {
++          action.invoke()
++          invoked = true
++          break
++        }
++      }
++    } catch (e) {
++      console.warn("invoke notification action failed:", e)
++    }
++    if (!invoked) return
++    // Find the same row again, since action invocation may change the model.
++    for (var p = 0; p < popupModel.count; p++) {
++      var current = popupModel.get(p)
++      if (current && current.actionToken === token && !isRestoredRow(current)) {
++        removePopup(p, "action", ref)
++        return
++      }
++    }
+   }
+ 
+   // Run the popup's click action, then dismiss. Omarchy's own toasts carry the
+@@ -691,6 +760,8 @@
+         image: "",
+         glyph: "󰂚",
+         execArgv: "",
++        actionsJson: "[]",
++        actionToken: "",
+         urgency: NotificationUrgency.Low,
+         expireTimeout: 0,
+         timestamp: Date.now()
+@@ -1003,6 +1074,8 @@
+             required property int urgency
+             required property double expireTimeout
+             required property double timestamp
++            required property string actionsJson
++            required property string actionToken
+ 
+             // Each card sizes itself based on mode (text vs media); the slot
+             // tracks the card so the column auto-fits to whichever is widest.
+@@ -1051,9 +1124,12 @@
+               cornerRadius: service.cornerRadius
+               fontFamily: service.shell && service.shell.bar ? service.shell.bar.fontFamily : ""
+               glyph: cardSlot.glyph
++              actionsJson: cardSlot.actionsJson
++              actionToken: cardSlot.actionToken
+ 
+               onCloseRequested: service.dismissPopup(cardSlot.index)
+               onCardClicked: service.invokePopupDefault(cardSlot.index)
++              onActionRequested: function(token, identifier) { service.invokePopupAction(token, identifier) }
+             }
+           }
+         }
+diff --git a/components/NotificationCard.qml b/components/NotificationCard.qml
+--- a/components/NotificationCard.qml
++++ b/components/NotificationCard.qml
+@@ -29,11 +29,23 @@
+ 
+   // System monospace font injected by the container.
+   property string fontFamily: ""
++  // Scalar snapshots only: the container owns live NotificationAction objects.
++  property string actionsJson: "[]"
++  property string actionToken: ""
++  readonly property var actionChoices: {
++    try {
++      var choices = JSON.parse(actionsJson)
++      return Array.isArray(choices) ? choices : []
++    } catch (e) {
++      return []
++    }
++  }
+ 
+   readonly property bool hovered: hoverTracker.hovered
+ 
+   signal closeRequested()
+   signal cardClicked()
++  signal actionRequested(string token, string identifier)
+   // Prefer per-notification media/avatar data, then fall back to the app icon.
+   // The `check` flag avoids Qt's missing-texture placeholder for unknown names.
+   readonly property string smallIconSource: image.length > 0 ? image : iconSource(appIcon)
+@@ -193,6 +205,37 @@
+         }
+       }
+     }
++
++    // Explicit actions never route through the card's default click action.
++    Flow {
++      id: actionFlow
++      Layout.fillWidth: true
++      Layout.leftMargin: Style.space(12)
++      Layout.rightMargin: Style.space(12)
++      Layout.bottomMargin: Style.space(10)
++      spacing: Style.space(8)
++      visible: root.actionToken.length > 0 && root.actionChoices.length > 0
++
++      Repeater {
++        model: root.actionChoices
++
++        Button {
++          id: actionButton
++          required property var modelData
++          width: Math.min(actionButton.implicitWidth, actionFlow.width)
++          clip: true
++          text: String(actionButton.modelData.label || actionButton.modelData.identifier)
++          tooltipText: actionButton.text
++          fontFamily: "Liberation Sans"
++          fontSize: Style.font.title
++          foreground: Color.notifications.text
++          accent: Color.notifications.countdown
++          background: Qt.darker(Color.notifications.background, 1.15)
++          bordered: true
++          onClicked: root.actionRequested(root.actionToken, String(actionButton.modelData.identifier))
++        }
++      }
++    }
+   }
+ 
+   // Hover-revealed close. Stacked after mainColumn so its MouseArea sits

@@ -1,0 +1,95 @@
+<en-US>
+• Backgrounds now use the same card carousel as Themes.
+• Choose an included background, or use the final Custom card to pick a file.
+• More reliable saving of themes, backgrounds and favorites.
+</en-US>
+<ar>
+• يستخدم محدد الخلفيات الآن عرض البطاقات نفسه المستخدم للمظاهر.
+• اختر خلفية مضمنة، أو استخدم بطاقة «مخصص» الأخيرة لاختيار ملف.
+• أصبح حفظ المظاهر والخلفيات والمفضلة أكثر موثوقية.
+</ar>
+<de-DE>
+• Hintergründe verwenden jetzt dasselbe Kartenkarussell wie Designs.
+• Wähle einen enthaltenen Hintergrund oder über die letzte Karte „Benutzerdefiniert“ eine Datei.
+• Designs, Hintergründe und Favoriten werden zuverlässiger gespeichert.
+</de-DE>
+<es-419>
+• El selector de fondos usa el mismo carrusel de tarjetas que Temas.
+• Elige un fondo incluido o usa la tarjeta final Personalizado para escoger un archivo.
+• Guardado más fiable de temas, fondos y favoritos.
+</es-419>
+<fr-FR>
+• Les fonds utilisent désormais le même carrousel de cartes que les thèmes.
+• Choisissez un fond inclus ou un fichier avec la dernière carte « Personnalisé ».
+• Enregistrement plus fiable des thèmes, des fonds et des favoris.
+</fr-FR>
+<hi-IN>
+• पृष्ठभूमि चयन में अब थीम जैसा ही कार्ड कैरोसेल है।
+• शामिल पृष्ठभूमि चुनें या अंतिम «कस्टम» कार्ड से फ़ाइल चुनें।
+• थीम, पृष्ठभूमि और पसंदीदा अब अधिक भरोसेमंद ढंग से सहेजे जाते हैं।
+</hi-IN>
+<id>
+• Pemilih latar kini memakai karusel kartu yang sama dengan Tema.
+• Pilih latar bawaan atau gunakan kartu Kustom terakhir untuk memilih berkas.
+• Penyimpanan tema, latar, dan favorit lebih andal.
+</id>
+<it-IT>
+• Gli sfondi usano ora lo stesso carosello di schede dei temi.
+• Scegli uno sfondo incluso o un file dalla scheda finale «Personalizzato».
+• Salvataggio più affidabile di temi, sfondi e preferiti.
+</it-IT>
+<ja-JP>
+• 背景の選択画面が、テーマと同じカード形式になりました。
+• 付属の背景を選ぶか、最後の「カスタム」カードからファイルを選べます。
+• テーマ、背景、お気に入りの保存がより確実になりました。
+</ja-JP>
+<ko-KR>
+• 배경 선택 화면이 테마와 같은 카드 캐러셀 형식으로 바뀌었습니다.
+• 기본 제공 배경을 선택하거나 마지막 사용자 지정 카드에서 파일을 고르세요.
+• 테마, 배경, 즐겨찾기가 더 안정적으로 저장됩니다.
+</ko-KR>
+<nl-NL>
+• Achtergronden gebruiken nu dezelfde kaartencarrousel als Thema's.
+• Kies een meegeleverde achtergrond of een bestand via de laatste kaart 'Aangepast'.
+• Thema's, achtergronden en favorieten worden betrouwbaarder opgeslagen.
+</nl-NL>
+<pl-PL>
+• Wybór tła ma teraz taką samą karuzelę kart jak motywy.
+• Wybierz dołączone tło lub plik za pomocą ostatniej karty „Własne”.
+• Bardziej niezawodne zapisywanie motywów, teł i ulubionych.
+</pl-PL>
+<pt-BR>
+• O seletor de fundos usa o mesmo carrossel de cartões dos temas.
+• Escolha um fundo incluído ou um arquivo pelo último cartão, Personalizado.
+• Temas, fundos e favoritos são salvos com mais confiabilidade.
+</pt-BR>
+<ru-RU>
+• Фоны теперь выбираются в такой же карусели карточек, как и темы.
+• Выберите встроенный фон или файл через последнюю карточку «Свой».
+• Темы, фоны и избранное сохраняются надёжнее.
+</ru-RU>
+<sv-SE>
+• Bakgrunder använder nu samma kortkarusell som teman.
+• Välj en medföljande bakgrund eller en fil via det sista kortet, Anpassad.
+• Teman, bakgrunder och favoriter sparas mer tillförlitligt.
+</sv-SE>
+<tr-TR>
+• Arka plan seçici artık Temalar ile aynı kart karuselini kullanır.
+• Dahil edilen bir arka planı seçin veya son Özel kartından bir dosya seçin.
+• Temalar, arka planlar ve favoriler daha güvenilir kaydedilir.
+</tr-TR>
+<uk>
+• Вибір тла тепер має таку саму карусель карток, як і теми.
+• Оберіть вбудоване тло або файл через останню картку «Власне».
+• Надійніше збереження тем, тла й обраного.
+</uk>
+<zh-CN>
+• 背景选择器现在采用与主题相同的卡片轮播形式。
+• 选择内置背景，或通过最后一张“自定义”卡片选择文件。
+• 主题、背景和收藏的保存更加可靠。
+</zh-CN>
+<zh-TW>
+• 背景選擇器現在採用與主題相同的卡片輪播形式。
+• 選擇內建背景，或透過最後一張「自訂」卡片選擇檔案。
+• 主題、背景和收藏的儲存更加可靠。
+</zh-TW>

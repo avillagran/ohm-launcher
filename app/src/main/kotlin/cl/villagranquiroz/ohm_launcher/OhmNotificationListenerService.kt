@@ -9,10 +9,25 @@ import android.service.notification.StatusBarNotification
  * pending-count badges. Requires the user to grant "Notification access".
  */
 class OhmNotificationListenerService : NotificationListenerService() {
+    companion object {
+        @Volatile var instance: OhmNotificationListenerService? = null
+            private set
+    }
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        instance = this
         publish()
+    }
+
+    override fun onListenerDisconnected() {
+        instance = null
+        super.onListenerDisconnected()
+    }
+
+    override fun onDestroy() {
+        if (instance === this) instance = null
+        super.onDestroy()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {

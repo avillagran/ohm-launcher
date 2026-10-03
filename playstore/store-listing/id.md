@@ -26,12 +26,3 @@ OhmLauncher menyertakan layanan aksesibilitas opsional yang menggunakan Accessib
 Layanan ini dinonaktifkan secara default. Anda dapat mengaktifkannya di pengaturan Aksesibilitas Android setelah penjelasan di dalam aplikasi, dan dapat mematikannya kapan saja. OhmLauncher berfungsi sepenuhnya tanpa layanan ini dan tetap menampilkan navigasi sistem biasa setiap kali layanan tidak aktif.
 
 Layanan aksesibilitas ini hanya membuka Recents sebagai respons atas tekanan langsung Anda pada tombol tersebut. Layanan ini tidak dapat melakukan gestur, tidak dapat membaca atau mengambil konten jendela atau teks dari aplikasi lain, tidak memantau masukan Anda, tidak mengendalikan perangkat Anda dari jarak jauh, dan tidak mengumpulkan, menyimpan, atau membagikan data apa pun.
-
-## Catatan rilis
-
-• Panel, dialog, dan kontrol TTFX mengikuti tema Omarchy yang aktif.
-• Pilih warna palet tema untuk teks jam, cuaca, dan TTFX.
-• Terminal Quake memiliki sepuluh tombol di atas papan ketik.
-• Lebih banyak ikon aplikasi menggunakan Nerd Fonts.
-• Reaksi audio awalnya nonaktif; izin baru diminta saat diaktifkan.
-• Cuaca menampilkan prakiraan tiga hari dan peta; jam dunia interaktif.

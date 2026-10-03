@@ -49,6 +49,8 @@
     <string name="theme_selector_apply_failed">Omarchy teması uygulanamadı</string>
     <string name="background_selector_unavailable">Omarchy\'den arka planlar yüklenemedi</string>
     <string name="background_selector_apply_failed">Omarchy arka planı uygulanamadı</string>
+    <string name="background_selector_loading">Tema duvar kağıtları yükleniyor…</string>
+    <string name="background_selector_custom">Özel</string>
     <string name="menu_not_synced">Senkronize edilmedi</string>
     <string name="menu_omarchy_launcher">Omarchy menüsünü aç</string>
     <string name="bar_fav_apps">Favori uygulamalar</string>
@@ -239,4 +241,5 @@
     <string name="world_clock_no_locations_found">Eşleşen konum bulunamadı</string>
     <string name="world_clock_saved_locations">Kayıtlı konumlar</string>
     <string name="world_clock_remove_location">Konumu kaldır</string>
+    <string name="flux_wallpaper_choose">Telefon ve Omarchy için duvar kağıdı seç</string>
 </resources>

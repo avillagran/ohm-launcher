@@ -49,6 +49,8 @@
     <string name="theme_selector_apply_failed">Nie można zastosować motywu Omarchy</string>
     <string name="background_selector_unavailable">Nie można załadować tła z Omarchy</string>
     <string name="background_selector_apply_failed">Nie można zastosować tła Omarchy</string>
+    <string name="background_selector_loading">Wczytywanie tapet motywu…</string>
+    <string name="background_selector_custom">Własna tapeta</string>
     <string name="menu_not_synced">Brak synchronizacji</string>
     <string name="menu_omarchy_launcher">Otwórz menu Omarchy</string>
     <string name="bar_fav_apps">Ulubione aplikacje</string>
@@ -239,4 +241,5 @@
     <string name="world_clock_no_locations_found">Brak pasujących lokalizacji</string>
     <string name="world_clock_saved_locations">Zapisane lokalizacje</string>
     <string name="world_clock_remove_location">Usuń lokalizację</string>
+    <string name="flux_wallpaper_choose">Wybierz tapetę telefonu i Omarchy</string>
 </resources>

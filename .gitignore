@@ -36,3 +36,5 @@ captures/
 *.hprof
 /supernotch-weather/target/
 /playstore/release/artifacts/
+# Device and desktop diagnostics may contain local paths and network identifiers.
+/docs/evidence/

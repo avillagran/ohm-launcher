@@ -132,8 +132,9 @@ object WidgetEditExitPolicy {
 }
 
 object LauncherGestureGate {
-    fun routeToDesktop(widgetEditing: Boolean, selectorVisible: Boolean): Boolean =
-        !widgetEditing && !selectorVisible
+    fun routeToDesktop(widgetEditing: Boolean, selectorVisible: Boolean,
+                       modalInputVisible: Boolean = false): Boolean =
+        !widgetEditing && !selectorVisible && !modalInputVisible
 }
 
 data class BarInsets(val left: Int, val top: Int, val right: Int, val bottom: Int)

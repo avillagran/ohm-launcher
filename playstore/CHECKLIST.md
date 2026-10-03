@@ -12,7 +12,7 @@ Applies only to the current `playRelease` artifact. Do not send for review, star
 - [ ] Confirm `android:allowBackup="false"`.
 - [ ] Confirm `android:usesCleartextTraffic="true"`; this is required for direct authenticated local HTTP pairing. Do not claim HTTPS or encrypted transport.
 - [ ] Confirm app-specific storage only; no broad storage permissions.
-- [ ] Confirm no screen capture/share, file transfer, clipboard service, notification listener, remote input, full accessibility service, or inbound LAN server is packaged or reachable.
+- [ ] Confirm no screen capture/share, file transfer, clipboard service, notification listener, remote input, full accessibility service, or inbound LAN server is declared in the Play manifest or reachable. Shared implementation classes may remain in bytecode; verify the distribution gates as well as the manifest.
 - [ ] Confirm optional QR pairing requires a non-empty token and the phone only initiates requests to the paired computer.
 
 ## 2. Functional checks on the built Play artifact

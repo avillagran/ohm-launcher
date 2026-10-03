@@ -26,12 +26,3 @@ OhmLauncher enthält einen optionalen Bedienungshilfe-Dienst, der die Accessibil
 Der Dienst ist standardmäßig deaktiviert. Sie aktivieren ihn in den Android-Einstellungen für Bedienungshilfen nach einer Erklärung in der App und können ihn jederzeit wieder deaktivieren. OhmLauncher funktioniert vollständig ohne ihn und zeigt die normale Systemnavigation immer dann an, wenn der Dienst nicht aktiviert ist.
 
 Dieser Bedienungshilfe-Dienst öffnet die App-Übersicht nur als Reaktion auf Ihr direktes Drücken dieser Schaltfläche. Er kann keine Gesten ausführen, keinen Fensterinhalt und keinen Text anderer Apps lesen, überwacht Ihre Eingaben nicht, steuert Ihr Gerät nicht aus der Ferne und sammelt, speichert oder teilt keine Daten.
-
-## Versionshinweise
-
-• Fenster, Dialoge und TTFX-Steuerung passen sich dem aktiven Omarchy-Design an.
-• Wähle eine Designfarbe für Uhr-, Wetter- und TTFX-Text.
-• Das Quake-Terminal bietet zehn Tasten über der Tastatur.
-• Mehr App-Symbole verwenden Nerd Fonts.
-• Die Audioreaktion ist zunächst aus und fragt erst beim Einschalten nach der Berechtigung.
-• Wetter mit Drei-Tage-Vorhersage und Karten; interaktive Weltuhr.

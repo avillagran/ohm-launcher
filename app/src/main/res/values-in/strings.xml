@@ -49,6 +49,8 @@
     <string name="theme_selector_apply_failed">Gagal menerapkan tema Omarchy</string>
     <string name="background_selector_unavailable">Tidak dapat memuat latar belakang dari Omarchy</string>
     <string name="background_selector_apply_failed">Gagal menerapkan latar belakang Omarchy</string>
+    <string name="background_selector_loading">Memuat wallpaper tema…</string>
+    <string name="background_selector_custom">Kustom</string>
     <string name="menu_not_synced">Belum disinkronkan</string>
     <string name="menu_omarchy_launcher">Buka menu Omarchy</string>
     <string name="bar_fav_apps">Aplikasi favorit</string>
@@ -240,4 +242,5 @@
     <string name="world_clock_no_locations_found">Tidak ada lokasi yang cocok</string>
     <string name="world_clock_saved_locations">Lokasi tersimpan</string>
     <string name="world_clock_remove_location">Hapus lokasi</string>
+    <string name="flux_wallpaper_choose">Pilih wallpaper untuk ponsel dan Omarchy</string>
 </resources>

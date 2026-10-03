@@ -26,12 +26,3 @@ OhmLauncher innehåller en valfri tillgänglighetstjänst som använder Accessib
 Tjänsten är avaktiverad som standard. Du aktiverar den i Androids tillgänglighetsinställningar efter en förklaring i appen och kan stänga av den när som helst. OhmLauncher fungerar fullt utan den och visar den vanliga systemnavigationen så länge tjänsten inte är aktiverad.
 
 Den här tillgänglighetstjänsten öppnar senaste appar endast som svar på ditt direkta tryck på knappen. Den kan inte utföra gester, kan inte läsa eller hämta fönsterinnehåll eller text från andra appar, övervakar inte din inmatning, styr inte din enhet på distans och samlar inte in, lagrar eller delar några data.
-
-## Versionsinformation
-
-• Paneler, dialogrutor och TTFX-kontroller följer nu det aktiva Omarchy-temat.
-• Välj en palettfärg för texten i klockan, vädret och TTFX.
-• Quake-terminalen har tio knappar ovanför tangentbordet.
-• Fler appikoner använder Nerd Fonts.
-• Ljudreaktion är avstängd från början och begär tillstånd först när den aktiveras.
-• Väder med tredygnsprognos och kartor; interaktiv världsklocka.

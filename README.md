@@ -12,13 +12,13 @@ OhmLauncher is a native Android home-screen launcher inspired by Omarchy, with s
 - **Full GitHub edition:** use the release APK below for the complete integration,
   including advanced local administration and remote-control capabilities that
   are not distributed through Google Play.
-- [Download OhmLauncher 0.0.3 release APK](https://github.com/avillagran/ohm-launcher/releases/download/v0.0.3/OhmLauncher-0.0.3-release.apk)
-- [View the 0.0.3 release and notes](https://github.com/avillagran/ohm-launcher/releases/tag/v0.0.3)
+- [Download the latest full release APK](https://github.com/avillagran/ohm-launcher/releases/latest)
+- [View release notes and previous versions](https://github.com/avillagran/ohm-launcher/releases)
 
 Install or update the downloaded APK with ADB:
 
 ```bash
-adb install -r OhmLauncher-0.0.3-release.apk
+adb install -r OhmLauncher-0.0.6-full.apk
 ```
 
 Install Omarchy Link on Omarchy Linux, then restart the shell:
@@ -98,6 +98,16 @@ widget to the bar, and scan its QR code from the phone.
 - MediaProjection screen capture.
 - Canonical Omarchy theme palette support, including live application to launcher chrome, TTFX, widgets, and allowed Android system-bar appearance.
 - Companion desktop plugin under [`omarchy-link/`](omarchy-link/).
+
+The direct edition also connects to Flux desktops with mutual TLS and persisted
+certificate pins. Its Omarchy menu offers explicit text, file and battery
+actions, desktop media, phone screen mirroring, and negotiated theme, original wallpaper and
+touchpad controls. Theme selection applies its background on both devices. The
+Background menu shows the active album’s cards followed by Custom, which opens
+the file picker. Theme/wallpaper selection and touchpad approval require the desktop
+Ohm extensions; stock Flux capabilities are negotiated separately. Flux is available
+while the launcher Activity runs and is excluded from the Play edition. See
+[Flux interoperability and validation](docs/flux-interoperability.md).
 
 The Google Play and full GitHub editions share the launcher experience, bundled
 themes, and authenticated Omarchy pairing. Features that require broad storage,

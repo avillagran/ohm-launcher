@@ -49,6 +49,8 @@
     <string name="theme_selector_apply_failed">Omarchy थीम लागू नहीं हो सकी</string>
     <string name="background_selector_unavailable">Omarchy से बैकग्राउंड लोड नहीं हो सके</string>
     <string name="background_selector_apply_failed">Omarchy बैकग्राउंड लागू नहीं हो सका</string>
+    <string name="background_selector_loading">थीम के वॉलपेपर लोड हो रहे हैं…</string>
+    <string name="background_selector_custom">कस्टम</string>
     <string name="menu_not_synced">सिंक नहीं हुआ</string>
     <string name="menu_omarchy_launcher">Omarchy मेनू खोलें</string>
     <string name="bar_fav_apps">फ़ेवरिट ऐप्स</string>
@@ -240,4 +242,5 @@
     <string name="world_clock_no_locations_found">कोई मेल खाता स्थान नहीं</string>
     <string name="world_clock_saved_locations">सहेजे गए स्थान</string>
     <string name="world_clock_remove_location">स्थान हटाएँ</string>
+    <string name="flux_wallpaper_choose">फ़ोन और Omarchy के लिए वॉलपेपर चुनें</string>
 </resources>

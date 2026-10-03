@@ -49,6 +49,8 @@
     <string name="theme_selector_apply_failed">Не удалось применить тему Omarchy</string>
     <string name="background_selector_unavailable">Не удалось загрузить фоны из Omarchy</string>
     <string name="background_selector_apply_failed">Не удалось применить фон Omarchy</string>
+    <string name="background_selector_loading">Загрузка обоев темы…</string>
+    <string name="background_selector_custom">Свой фон</string>
     <string name="menu_not_synced">Не синхронизировано</string>
     <string name="menu_omarchy_launcher">Открыть меню Omarchy</string>
     <string name="bar_fav_apps">Избранные приложения</string>
@@ -239,4 +241,5 @@
     <string name="world_clock_no_locations_found">Подходящие места не найдены</string>
     <string name="world_clock_saved_locations">Сохранённые места</string>
     <string name="world_clock_remove_location">Удалить место</string>
+    <string name="flux_wallpaper_choose">Выбрать фон для телефона и Omarchy</string>
 </resources>

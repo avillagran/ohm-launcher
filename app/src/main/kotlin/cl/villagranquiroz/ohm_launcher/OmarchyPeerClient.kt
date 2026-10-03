@@ -67,6 +67,15 @@ class OmarchyPeerClient(
 
     fun probe(peer: OmarchyPeer): Boolean = probeStatus(peer) == true
 
+    /** Explicit user share; the desktop accepts this on its authenticated clipboard endpoint. */
+    fun sendText(peer: OmarchyPeer, text: String): Boolean {
+        if (peer.token.isBlank() || text.isBlank() || text.toByteArray(StandardCharsets.UTF_8).size > 64 * 1024) return false
+        val body = JSONObject().put("text", text).toString().toByteArray(StandardCharsets.UTF_8)
+        return request<Boolean?>(peer, "PUT", "/omarchy/clipboard", body) { code, response ->
+            code in 200..299 && runCatching { JSONObject(response).optBoolean("ok", false) }.getOrDefault(false)
+        } == true
+    }
+
     fun fetchTheme(peer: OmarchyPeer): OmarchyThemePalette? =
         request<OmarchyThemePalette?>(peer, "GET", "/omarchy/theme") { code, body ->
             if (code !in 200..299) null
@@ -274,6 +283,8 @@ class OmarchyPeerClient(
         connection.connectTimeout = connectTimeoutMs
         connection.readTimeout = readTimeoutMs
         connection.useCaches = false
+        // A LAN peer must not redirect a token-bearing request to another host.
+        connection.instanceFollowRedirects = false
         connection.setRequestProperty("Connection", "close")
         if (peer.token.isNotEmpty()) connection.setRequestProperty("X-Omarchy-Link-Token", peer.token)
         if (body != null) {

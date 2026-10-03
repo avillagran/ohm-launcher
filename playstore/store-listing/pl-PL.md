@@ -26,12 +26,3 @@ OhmLauncher zawiera opcjonalną usługę ułatwień dostępu korzystającą z in
 Usługa jest domyślnie wyłączona. Możesz ją włączyć w ustawieniach ułatwień dostępu systemu Android po wyświetleniu objaśnienia w aplikacji i wyłączyć ją w dowolnym momencie. OhmLauncher działa w pełni bez tej usługi i zachowuje normalną nawigację systemu, gdy usługa nie jest włączona.
 
 Ta usługa ułatwień dostępu otwiera widok ostatnich aplikacji tylko w reakcji na bezpośrednie naciśnięcie tego przycisku. Nie może wykonywać gestów, nie może odczytywać ani pobierać zawartości okien ani tekstu z innych aplikacji, nie monitoruje Twoich danych wejściowych, nie steruje urządzeniem zdalnie oraz nie zbiera, nie przechowuje ani nie udostępnia żadnych danych.
-
-## Informacje o wersji
-
-• Panele, okna dialogowe i elementy TTFX dostosowują się do aktywnego motywu Omarchy.
-• Wybierz kolor z palety motywu dla tekstu zegara, pogody i TTFX.
-• Terminal Quake ma dziesięć przycisków nad klawiaturą.
-• Więcej ikon aplikacji korzysta z Nerd Fonts.
-• Reakcja na dźwięk jest początkowo wyłączona; prosi o uprawnienie dopiero po włączeniu.
-• Pogoda z prognozą na trzy dni i mapami; interaktywny zegar światowy.

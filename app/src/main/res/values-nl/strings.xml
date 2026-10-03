@@ -49,6 +49,8 @@
     <string name="theme_selector_apply_failed">Kan het Omarchy-thema niet toepassen</string>
     <string name="background_selector_unavailable">Kan achtergronden van Omarchy niet laden</string>
     <string name="background_selector_apply_failed">Kan de Omarchy-achtergrond niet toepassen</string>
+    <string name="background_selector_loading">Thema-achtergronden laden…</string>
+    <string name="background_selector_custom">Aangepast</string>
     <string name="menu_not_synced">Niet gesynchroniseerd</string>
     <string name="menu_omarchy_launcher">Open het Omarchy-menu</string>
     <string name="bar_fav_apps">Favoriete apps</string>
@@ -239,4 +241,5 @@
     <string name="world_clock_no_locations_found">Geen overeenkomende locaties</string>
     <string name="world_clock_saved_locations">Opgeslagen locaties</string>
     <string name="world_clock_remove_location">Locatie verwijderen</string>
+    <string name="flux_wallpaper_choose">Achtergrond voor telefoon en Omarchy kiezen</string>
 </resources>

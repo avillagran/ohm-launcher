@@ -26,12 +26,3 @@ OhmLauncher includes an optional accessibility service that uses the Accessibili
 The service is disabled by default. You choose to enable it in Android Accessibility settings after an in-app explanation, and you can turn it off at any time. OhmLauncher works fully without it and keeps ordinary system navigation visible whenever the service is not enabled.
 
 This accessibility service only opens Recents in response to your direct press of that button. It cannot perform gestures, cannot read or retrieve window content or text from other apps, does not monitor your input, does not control your device remotely, and does not collect, store, or share any data.
-
-## Release notes
-
-• Panels, dialogs and TTFX controls now match the active Omarchy theme.
-• Choose a theme-palette color for clock, weather and TTFX text.
-• Quake terminal now has ten keys above the keyboard.
-• More app icons use Nerd Fonts.
-• Audio reaction starts off and asks permission only when enabled.
-• Weather adds a three-day forecast and maps; explore the interactive world clock.

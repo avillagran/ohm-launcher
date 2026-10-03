@@ -49,6 +49,8 @@
     <string name="theme_selector_apply_failed">تعذّر تطبيق مظهر Omarchy</string>
     <string name="background_selector_unavailable">تعذّر تحميل الخلفيات من Omarchy</string>
     <string name="background_selector_apply_failed">تعذّر تطبيق خلفية Omarchy</string>
+    <string name="background_selector_loading">جارٍ تحميل خلفيات السمة…</string>
+    <string name="background_selector_custom">مخصص</string>
     <string name="menu_not_synced">غير متزامن</string>
     <string name="menu_omarchy_launcher">فتح قائمة Omarchy</string>
     <string name="bar_fav_apps">التطبيقات المفضلة</string>
@@ -240,4 +242,5 @@
     <string name="world_clock_no_locations_found">لا توجد مواقع مطابقة</string>
     <string name="world_clock_saved_locations">المواقع المحفوظة</string>
     <string name="world_clock_remove_location">إزالة الموقع</string>
+    <string name="flux_wallpaper_choose">اختيار خلفية للهاتف وOmarchy</string>
 </resources>

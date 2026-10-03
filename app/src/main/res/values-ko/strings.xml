@@ -49,6 +49,8 @@
     <string name="theme_selector_apply_failed">Omarchy 테마를 적용할 수 없습니다</string>
     <string name="background_selector_unavailable">Omarchy에서 배경을 불러올 수 없습니다</string>
     <string name="background_selector_apply_failed">Omarchy 배경을 적용할 수 없습니다</string>
+    <string name="background_selector_loading">테마 배경화면 불러오는 중…</string>
+    <string name="background_selector_custom">사용자 지정</string>
     <string name="menu_not_synced">동기화되지 않음</string>
     <string name="menu_omarchy_launcher">Omarchy 메뉴 열기</string>
     <string name="bar_fav_apps">즐겨찾는 앱</string>
@@ -240,4 +242,5 @@
     <string name="world_clock_no_locations_found">일치하는 위치가 없습니다</string>
     <string name="world_clock_saved_locations">저장된 위치</string>
     <string name="world_clock_remove_location">위치 삭제</string>
+    <string name="flux_wallpaper_choose">휴대전화와 Omarchy 배경화면 선택</string>
 </resources>
